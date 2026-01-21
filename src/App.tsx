@@ -2,14 +2,9 @@ import { useCallback } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { open } from '@tauri-apps/plugin-dialog';
 import { FolderOpen } from '@phosphor-icons/react';
-import { Panel, PanelGroup } from './components/layout';
+import { DockviewLayout } from './components/layout';
 import { StatusBar, HelpOverlay } from './components/ui';
 import { RepoSelector } from './features/repository/components';
-import { BranchList } from './features/branches/components';
-import { CommitList } from './features/commits/components';
-import { FileList } from './features/files/components';
-import { DiffViewer } from './features/diff/components';
-import { StagingSidebar } from './features/staging/components';
 import { openRepository, discoverRepository } from './lib/tauri';
 import { useGitStore } from './stores/git-store';
 import { useUIStore } from './stores/ui-store';
@@ -26,7 +21,8 @@ const queryClient = new QueryClient({
 
 function AppContent() {
   const { repository, error, setRepository, setError, setIsLoading } = useGitStore();
-  const { showStagingSidebar, showFilesPanel, showDiffPanel, setShowFilesPanel, setShowDiffPanel } = useUIStore();
+  // Panel visibility is now managed within DockviewLayout
+  useUIStore();
 
   // Set up keyboard navigation
   useKeyboardNavigation();
@@ -76,41 +72,8 @@ function AppContent() {
 
       {/* Main content */}
       {repository ? (
-        <div className="flex-1 flex overflow-hidden">
-          {/* Main panels */}
-          <div className="flex-1 overflow-hidden">
-            <PanelGroup direction="horizontal" initialSizes={[15, 35, 50]}>
-              {/* Branches panel */}
-              <Panel id="branches" title="Branches">
-                <BranchList />
-              </Panel>
-
-              {/* Commits panel */}
-              <Panel id="commits" title="Commits">
-                <CommitList />
-              </Panel>
-
-              {/* Files and Diff panel */}
-              {(showFilesPanel || showDiffPanel) && (
-                <PanelGroup direction="vertical" initialSizes={[35, 65]}>
-                  {showFilesPanel && (
-                    <Panel id="files" title="Files" onClose={() => setShowFilesPanel(false)}>
-                      <FileList />
-                    </Panel>
-                  )}
-
-                  {showDiffPanel && (
-                    <Panel id="diff" title="Diff" onClose={() => setShowDiffPanel(false)}>
-                      <DiffViewer />
-                    </Panel>
-                  )}
-                </PanelGroup>
-              )}
-            </PanelGroup>
-          </div>
-
-          {/* Staging sidebar */}
-          {showStagingSidebar && <StagingSidebar />}
+        <div className="flex-1 min-h-0">
+          <DockviewLayout />
         </div>
       ) : (
         <div className="flex-1 flex items-center justify-center">

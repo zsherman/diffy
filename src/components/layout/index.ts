@@ -1,2 +1,2 @@
-export { Panel } from './Panel';
-export { PanelGroup } from './PanelGroup';
+export { DockviewLayout } from './DockviewLayout';
+export { DockviewPanelWrapper } from './DockviewPanelWrapper';

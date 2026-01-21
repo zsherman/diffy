@@ -329,8 +329,19 @@ fn wt_status_string(status: git2::Status) -> String {
 
 pub fn stage_files(repo: &Repository, paths: &[String]) -> Result<(), GitError> {
     let mut index = repo.index()?;
+    let workdir = repo.workdir().ok_or_else(|| {
+        git2::Error::from_str("Repository has no working directory")
+    })?;
+
     for path in paths {
-        index.add_path(Path::new(path))?;
+        let full_path = workdir.join(path);
+        if full_path.exists() {
+            // File exists - add it (handles new and modified files)
+            index.add_path(Path::new(path))?;
+        } else {
+            // File doesn't exist - remove it from index (handles deleted files)
+            index.remove_path(Path::new(path))?;
+        }
     }
     index.write()?;
     Ok(())

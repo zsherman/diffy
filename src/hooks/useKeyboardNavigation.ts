@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from 'react';
-import { useUIStore } from '../stores/ui-store';
+import { useUIStore, getDockviewApi } from '../stores/ui-store';
 import type { PanelId } from '../types/git';
 
 const PANELS: PanelId[] = ['branches', 'commits', 'files', 'diff', 'staging'];
@@ -78,6 +78,18 @@ export function useKeyboardNavigation(config: KeyboardConfig = {}) {
         return;
       }
 
+      // Helper to activate panel in both ui-store and dockview
+      const activatePanel = (panelId: PanelId) => {
+        setActivePanel(panelId);
+        const api = getDockviewApi();
+        if (api) {
+          const panel = api.getPanel(panelId);
+          if (panel) {
+            panel.api.setActive();
+          }
+        }
+      };
+
       // Panel navigation with Tab, h/l, or arrow keys
       if (e.key === 'Tab' || e.key === 'l' || e.key === 'ArrowRight') {
         e.preventDefault();
@@ -85,7 +97,7 @@ export function useKeyboardNavigation(config: KeyboardConfig = {}) {
         const nextIndex = e.shiftKey
           ? (currentIndex - 1 + PANELS.length) % PANELS.length
           : (currentIndex + 1) % PANELS.length;
-        setActivePanel(PANELS[nextIndex]);
+        activatePanel(PANELS[nextIndex]);
         return;
       }
 
@@ -93,7 +105,7 @@ export function useKeyboardNavigation(config: KeyboardConfig = {}) {
         e.preventDefault();
         const currentIndex = PANELS.indexOf(activePanel);
         const prevIndex = (currentIndex - 1 + PANELS.length) % PANELS.length;
-        setActivePanel(PANELS[prevIndex]);
+        activatePanel(PANELS[prevIndex]);
         return;
       }
 
@@ -157,7 +169,7 @@ export function useKeyboardNavigation(config: KeyboardConfig = {}) {
         e.preventDefault();
         const index = parseInt(e.key) - 1;
         if (index < PANELS.length) {
-          setActivePanel(PANELS[index]);
+          activatePanel(PANELS[index]);
         }
         return;
       }

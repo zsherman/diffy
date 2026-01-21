@@ -46,37 +46,38 @@ const StatusIcon = ({ status }: { status: string }) => {
 const StagingFileRow = memo(function StagingFileRow({
   file,
   isStaged,
+  isSelected,
+  onSelect,
   onStage,
   onUnstage,
 }: {
   file: FileStatus;
   isStaged: boolean;
+  isSelected: boolean;
+  onSelect: () => void;
   onStage: () => void;
   onUnstage: () => void;
 }) {
-  const [isHovered, setIsHovered] = useState(false);
-
   return (
     <div
-      className="flex items-center px-2 py-1 text-sm hover:bg-bg-hover group"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      className={`flex items-center px-2 py-1 text-sm hover:bg-bg-hover group cursor-pointer ${
+        isSelected ? 'bg-accent-blue/20' : ''
+      }`}
+      onClick={onSelect}
     >
-      <span className="w-5 flex items-center justify-center">
+      <span className="w-5 flex items-center justify-center shrink-0">
         <StatusIcon status={file.status} />
       </span>
-      <span className="truncate text-text-primary ml-1 flex-1">{file.path}</span>
-      {isHovered && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            isStaged ? onUnstage() : onStage();
-          }}
-          className="px-1.5 py-0.5 text-xs rounded bg-bg-tertiary hover:bg-bg-hover border border-border-primary"
-        >
-          {isStaged ? 'Unstage' : 'Stage'}
-        </button>
-      )}
+      <span className="truncate text-text-primary ml-1 flex-1 min-w-0">{file.path}</span>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          isStaged ? onUnstage() : onStage();
+        }}
+        className="px-1.5 py-0.5 text-xs rounded bg-bg-tertiary hover:bg-bg-hover border border-border-primary opacity-0 group-hover:opacity-100 shrink-0 ml-1"
+      >
+        {isStaged ? 'Unstage' : 'Stage'}
+      </button>
     </div>
   );
 });
@@ -124,6 +125,8 @@ const SectionHeader = memo(function SectionHeader({
 export function StagingSidebar() {
   const { repository } = useGitStore();
   const {
+    selectedFile,
+    setSelectedFile,
     commitMessage,
     setCommitMessage,
     commitDescription,
@@ -229,7 +232,7 @@ export function StagingSidebar() {
   const branchName = repository?.head_branch ?? 'main';
 
   return (
-    <div className="w-80 flex flex-col h-full bg-bg-secondary border-l border-border-primary">
+    <div className="w-full flex flex-col h-full bg-bg-secondary">
       {/* Header */}
       <div className="px-3 py-2 border-b border-border-primary">
         <div className="text-sm font-medium text-text-primary">
@@ -251,12 +254,14 @@ export function StagingSidebar() {
           actionDisabled={stageMutation.isPending}
         />
         {unstagedExpanded && unstagedFiles.length > 0 && (
-          <div className="flex-shrink-0 max-h-[30%] overflow-auto">
+          <div className="min-h-0 flex-1 overflow-auto">
             {unstagedFiles.map((file) => (
               <StagingFileRow
                 key={file.path}
                 file={file}
                 isStaged={false}
+                isSelected={selectedFile === file.path}
+                onSelect={() => setSelectedFile(file.path)}
                 onStage={() => handleStageFile(file.path)}
                 onUnstage={() => {}}
               />
@@ -275,21 +280,20 @@ export function StagingSidebar() {
           actionDisabled={unstageMutation.isPending}
         />
         {stagedExpanded && stagedFiles.length > 0 && (
-          <div className="flex-shrink-0 max-h-[30%] overflow-auto">
+          <div className="min-h-0 flex-1 overflow-auto">
             {stagedFiles.map((file) => (
               <StagingFileRow
                 key={file.path}
                 file={file}
                 isStaged={true}
+                isSelected={selectedFile === file.path}
+                onSelect={() => setSelectedFile(file.path)}
                 onStage={() => {}}
                 onUnstage={() => handleUnstageFile(file.path)}
               />
             ))}
           </div>
         )}
-
-        {/* Spacer */}
-        <div className="flex-1" />
       </div>
 
       {/* Commit form */}

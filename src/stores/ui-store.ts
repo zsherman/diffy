@@ -1,6 +1,18 @@
 import { createStore } from '@xstate/store';
 import { useSelector } from '@xstate/store/react';
+import type { DockviewApi } from 'dockview-react';
 import type { PanelId, ViewMode } from '../types/git';
+
+// Dockview API reference (stored outside of xstate store for direct access)
+let dockviewApiRef: DockviewApi | null = null;
+
+export function setDockviewApi(api: DockviewApi | null) {
+  dockviewApiRef = api;
+}
+
+export function getDockviewApi(): DockviewApi | null {
+  return dockviewApiRef;
+}
 
 interface UIContext {
   // Panel focus

@@ -1,6 +1,58 @@
+@import 'dockview-react/dist/styles/dockview.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Dockview dark theme overrides */
+.dockview-theme-dark {
+  --dv-background-color: #181825;
+  --dv-paneview-header-border-color: #313244;
+  --dv-tabs-and-actions-container-background-color: #181825;
+  --dv-activegroup-visiblepanel-tab-background-color: #313244;
+  --dv-activegroup-hiddenpanel-tab-background-color: #181825;
+  --dv-inactivegroup-visiblepanel-tab-background-color: #1e1e2e;
+  --dv-inactivegroup-hiddenpanel-tab-background-color: #181825;
+  --dv-tab-divider-color: #313244;
+  --dv-activegroup-visiblepanel-tab-color: #cdd6f4;
+  --dv-activegroup-hiddenpanel-tab-color: #6c7086;
+  --dv-inactivegroup-visiblepanel-tab-color: #a6adc8;
+  --dv-inactivegroup-hiddenpanel-tab-color: #6c7086;
+  --dv-separator-border: #313244;
+  --dv-drag-over-background-color: rgba(137, 180, 250, 0.2);
+  --dv-drag-over-border-color: #89b4fa;
+}
+
+.dockview-theme-dark .dv-tab {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.dockview-theme-dark .dv-tab.dv-tab-active {
+  border-bottom: 2px solid #89b4fa;
+}
+
+/* Ensure dockview has proper dimensions */
+.dockview-theme-dark {
+  height: 100%;
+  width: 100%;
+}
+
+/* Tab styling - cursor is handled by dockview */
+.dockview-theme-dark .dv-tab {
+  cursor: grab;
+}
+
+.dockview-theme-dark .dv-tab:active {
+  cursor: grabbing;
+}
+
+/* Hide close button on all tabs */
+.dockview-theme-dark .dv-tab .dv-default-tab .dv-default-tab-action {
+  display: none !important;
+}
 
 :root {
   font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
