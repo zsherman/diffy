@@ -1,0 +1,147 @@
+use git2::Repository;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+use super::GitError;
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct GraphNode {
+    pub commit_id: String,
+    pub column: usize,
+    pub connections: Vec<GraphConnection>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct GraphConnection {
+    pub from_column: usize,
+    pub to_column: usize,
+    pub to_row: usize,
+    pub is_merge: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CommitGraph {
+    pub nodes: Vec<GraphNode>,
+    pub max_columns: usize,
+}
+
+/// Build a commit graph for visualization
+/// This algorithm assigns columns to commits and creates connection lines
+pub fn build_commit_graph(
+    repo: &Repository,
+    commit_ids: &[String],
+) -> Result<CommitGraph, GitError> {
+    if commit_ids.is_empty() {
+        return Ok(CommitGraph {
+            nodes: vec![],
+            max_columns: 0,
+        });
+    }
+
+    let mut nodes = Vec::new();
+    let mut active_columns: Vec<Option<String>> = vec![]; // Track which commit each column is waiting for
+    let mut commit_to_row: HashMap<String, usize> = HashMap::new();
+
+    // First pass: create a lookup from commit ID to row index
+    for (row, commit_id) in commit_ids.iter().enumerate() {
+        commit_to_row.insert(commit_id.clone(), row);
+    }
+
+    for (_row, commit_id) in commit_ids.iter().enumerate() {
+        let commit = repo.find_commit(git2::Oid::from_str(commit_id)?)?;
+        let parent_ids: Vec<String> = commit.parent_ids().map(|id| id.to_string()).collect();
+
+        // Find which column this commit should be in
+        let column = find_column_for_commit(&mut active_columns, commit_id);
+
+        // Create connections to parents
+        let mut connections = Vec::new();
+
+        for (i, parent_id) in parent_ids.iter().enumerate() {
+            let is_merge = i > 0;
+
+            // Find or create column for parent
+            let parent_column = if i == 0 {
+                // First parent continues in same column
+                active_columns[column] = Some(parent_id.clone());
+                column
+            } else {
+                // Merge parent needs its own column
+                find_or_create_column(&mut active_columns, parent_id)
+            };
+
+            // Only create connection if parent is in our commit list
+            if let Some(&parent_row) = commit_to_row.get(parent_id) {
+                connections.push(GraphConnection {
+                    from_column: column,
+                    to_column: parent_column,
+                    to_row: parent_row,
+                    is_merge,
+                });
+            }
+        }
+
+        // If no parents (or parents not in list), close the column
+        if parent_ids.is_empty() || parent_ids.iter().all(|p| !commit_to_row.contains_key(p)) {
+            if column < active_columns.len() {
+                active_columns[column] = None;
+            }
+        }
+
+        nodes.push(GraphNode {
+            commit_id: commit_id.clone(),
+            column,
+            connections,
+        });
+
+        // Compact columns (remove empty columns from the right)
+        while active_columns.last() == Some(&None) {
+            active_columns.pop();
+        }
+    }
+
+    let max_columns = nodes.iter().map(|n| n.column).max().unwrap_or(0) + 1;
+
+    Ok(CommitGraph { nodes, max_columns })
+}
+
+fn find_column_for_commit(active_columns: &mut Vec<Option<String>>, commit_id: &str) -> usize {
+    // Check if any column is waiting for this commit
+    for (i, col) in active_columns.iter().enumerate() {
+        if col.as_ref() == Some(&commit_id.to_string()) {
+            return i;
+        }
+    }
+
+    // Find first empty column or create new one
+    for (i, col) in active_columns.iter().enumerate() {
+        if col.is_none() {
+            return i;
+        }
+    }
+
+    // Create new column
+    active_columns.push(None);
+    active_columns.len() - 1
+}
+
+fn find_or_create_column(active_columns: &mut Vec<Option<String>>, commit_id: &str) -> usize {
+    // Check if already assigned
+    for (i, col) in active_columns.iter().enumerate() {
+        if col.as_ref() == Some(&commit_id.to_string()) {
+            return i;
+        }
+    }
+
+    // Find empty column
+    for (i, col) in active_columns.iter_mut().enumerate() {
+        if col.is_none() {
+            *col = Some(commit_id.to_string());
+            return i;
+        }
+    }
+
+    // Create new column
+    active_columns.push(Some(commit_id.to_string()));
+    active_columns.len() - 1
+}
