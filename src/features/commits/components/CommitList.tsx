@@ -74,10 +74,11 @@ export function CommitList() {
     setCommitFilter,
     activePanel,
     setSelectedFile,
+    setShowFilesPanel,
   } = useUIStore();
   const listRef = useRef<VListHandle>(null);
   const [focusedIndex, setFocusedIndex] = useState(0);
-  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 0 });
+  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 20 });
 
   // Fetch commits
   const { data: commits = [], isLoading } = useQuery({
@@ -150,12 +151,17 @@ export function CommitList() {
       setFocusedIndex(index);
       setSelectedCommit(commit.id);
       setSelectedFile(null);
+      setShowFilesPanel(true);
     },
-    [setSelectedCommit, setSelectedFile]
+    [setSelectedCommit, setSelectedFile, setShowFilesPanel]
   );
 
-  const handleRangeChange = useCallback((start: number, end: number) => {
-    setVisibleRange({ start, end });
+  const handleScroll = useCallback(() => {
+    if (!listRef.current) return;
+    const handle = listRef.current;
+    const startIndex = handle.findItemIndex(handle.scrollOffset);
+    const endIndex = handle.findItemIndex(handle.scrollOffset + handle.viewportSize);
+    setVisibleRange({ start: startIndex, end: endIndex });
   }, []);
 
   if (isLoading) {
@@ -200,7 +206,7 @@ export function CommitList() {
         <VList
           ref={listRef}
           className="h-full"
-          onRangeChange={handleRangeChange}
+          onScroll={handleScroll}
         >
           {filteredCommits.map((commit, index) => (
             <CommitRow

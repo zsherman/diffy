@@ -33,6 +33,10 @@ interface UIContext {
   commitMessage: string;
   commitDescription: string;
   amendPreviousCommit: boolean;
+
+  // Collapsible panels
+  showFilesPanel: boolean;
+  showDiffPanel: boolean;
 }
 
 export const uiStore = createStore({
@@ -54,6 +58,8 @@ export const uiStore = createStore({
     commitMessage: '',
     commitDescription: '',
     amendPreviousCommit: false,
+    showFilesPanel: true,
+    showDiffPanel: true,
   } as UIContext,
   on: {
     setActivePanel: (ctx, event: { panel: PanelId }) => ({
@@ -131,6 +137,14 @@ export const uiStore = createStore({
       commitDescription: '',
       amendPreviousCommit: false,
     }),
+    setShowFilesPanel: (ctx, event: { show: boolean }) => ({
+      ...ctx,
+      showFilesPanel: event.show,
+    }),
+    setShowDiffPanel: (ctx, event: { show: boolean }) => ({
+      ...ctx,
+      showDiffPanel: event.show,
+    }),
   },
 });
 
@@ -153,6 +167,8 @@ export function useUIStore() {
   const commitMessage = useSelector(uiStore, (s) => s.context.commitMessage);
   const commitDescription = useSelector(uiStore, (s) => s.context.commitDescription);
   const amendPreviousCommit = useSelector(uiStore, (s) => s.context.amendPreviousCommit);
+  const showFilesPanel = useSelector(uiStore, (s) => s.context.showFilesPanel);
+  const showDiffPanel = useSelector(uiStore, (s) => s.context.showDiffPanel);
 
   return {
     // State
@@ -173,6 +189,8 @@ export function useUIStore() {
     commitMessage,
     commitDescription,
     amendPreviousCommit,
+    showFilesPanel,
+    showDiffPanel,
 
     // Actions
     setActivePanel: (panel: PanelId) =>
@@ -209,5 +227,9 @@ export function useUIStore() {
       uiStore.send({ type: 'setAmendPreviousCommit', amend }),
     clearCommitForm: () =>
       uiStore.send({ type: 'clearCommitForm' }),
+    setShowFilesPanel: (show: boolean) =>
+      uiStore.send({ type: 'setShowFilesPanel', show }),
+    setShowDiffPanel: (show: boolean) =>
+      uiStore.send({ type: 'setShowDiffPanel', show }),
   };
 }

@@ -91,6 +91,7 @@ export function FileList() {
     activePanel,
     viewMode,
     setViewMode,
+    setShowDiffPanel,
   } = useUIStore();
   const queryClient = useQueryClient();
   const listRef = useRef<VListHandle>(null);
@@ -105,10 +106,13 @@ export function FileList() {
     staleTime: 2000,
   });
 
-  // Fetch commit diff when a commit is selected
-  const { data: commitDiff, isLoading: diffLoading } = useQuery({
-    queryKey: ['commit-diff', repository?.path, selectedCommit],
-    queryFn: () => getCommitDiff(repository!.path, selectedCommit!),
+  // Fetch commit files when a commit is selected (only keep file list, discard patch)
+  const { data: commitFiles, isLoading: diffLoading } = useQuery({
+    queryKey: ['commit-files', repository?.path, selectedCommit],
+    queryFn: async () => {
+      const diff = await getCommitDiff(repository!.path, selectedCommit!);
+      return diff.files; // Only return files, let patch be garbage collected
+    },
     enabled: !!repository?.path && !!selectedCommit,
     staleTime: 60000,
   });
@@ -140,12 +144,12 @@ export function FileList() {
 
   // Build flat list
   const flatList = useMemo<FileItem[]>(() => {
-    if (selectedCommit && commitDiff) {
+    if (selectedCommit && commitFiles) {
       // Commit view
       const items: FileItem[] = [];
-      if (commitDiff.files.length > 0) {
-        items.push({ type: 'header', data: `Changed Files (${commitDiff.files.length})` });
-        commitDiff.files.forEach((f) => items.push({ type: 'file', data: f, section: 'commit' }));
+      if (commitFiles.length > 0) {
+        items.push({ type: 'header', data: `Changed Files (${commitFiles.length})` });
+        commitFiles.forEach((f) => items.push({ type: 'file', data: f, section: 'commit' }));
       }
       return items;
     }
@@ -171,7 +175,7 @@ export function FileList() {
     }
 
     return items;
-  }, [status, commitDiff, selectedCommit]);
+  }, [status, commitFiles, selectedCommit]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -204,6 +208,7 @@ export function FileList() {
         if (item && item.type === 'file') {
           const file = item.data as FileStatus | DiffFile;
           setSelectedFile(file.path);
+          setShowDiffPanel(true);
         }
       } else if (e.key === ' ') {
         e.preventDefault();
@@ -242,6 +247,7 @@ export function FileList() {
     flatList,
     focusedIndex,
     setSelectedFile,
+    setShowDiffPanel,
     stageMutation,
     unstageMutation,
     discardMutation,
@@ -255,11 +261,11 @@ export function FileList() {
   const handleFileClick = useCallback(
     (e: React.MouseEvent, file: FileStatus | DiffFile, index: number) => {
       e.stopPropagation();
-      console.log('FileList: clicking file', file.path);
       setFocusedIndex(index);
       setSelectedFile(file.path);
+      setShowDiffPanel(true);
     },
-    [setSelectedFile]
+    [setSelectedFile, setShowDiffPanel]
   );
 
   const isLoading = statusLoading || diffLoading;

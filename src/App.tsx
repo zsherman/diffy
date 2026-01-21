@@ -1,4 +1,7 @@
+import { useCallback } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { open } from '@tauri-apps/plugin-dialog';
+import { FolderOpen } from '@phosphor-icons/react';
 import { Panel, PanelGroup } from './components/layout';
 import { StatusBar, HelpOverlay } from './components/ui';
 import { RepoSelector } from './features/repository/components';
@@ -7,6 +10,7 @@ import { CommitList } from './features/commits/components';
 import { FileList } from './features/files/components';
 import { DiffViewer } from './features/diff/components';
 import { StagingSidebar } from './features/staging/components';
+import { openRepository, discoverRepository } from './lib/tauri';
 import { useGitStore } from './stores/git-store';
 import { useUIStore } from './stores/ui-store';
 import { useKeyboardNavigation } from './hooks/useKeyboardNavigation';
@@ -21,11 +25,42 @@ const queryClient = new QueryClient({
 });
 
 function AppContent() {
-  const { repository, error } = useGitStore();
-  const { showStagingSidebar } = useUIStore();
+  const { repository, error, setRepository, setError, setIsLoading } = useGitStore();
+  const { showStagingSidebar, showFilesPanel, showDiffPanel, setShowFilesPanel, setShowDiffPanel } = useUIStore();
 
   // Set up keyboard navigation
   useKeyboardNavigation();
+
+  const handleOpenRepository = useCallback(async () => {
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: 'Select Git Repository',
+      });
+
+      if (selected && typeof selected === 'string') {
+        setIsLoading(true);
+        setError(null);
+
+        try {
+          const repo = await openRepository(selected);
+          setRepository(repo);
+        } catch {
+          try {
+            const repo = await discoverRepository(selected);
+            setRepository(repo);
+          } catch (e) {
+            setError(`Not a git repository: ${selected}`);
+          }
+        }
+      }
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [setRepository, setError, setIsLoading]);
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-bg-primary">
@@ -56,15 +91,21 @@ function AppContent() {
               </Panel>
 
               {/* Files and Diff panel */}
-              <PanelGroup direction="vertical" initialSizes={[35, 65]}>
-                <Panel id="files" title="Files">
-                  <FileList />
-                </Panel>
+              {(showFilesPanel || showDiffPanel) && (
+                <PanelGroup direction="vertical" initialSizes={[35, 65]}>
+                  {showFilesPanel && (
+                    <Panel id="files" title="Files" onClose={() => setShowFilesPanel(false)}>
+                      <FileList />
+                    </Panel>
+                  )}
 
-                <Panel id="diff" title="Diff">
-                  <DiffViewer />
-                </Panel>
-              </PanelGroup>
+                  {showDiffPanel && (
+                    <Panel id="diff" title="Diff" onClose={() => setShowDiffPanel(false)}>
+                      <DiffViewer />
+                    </Panel>
+                  )}
+                </PanelGroup>
+              )}
             </PanelGroup>
           </div>
 
@@ -74,23 +115,18 @@ function AppContent() {
       ) : (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <svg
-              className="w-16 h-16 mx-auto text-text-muted mb-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1}
-                d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-              />
-            </svg>
-            <p className="text-text-muted mb-2">No repository selected</p>
-            <p className="text-text-muted text-sm">
-              Click the repository selector above to open a Git repository
+            <FolderOpen size={64} weight="duotone" className="mx-auto text-text-muted mb-4" />
+            <p className="text-text-primary mb-1 font-medium">No repository selected</p>
+            <p className="text-text-muted text-sm mb-6">
+              Open a Git repository to get started
             </p>
+            <button
+              onClick={handleOpenRepository}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-accent-blue text-bg-primary font-medium rounded-md hover:bg-accent-blue/90 transition-colors"
+            >
+              <FolderOpen size={18} weight="bold" />
+              Open Repository
+            </button>
           </div>
         </div>
       )}

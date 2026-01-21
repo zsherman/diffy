@@ -1,109 +1,144 @@
-import { useMemo, useEffect } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { parsePatchFiles } from '@pierre/diffs';
 import { FileDiff } from '@pierre/diffs/react';
-import { getCommitDiff, getWorkingDiff } from '../../../lib/tauri';
+import { getFileDiff, getWorkingDiff } from '../../../lib/tauri';
 import { useGitStore } from '../../../stores/git-store';
 import { useUIStore } from '../../../stores/ui-store';
 import { LoadingSpinner, SkeletonDiff } from '../../../components/ui';
+
+// Single file diff component that loads its own data
+function SingleFileDiff({
+  repoPath,
+  commitId,
+  filePath,
+  diffViewMode,
+}: {
+  repoPath: string;
+  commitId: string;
+  filePath: string;
+  diffViewMode: 'split' | 'unified';
+}) {
+  const { data: fileDiff, isLoading } = useQuery({
+    queryKey: ['file-diff', repoPath, commitId, filePath],
+    queryFn: () => getFileDiff(repoPath, commitId, filePath),
+    staleTime: 60000,
+  });
+
+  const parsedFile = useMemo(() => {
+    if (!fileDiff?.patch) return null;
+    try {
+      const parsed = parsePatchFiles(fileDiff.patch);
+      return parsed[0]?.files[0] || null;
+    } catch (e) {
+      console.error('Failed to parse file diff:', e);
+      return null;
+    }
+  }, [fileDiff]);
+
+  if (isLoading) {
+    return (
+      <div className="p-4">
+        <SkeletonDiff lines={8} />
+      </div>
+    );
+  }
+
+  if (!parsedFile) {
+    return (
+      <div className="p-4 text-text-muted text-sm">
+        No diff available for {filePath}
+      </div>
+    );
+  }
+
+  return (
+    <FileDiff
+      fileDiff={parsedFile}
+      options={{
+        diffStyle: diffViewMode === 'split' ? 'split' : 'unified',
+        themeType: 'dark',
+      }}
+    />
+  );
+}
 
 export function DiffViewer() {
   const { repository } = useGitStore();
   const { selectedCommit, selectedFile, diffViewMode } = useUIStore();
 
-  // Fetch commit diff
-  const { data: commitDiff, isLoading: commitLoading } = useQuery({
-    queryKey: ['commit-diff', repository?.path, selectedCommit],
-    queryFn: () => getCommitDiff(repository!.path, selectedCommit!),
-    enabled: !!repository?.path && !!selectedCommit,
-  });
-
-  // Fetch working diff (staged)
+  // Only fetch working diff when no commit is selected
   const { data: stagedDiff, isLoading: stagedLoading } = useQuery({
     queryKey: ['working-diff-staged', repository?.path],
     queryFn: () => getWorkingDiff(repository!.path, true),
     enabled: !!repository?.path && !selectedCommit,
   });
 
-  // Fetch working diff (unstaged)
   const { data: unstagedDiff, isLoading: unstagedLoading } = useQuery({
     queryKey: ['working-diff-unstaged', repository?.path],
     queryFn: () => getWorkingDiff(repository!.path, false),
     enabled: !!repository?.path && !selectedCommit,
   });
 
-  const isLoading = commitLoading || stagedLoading || unstagedLoading;
+  const isWorkingLoading = stagedLoading || unstagedLoading;
 
-  // Get the appropriate patch
-  const patch = useMemo(() => {
-    if (selectedCommit && commitDiff) {
-      return commitDiff.patch;
-    }
+  // Parse working diff (only when in working mode)
+  const workingParsedFiles = useMemo(() => {
+    if (selectedCommit) return [];
 
-    // Combine staged and unstaged diffs for working directory
     const patches: string[] = [];
     if (stagedDiff?.patch) patches.push(stagedDiff.patch);
     if (unstagedDiff?.patch) patches.push(unstagedDiff.patch);
-    return patches.join('\n');
-  }, [selectedCommit, commitDiff, stagedDiff, unstagedDiff]);
 
-  // Parse patch into file diffs
-  const parsedFiles = useMemo(() => {
-    if (!patch) return [];
+    if (patches.length === 0) return [];
+
     try {
-      const parsed = parsePatchFiles(patch);
-      // Flatten all files from all patches
-      const files = parsed.flatMap(p => p.files);
-      return files;
+      const parsed = parsePatchFiles(patches.join('\n'));
+      return parsed.flatMap(p => p.files);
     } catch (e) {
-      console.error('Failed to parse patch:', e);
+      console.error('Failed to parse working diff:', e);
       return [];
     }
-  }, [patch]);
+  }, [selectedCommit, stagedDiff, unstagedDiff]);
 
-  // Debug logging
-  useEffect(() => {
-    console.log('DiffViewer state:', {
-      selectedCommit,
-      selectedFile,
-      hasPatch: !!patch,
-      patchLength: patch?.length || 0,
-      parsedFilesCount: parsedFiles.length,
-      // Log full structure of first parsed file
-      firstParsedFile: parsedFiles[0],
-      firstParsedFileKeys: parsedFiles[0] ? Object.keys(parsedFiles[0]) : []
-    });
-  }, [selectedCommit, selectedFile, patch, parsedFiles]);
+  // Filter working files to selected file
+  const workingFilesToShow = useMemo(() => {
+    if (!selectedFile) return workingParsedFiles.slice(0, 5);
 
-  // Filter to selected file if any
-  const filesToShow = useMemo(() => {
-    if (!selectedFile) return parsedFiles;
-
-    // The parsed files use `name` and `prevName` properties
-    const matched = parsedFiles.filter((f: any) => {
+    return workingParsedFiles.filter((f: any) => {
       const name = f.name || '';
       const prevName = f.prevName || '';
-
-      // Direct match
-      if (name === selectedFile || prevName === selectedFile) return true;
-
-      // Match without a/ or b/ prefix (git diff format)
       const cleanName = name.replace(/^[ab]\//, '');
       const cleanPrev = prevName.replace(/^[ab]\//, '');
-      if (cleanName === selectedFile || cleanPrev === selectedFile) return true;
-
-      return false;
+      return name === selectedFile || prevName === selectedFile ||
+             cleanName === selectedFile || cleanPrev === selectedFile;
     });
+  }, [workingParsedFiles, selectedFile]);
 
-    console.log('Filter debug:', {
-      selectedFile,
-      allNames: parsedFiles.map((f: any) => ({ name: f.name, prevName: f.prevName })),
-      matchedCount: matched.length
-    });
-    return matched;
-  }, [parsedFiles, selectedFile]);
+  // Commit mode: render individual file diff loaders
+  if (selectedCommit && repository) {
+    if (!selectedFile) {
+      return (
+        <div className="flex items-center justify-center h-full text-text-muted">
+          Select a file to view diff
+        </div>
+      );
+    }
 
-  if (isLoading) {
+    return (
+      <div className="h-full overflow-auto bg-bg-tertiary">
+        <SingleFileDiff
+          repoPath={repository.path}
+          commitId={selectedCommit}
+          filePath={selectedFile}
+          diffViewMode={diffViewMode}
+        />
+      </div>
+    );
+  }
+
+  // Working mode
+  if (isWorkingLoading) {
     return (
       <div className="flex flex-col h-full p-4">
         <div className="flex items-center py-3">
@@ -116,17 +151,17 @@ export function DiffViewer() {
     );
   }
 
-  if (filesToShow.length === 0) {
+  if (workingFilesToShow.length === 0) {
     return (
       <div className="flex items-center justify-center h-full text-text-muted">
-        {selectedFile ? `No changes in selected file: ${selectedFile}` : 'Select a file to view diff'}
+        {selectedFile ? `No changes in selected file` : 'No working changes'}
       </div>
     );
   }
 
   return (
     <div className="h-full overflow-auto bg-bg-tertiary">
-      {filesToShow.map((fileDiff, index) => (
+      {workingFilesToShow.map((fileDiff, index) => (
         <FileDiff
           key={fileDiff.newPath || fileDiff.oldPath || index}
           fileDiff={fileDiff}

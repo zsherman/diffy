@@ -1,4 +1,5 @@
 import React from 'react';
+import { X } from '@phosphor-icons/react';
 import type { PanelId } from '../../types/git';
 import { useUIStore } from '../../stores/ui-store';
 
@@ -8,9 +9,10 @@ interface PanelProps {
   children: React.ReactNode;
   className?: string;
   headerExtra?: React.ReactNode;
+  onClose?: () => void;
 }
 
-export function Panel({ id, title, children, className = '', headerExtra }: PanelProps) {
+export function Panel({ id, title, children, className = '', headerExtra, onClose }: PanelProps) {
   const { activePanel, setActivePanel } = useUIStore();
   const isActive = activePanel === id;
 
@@ -32,7 +34,21 @@ export function Panel({ id, title, children, className = '', headerExtra }: Pane
         >
           {title}
         </span>
-        {headerExtra}
+        <div className="flex items-center gap-1">
+          {headerExtra}
+          {onClose && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+              }}
+              className="p-1 rounded hover:bg-bg-tertiary text-text-muted hover:text-text-primary transition-colors"
+              title={`Close ${title}`}
+            >
+              <X size={14} weight="bold" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Panel Content */}

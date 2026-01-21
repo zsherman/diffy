@@ -1,17 +1,18 @@
 import React, { useState, useCallback, memo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  FilePlus,
+  PencilSimple,
+  Trash,
+  ArrowRight,
+  Question,
+  CaretDown,
+  CaretRight,
+} from '@phosphor-icons/react';
 import { getStatus, stageFiles, unstageFiles, createCommit } from '../../../lib/tauri';
 import { useGitStore } from '../../../stores/git-store';
 import { useUIStore } from '../../../stores/ui-store';
 import type { FileStatus } from '../../../types/git';
-
-const STATUS_ICONS: Record<string, string> = {
-  A: '+',
-  M: '~',
-  D: '-',
-  R: '>',
-  '?': '+',
-};
 
 const STATUS_COLORS: Record<string, string> = {
   A: 'text-accent-green',
@@ -19,6 +20,26 @@ const STATUS_COLORS: Record<string, string> = {
   D: 'text-accent-red',
   R: 'text-accent-purple',
   '?': 'text-accent-green',
+};
+
+const StatusIcon = ({ status }: { status: string }) => {
+  const color = STATUS_COLORS[status] || 'text-text-muted';
+  const iconProps = { size: 14, className: color, weight: 'bold' as const };
+
+  switch (status) {
+    case 'A':
+      return <FilePlus {...iconProps} />;
+    case 'M':
+      return <PencilSimple {...iconProps} />;
+    case 'D':
+      return <Trash {...iconProps} />;
+    case 'R':
+      return <ArrowRight {...iconProps} />;
+    case '?':
+      return <FilePlus {...iconProps} />;
+    default:
+      return <Question {...iconProps} />;
+  }
 };
 
 // Memoized file row with hover actions
@@ -34,8 +55,6 @@ const StagingFileRow = memo(function StagingFileRow({
   onUnstage: () => void;
 }) {
   const [isHovered, setIsHovered] = useState(false);
-  const icon = STATUS_ICONS[file.status] || '?';
-  const color = STATUS_COLORS[file.status] || 'text-text-primary';
 
   return (
     <div
@@ -43,7 +62,9 @@ const StagingFileRow = memo(function StagingFileRow({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <span className={`w-4 font-mono text-xs ${color}`}>{icon}</span>
+      <span className="w-5 flex items-center justify-center">
+        <StatusIcon status={file.status} />
+      </span>
       <span className="truncate text-text-primary ml-1 flex-1">{file.path}</span>
       {isHovered && (
         <button
@@ -84,7 +105,7 @@ const SectionHeader = memo(function SectionHeader({
         onClick={onToggle}
         className="flex items-center gap-1 text-xs font-semibold text-text-muted hover:text-text-primary"
       >
-        <span className="w-3">{isExpanded ? '▼' : '▶'}</span>
+        {isExpanded ? <CaretDown size={12} weight="bold" /> : <CaretRight size={12} weight="bold" />}
         <span>
           {title} ({count})
         </span>
