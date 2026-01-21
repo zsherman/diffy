@@ -1,0 +1,322 @@
+import React, { useState, useCallback, memo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getStatus, stageFiles, unstageFiles, createCommit } from '../../../lib/tauri';
+import { useGitStore } from '../../../stores/git-store';
+import { useUIStore } from '../../../stores/ui-store';
+import type { FileStatus } from '../../../types/git';
+
+const STATUS_ICONS: Record<string, string> = {
+  A: '+',
+  M: '~',
+  D: '-',
+  R: '>',
+  '?': '+',
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  A: 'text-accent-green',
+  M: 'text-accent-yellow',
+  D: 'text-accent-red',
+  R: 'text-accent-purple',
+  '?': 'text-accent-green',
+};
+
+// Memoized file row with hover actions
+const StagingFileRow = memo(function StagingFileRow({
+  file,
+  isStaged,
+  onStage,
+  onUnstage,
+}: {
+  file: FileStatus;
+  isStaged: boolean;
+  onStage: () => void;
+  onUnstage: () => void;
+}) {
+  const [isHovered, setIsHovered] = useState(false);
+  const icon = STATUS_ICONS[file.status] || '?';
+  const color = STATUS_COLORS[file.status] || 'text-text-primary';
+
+  return (
+    <div
+      className="flex items-center px-2 py-1 text-sm hover:bg-bg-hover group"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <span className={`w-4 font-mono text-xs ${color}`}>{icon}</span>
+      <span className="truncate text-text-primary ml-1 flex-1">{file.path}</span>
+      {isHovered && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            isStaged ? onUnstage() : onStage();
+          }}
+          className="px-1.5 py-0.5 text-xs rounded bg-bg-tertiary hover:bg-bg-hover border border-border-primary"
+        >
+          {isStaged ? 'Unstage' : 'Stage'}
+        </button>
+      )}
+    </div>
+  );
+});
+
+// Collapsible section header
+const SectionHeader = memo(function SectionHeader({
+  title,
+  count,
+  isExpanded,
+  onToggle,
+  actionLabel,
+  onAction,
+  actionDisabled,
+}: {
+  title: string;
+  count: number;
+  isExpanded: boolean;
+  onToggle: () => void;
+  actionLabel: string;
+  onAction: () => void;
+  actionDisabled?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between px-2 py-1.5 bg-bg-tertiary border-y border-border-primary">
+      <button
+        onClick={onToggle}
+        className="flex items-center gap-1 text-xs font-semibold text-text-muted hover:text-text-primary"
+      >
+        <span className="w-3">{isExpanded ? '▼' : '▶'}</span>
+        <span>
+          {title} ({count})
+        </span>
+      </button>
+      <button
+        onClick={onAction}
+        disabled={actionDisabled || count === 0}
+        className="text-xs text-accent-blue hover:text-accent-blue/80 disabled:text-text-muted disabled:cursor-not-allowed"
+      >
+        {actionLabel}
+      </button>
+    </div>
+  );
+});
+
+export function StagingSidebar() {
+  const { repository } = useGitStore();
+  const {
+    commitMessage,
+    setCommitMessage,
+    commitDescription,
+    setCommitDescription,
+    amendPreviousCommit,
+    setAmendPreviousCommit,
+    clearCommitForm,
+  } = useUIStore();
+  const queryClient = useQueryClient();
+
+  const [unstagedExpanded, setUnstagedExpanded] = useState(true);
+  const [stagedExpanded, setStagedExpanded] = useState(true);
+  const [isCommitting, setIsCommitting] = useState(false);
+
+  // Fetch status
+  const { data: status } = useQuery({
+    queryKey: ['status', repository?.path],
+    queryFn: () => getStatus(repository!.path),
+    enabled: !!repository?.path,
+    refetchInterval: 5000,
+    staleTime: 2000,
+  });
+
+  // Mutations
+  const stageMutation = useMutation({
+    mutationFn: (paths: string[]) => stageFiles(repository!.path, paths),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['status'] }),
+  });
+
+  const unstageMutation = useMutation({
+    mutationFn: (paths: string[]) => unstageFiles(repository!.path, paths),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['status'] }),
+  });
+
+  const commitMutation = useMutation({
+    mutationFn: (message: string) => createCommit(repository!.path, message),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['status'] });
+      queryClient.invalidateQueries({ queryKey: ['commits'] });
+      clearCommitForm();
+      setIsCommitting(false);
+    },
+    onError: () => {
+      setIsCommitting(false);
+    },
+  });
+
+  // Combine unstaged and untracked files
+  const unstagedFiles = status
+    ? [...status.unstaged, ...status.untracked]
+    : [];
+  const stagedFiles = status?.staged ?? [];
+  const totalChanges = unstagedFiles.length + stagedFiles.length;
+
+  const handleStageAll = useCallback(() => {
+    const paths = unstagedFiles.map((f) => f.path);
+    if (paths.length > 0) {
+      stageMutation.mutate(paths);
+    }
+  }, [unstagedFiles, stageMutation]);
+
+  const handleUnstageAll = useCallback(() => {
+    const paths = stagedFiles.map((f) => f.path);
+    if (paths.length > 0) {
+      unstageMutation.mutate(paths);
+    }
+  }, [stagedFiles, unstageMutation]);
+
+  const handleStageFile = useCallback(
+    (path: string) => {
+      stageMutation.mutate([path]);
+    },
+    [stageMutation]
+  );
+
+  const handleUnstageFile = useCallback(
+    (path: string) => {
+      unstageMutation.mutate([path]);
+    },
+    [unstageMutation]
+  );
+
+  const handleCommit = useCallback(() => {
+    if (!commitMessage.trim() || stagedFiles.length === 0) return;
+
+    setIsCommitting(true);
+    const fullMessage = commitDescription.trim()
+      ? `${commitMessage.trim()}\n\n${commitDescription.trim()}`
+      : commitMessage.trim();
+    commitMutation.mutate(fullMessage);
+  }, [commitMessage, commitDescription, stagedFiles.length, commitMutation]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        handleCommit();
+      }
+    },
+    [handleCommit]
+  );
+
+  const branchName = repository?.head_branch ?? 'main';
+
+  return (
+    <div className="w-80 flex flex-col h-full bg-bg-secondary border-l border-border-primary">
+      {/* Header */}
+      <div className="px-3 py-2 border-b border-border-primary">
+        <div className="text-sm font-medium text-text-primary">
+          {totalChanges} file change{totalChanges !== 1 ? 's' : ''} on{' '}
+          <span className="text-accent-green">{branchName}</span>
+        </div>
+      </div>
+
+      {/* File lists */}
+      <div className="flex-1 overflow-hidden flex flex-col">
+        {/* Unstaged section */}
+        <SectionHeader
+          title="Unstaged Files"
+          count={unstagedFiles.length}
+          isExpanded={unstagedExpanded}
+          onToggle={() => setUnstagedExpanded(!unstagedExpanded)}
+          actionLabel="Stage All"
+          onAction={handleStageAll}
+          actionDisabled={stageMutation.isPending}
+        />
+        {unstagedExpanded && unstagedFiles.length > 0 && (
+          <div className="flex-shrink-0 max-h-[30%] overflow-auto">
+            {unstagedFiles.map((file) => (
+              <StagingFileRow
+                key={file.path}
+                file={file}
+                isStaged={false}
+                onStage={() => handleStageFile(file.path)}
+                onUnstage={() => {}}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Staged section */}
+        <SectionHeader
+          title="Staged Files"
+          count={stagedFiles.length}
+          isExpanded={stagedExpanded}
+          onToggle={() => setStagedExpanded(!stagedExpanded)}
+          actionLabel="Unstage All"
+          onAction={handleUnstageAll}
+          actionDisabled={unstageMutation.isPending}
+        />
+        {stagedExpanded && stagedFiles.length > 0 && (
+          <div className="flex-shrink-0 max-h-[30%] overflow-auto">
+            {stagedFiles.map((file) => (
+              <StagingFileRow
+                key={file.path}
+                file={file}
+                isStaged={true}
+                onStage={() => {}}
+                onUnstage={() => handleUnstageFile(file.path)}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Spacer */}
+        <div className="flex-1" />
+      </div>
+
+      {/* Commit form */}
+      <div className="border-t border-border-primary p-3 space-y-2">
+        {/* Amend checkbox */}
+        <label className="flex items-center gap-2 text-sm text-text-muted cursor-pointer">
+          <input
+            type="checkbox"
+            checked={amendPreviousCommit}
+            onChange={(e) => setAmendPreviousCommit(e.target.checked)}
+            className="rounded border-border-primary bg-bg-tertiary"
+          />
+          Amend previous commit
+        </label>
+
+        {/* Commit message */}
+        <input
+          type="text"
+          placeholder="Commit message (title)"
+          value={commitMessage}
+          onChange={(e) => setCommitMessage(e.target.value)}
+          onKeyDown={handleKeyDown}
+          className="w-full px-2 py-1.5 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
+        />
+
+        {/* Description */}
+        <textarea
+          placeholder="Description (optional)"
+          value={commitDescription}
+          onChange={(e) => setCommitDescription(e.target.value)}
+          onKeyDown={handleKeyDown}
+          rows={3}
+          className="w-full px-2 py-1.5 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none resize-none"
+        />
+
+        {/* Commit button */}
+        <button
+          onClick={handleCommit}
+          disabled={
+            !commitMessage.trim() || stagedFiles.length === 0 || isCommitting
+          }
+          className="w-full py-2 px-4 bg-accent-green text-white rounded font-medium text-sm hover:bg-accent-green/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
+        >
+          {isCommitting
+            ? 'Committing...'
+            : `Commit Changes to ${stagedFiles.length} File${stagedFiles.length !== 1 ? 's' : ''}`}
+        </button>
+      </div>
+    </div>
+  );
+}

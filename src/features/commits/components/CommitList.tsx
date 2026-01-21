@@ -1,6 +1,7 @@
-import React, { useMemo, useState, useCallback, useEffect, memo } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, memo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useVirtualizer } from '@tanstack/react-virtual';
+import { VList } from 'virtua';
+import type { VListHandle } from 'virtua';
 import { getCommitHistory, getCommitGraph } from '../../../lib/tauri';
 import { useGitStore } from '../../../stores/git-store';
 import { useUIStore } from '../../../stores/ui-store';
@@ -29,19 +30,16 @@ const CommitRow = memo(function CommitRow({
   commit,
   isSelected,
   isFocused,
-  style,
   onClick,
 }: {
   commit: CommitInfo;
   isSelected: boolean;
   isFocused: boolean;
-  style: React.CSSProperties;
   onClick: () => void;
 }) {
   return (
     <div
-      style={style}
-      className={`flex items-center cursor-pointer ${
+      className={`flex items-center cursor-pointer h-12 ${
         isFocused ? 'bg-bg-selected' : isSelected ? 'bg-bg-hover' : 'hover:bg-bg-hover'
       }`}
       onClick={onClick}
@@ -77,15 +75,16 @@ export function CommitList() {
     activePanel,
     setSelectedFile,
   } = useUIStore();
-  const parentRef = React.useRef<HTMLDivElement>(null);
+  const listRef = useRef<VListHandle>(null);
   const [focusedIndex, setFocusedIndex] = useState(0);
+  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 0 });
 
   // Fetch commits
   const { data: commits = [], isLoading } = useQuery({
     queryKey: ['commits', repository?.path, selectedBranch],
     queryFn: () => getCommitHistory(repository!.path, selectedBranch ?? undefined, 200),
     enabled: !!repository?.path,
-    staleTime: 30000, // Cache for 30 seconds
+    staleTime: 30000,
   });
 
   // Stable key for graph query - only changes when commits actually change
@@ -113,13 +112,6 @@ export function CommitList() {
         c.short_id.toLowerCase().includes(lower)
     );
   }, [commits, commitFilter]);
-
-  const virtualizer = useVirtualizer({
-    count: filteredCommits.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => ROW_HEIGHT,
-    overscan: 10,
-  });
 
   // Keyboard navigation
   useEffect(() => {
@@ -150,8 +142,8 @@ export function CommitList() {
 
   // Scroll focused item into view
   useEffect(() => {
-    virtualizer.scrollToIndex(focusedIndex, { align: 'auto' });
-  }, [focusedIndex, virtualizer]);
+    listRef.current?.scrollToIndex(focusedIndex, { align: 'center' });
+  }, [focusedIndex]);
 
   const handleCommitClick = useCallback(
     (commit: CommitInfo, index: number) => {
@@ -161,6 +153,10 @@ export function CommitList() {
     },
     [setSelectedCommit, setSelectedFile]
   );
+
+  const handleRangeChange = useCallback((start: number, end: number) => {
+    setVisibleRange({ start, end });
+  }, []);
 
   if (isLoading) {
     return (
@@ -174,11 +170,6 @@ export function CommitList() {
       </div>
     );
   }
-
-  const virtualItems = virtualizer.getVirtualItems();
-  const visibleStartIndex = virtualItems.length > 0 ? virtualItems[0].index : 0;
-  const visibleEndIndex =
-    virtualItems.length > 0 ? virtualItems[virtualItems.length - 1].index : 0;
 
   return (
     <div className="flex flex-col h-full">
@@ -194,46 +185,33 @@ export function CommitList() {
       </div>
 
       {/* Commit list */}
-      <div ref={parentRef} className="flex-1 overflow-auto">
-        <div
-          style={{
-            height: `${virtualizer.getTotalSize()}px`,
-            width: '100%',
-            position: 'relative',
-          }}
-        >
-          {/* Graph overlay */}
-          {graph && (
-            <CommitGraphSVG
-              graph={graph}
-              rowHeight={ROW_HEIGHT}
-              visibleStartIndex={visibleStartIndex}
-              visibleEndIndex={visibleEndIndex}
-            />
-          )}
+      <div className="flex-1 relative overflow-hidden">
+        {/* Graph overlay */}
+        {graph && (
+          <CommitGraphSVG
+            graph={graph}
+            rowHeight={ROW_HEIGHT}
+            visibleStartIndex={visibleRange.start}
+            visibleEndIndex={visibleRange.end}
+          />
+        )}
 
-          {/* Commit rows */}
-          {virtualItems.map((virtualItem) => {
-            const commit = filteredCommits[virtualItem.index];
-            return (
-              <CommitRow
-                key={virtualItem.key}
-                commit={commit}
-                isSelected={selectedCommit === commit.id}
-                isFocused={virtualItem.index === focusedIndex}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: `${virtualItem.size}px`,
-                  transform: `translateY(${virtualItem.start}px)`,
-                }}
-                onClick={() => handleCommitClick(commit, virtualItem.index)}
-              />
-            );
-          })}
-        </div>
+        {/* Commit rows */}
+        <VList
+          ref={listRef}
+          className="h-full"
+          onRangeChange={handleRangeChange}
+        >
+          {filteredCommits.map((commit, index) => (
+            <CommitRow
+              key={commit.id}
+              commit={commit}
+              isSelected={selectedCommit === commit.id}
+              isFocused={index === focusedIndex}
+              onClick={() => handleCommitClick(commit, index)}
+            />
+          ))}
+        </VList>
       </div>
     </div>
   );

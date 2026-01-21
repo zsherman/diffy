@@ -1,6 +1,7 @@
-import React, { useMemo, useState, useCallback, useEffect, memo } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, memo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useVirtualizer } from '@tanstack/react-virtual';
+import { VList } from 'virtua';
+import type { VListHandle } from 'virtua';
 import { getStatus, getCommitDiff, stageFiles, unstageFiles, discardChanges } from '../../../lib/tauri';
 import { useGitStore } from '../../../stores/git-store';
 import { useUIStore } from '../../../stores/ui-store';
@@ -32,16 +33,11 @@ interface FileItem {
 // Memoized header row
 const HeaderRow = memo(function HeaderRow({
   text,
-  style,
 }: {
   text: string;
-  style: React.CSSProperties;
 }) {
   return (
-    <div
-      style={style}
-      className="px-2 py-1 text-xs font-semibold text-text-muted bg-bg-tertiary uppercase tracking-wider"
-    >
+    <div className="px-2 py-1 text-xs font-semibold text-text-muted bg-bg-tertiary uppercase tracking-wider">
       {text}
     </div>
   );
@@ -52,13 +48,11 @@ const FileRow = memo(function FileRow({
   file,
   isSelected,
   isFocused,
-  style,
   onClick,
 }: {
   file: FileStatus | DiffFile;
   isSelected: boolean;
   isFocused: boolean;
-  style: React.CSSProperties;
   onClick: (e: React.MouseEvent) => void;
 }) {
   const status = file.status;
@@ -66,7 +60,6 @@ const FileRow = memo(function FileRow({
 
   return (
     <div
-      style={style}
       className={`flex items-center px-2 py-1 cursor-pointer text-sm ${
         isFocused ? 'bg-bg-selected' : isSelected ? 'bg-bg-hover' : 'hover:bg-bg-hover'
       }`}
@@ -100,7 +93,7 @@ export function FileList() {
     setViewMode,
   } = useUIStore();
   const queryClient = useQueryClient();
-  const parentRef = React.useRef<HTMLDivElement>(null);
+  const listRef = useRef<VListHandle>(null);
   const [focusedIndex, setFocusedIndex] = useState(0);
 
   // Fetch working directory status
@@ -108,7 +101,7 @@ export function FileList() {
     queryKey: ['status', repository?.path],
     queryFn: () => getStatus(repository!.path),
     enabled: !!repository?.path && !selectedCommit,
-    refetchInterval: 5000, // Poll every 5 seconds (reduced from 2s)
+    refetchInterval: 5000,
     staleTime: 2000,
   });
 
@@ -117,7 +110,7 @@ export function FileList() {
     queryKey: ['commit-diff', repository?.path, selectedCommit],
     queryFn: () => getCommitDiff(repository!.path, selectedCommit!),
     enabled: !!repository?.path && !!selectedCommit,
-    staleTime: 60000, // Commit diffs don't change, cache for 1 minute
+    staleTime: 60000,
   });
 
   // Mutations
@@ -179,13 +172,6 @@ export function FileList() {
 
     return items;
   }, [status, commitDiff, selectedCommit]);
-
-  const virtualizer = useVirtualizer({
-    count: flatList.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 28,
-    overscan: 5,
-  });
 
   // Keyboard navigation
   useEffect(() => {
@@ -263,8 +249,8 @@ export function FileList() {
 
   // Scroll focused item into view
   useEffect(() => {
-    virtualizer.scrollToIndex(focusedIndex, { align: 'auto' });
-  }, [focusedIndex, virtualizer]);
+    listRef.current?.scrollToIndex(focusedIndex, { align: 'center' });
+  }, [focusedIndex]);
 
   const handleFileClick = useCallback(
     (e: React.MouseEvent, file: FileStatus | DiffFile, index: number) => {
@@ -301,49 +287,29 @@ export function FileList() {
 
   return (
     <div className="flex flex-col h-full">
-      <div ref={parentRef} className="flex-1 overflow-auto">
-        <div
-          style={{
-            height: `${virtualizer.getTotalSize()}px`,
-            width: '100%',
-            position: 'relative',
-          }}
-        >
-          {virtualizer.getVirtualItems().map((virtualItem) => {
-            const item = flatList[virtualItem.index];
-            const style: React.CSSProperties = {
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: `${virtualItem.size}px`,
-              transform: `translateY(${virtualItem.start}px)`,
-            };
-
-            if (item.type === 'header') {
-              return (
-                <HeaderRow
-                  key={virtualItem.key}
-                  text={item.data as string}
-                  style={style}
-                />
-              );
-            }
-
-            const file = item.data as FileStatus | DiffFile;
+      <VList ref={listRef} className="flex-1">
+        {flatList.map((item, index) => {
+          if (item.type === 'header') {
             return (
-              <FileRow
-                key={virtualItem.key}
-                file={file}
-                isSelected={selectedFile === file.path}
-                isFocused={virtualItem.index === focusedIndex}
-                style={style}
-                onClick={(e) => handleFileClick(e, file, virtualItem.index)}
+              <HeaderRow
+                key={`header-${item.data}`}
+                text={item.data as string}
               />
             );
-          })}
-        </div>
-      </div>
+          }
+
+          const file = item.data as FileStatus | DiffFile;
+          return (
+            <FileRow
+              key={file.path}
+              file={file}
+              isSelected={selectedFile === file.path}
+              isFocused={index === focusedIndex}
+              onClick={(e) => handleFileClick(e, file, index)}
+            />
+          );
+        })}
+      </VList>
     </div>
   );
 }

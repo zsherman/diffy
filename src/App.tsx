@@ -6,7 +6,9 @@ import { BranchList } from './features/branches/components';
 import { CommitList } from './features/commits/components';
 import { FileList } from './features/files/components';
 import { DiffViewer } from './features/diff/components';
+import { StagingSidebar } from './features/staging/components';
 import { useGitStore } from './stores/git-store';
+import { useUIStore } from './stores/ui-store';
 import { useKeyboardNavigation } from './hooks/useKeyboardNavigation';
 
 const queryClient = new QueryClient({
@@ -20,6 +22,7 @@ const queryClient = new QueryClient({
 
 function AppContent() {
   const { repository, error } = useGitStore();
+  const { showStagingSidebar } = useUIStore();
 
   // Set up keyboard navigation
   useKeyboardNavigation();
@@ -38,29 +41,35 @@ function AppContent() {
 
       {/* Main content */}
       {repository ? (
-        <div className="flex-1 overflow-hidden">
-          <PanelGroup direction="horizontal" initialSizes={[15, 35, 50]}>
-            {/* Branches panel */}
-            <Panel id="branches" title="Branches">
-              <BranchList />
-            </Panel>
-
-            {/* Commits panel */}
-            <Panel id="commits" title="Commits">
-              <CommitList />
-            </Panel>
-
-            {/* Files and Diff panel */}
-            <PanelGroup direction="vertical" initialSizes={[35, 65]}>
-              <Panel id="files" title="Files">
-                <FileList />
+        <div className="flex-1 flex overflow-hidden">
+          {/* Main panels */}
+          <div className="flex-1 overflow-hidden">
+            <PanelGroup direction="horizontal" initialSizes={[15, 35, 50]}>
+              {/* Branches panel */}
+              <Panel id="branches" title="Branches">
+                <BranchList />
               </Panel>
 
-              <Panel id="diff" title="Diff">
-                <DiffViewer />
+              {/* Commits panel */}
+              <Panel id="commits" title="Commits">
+                <CommitList />
               </Panel>
+
+              {/* Files and Diff panel */}
+              <PanelGroup direction="vertical" initialSizes={[35, 65]}>
+                <Panel id="files" title="Files">
+                  <FileList />
+                </Panel>
+
+                <Panel id="diff" title="Diff">
+                  <DiffViewer />
+                </Panel>
+              </PanelGroup>
             </PanelGroup>
-          </PanelGroup>
+          </div>
+
+          {/* Staging sidebar */}
+          {showStagingSidebar && <StagingSidebar />}
         </div>
       ) : (
         <div className="flex-1 flex items-center justify-center">

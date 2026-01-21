@@ -2,9 +2,11 @@ import React, { useCallback } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { openRepository, discoverRepository } from '../../../lib/tauri';
 import { useGitStore } from '../../../stores/git-store';
+import { useUIStore } from '../../../stores/ui-store';
 
 export function RepoSelector() {
   const { repository, setRepository, setError, isLoading, setIsLoading } = useGitStore();
+  const { showStagingSidebar, toggleStagingSidebar } = useUIStore();
 
   const handleSelectRepo = useCallback(async () => {
     try {
@@ -89,6 +91,31 @@ export function RepoSelector() {
           </svg>
           {repository.head_branch}
         </span>
+      )}
+
+      {/* Staging sidebar toggle button */}
+      {repository && (
+        <button
+          onClick={toggleStagingSidebar}
+          className={`p-1.5 rounded hover:bg-bg-hover transition-colors ${
+            showStagingSidebar ? 'text-accent-blue' : 'text-text-muted'
+          }`}
+          title="Toggle Staging Sidebar (Cmd+Shift+S)"
+        >
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+            />
+          </svg>
+        </button>
       )}
     </div>
   );

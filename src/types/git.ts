@@ -73,6 +73,6 @@ export interface FileDiff {
   patch: string;
 }
 
-export type PanelId = 'branches' | 'commits' | 'files' | 'diff';
+export type PanelId = 'branches' | 'commits' | 'files' | 'diff' | 'staging';
 
 export type ViewMode = 'working' | 'commit';

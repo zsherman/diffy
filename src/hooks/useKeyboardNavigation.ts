@@ -2,7 +2,7 @@ import { useEffect, useCallback } from 'react';
 import { useUIStore } from '../stores/ui-store';
 import type { PanelId } from '../types/git';
 
-const PANELS: PanelId[] = ['branches', 'commits', 'files', 'diff'];
+const PANELS: PanelId[] = ['branches', 'commits', 'files', 'diff', 'staging'];
 
 interface KeyboardConfig {
   onNavigateUp?: () => void;
@@ -24,6 +24,7 @@ export function useKeyboardNavigation(config: KeyboardConfig = {}) {
     setShowCommandPalette,
     diffViewMode,
     setDiffViewMode,
+    toggleStagingSidebar,
   } = useUIStore();
 
   const handleKeyDown = useCallback(
@@ -43,6 +44,13 @@ export function useKeyboardNavigation(config: KeyboardConfig = {}) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setShowCommandPalette(!showCommandPalette);
+        return;
+      }
+
+      // Toggle staging sidebar (Cmd+Shift+S or Ctrl+Shift+S)
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 's') {
+        e.preventDefault();
+        toggleStagingSidebar();
         return;
       }
 
@@ -145,7 +153,7 @@ export function useKeyboardNavigation(config: KeyboardConfig = {}) {
       }
 
       // Focus specific panels with number keys
-      if (e.key >= '1' && e.key <= '4') {
+      if (e.key >= '1' && e.key <= '5') {
         e.preventDefault();
         const index = parseInt(e.key) - 1;
         if (index < PANELS.length) {
@@ -163,6 +171,7 @@ export function useKeyboardNavigation(config: KeyboardConfig = {}) {
       setShowCommandPalette,
       diffViewMode,
       setDiffViewMode,
+      toggleStagingSidebar,
       config,
     ]
   );

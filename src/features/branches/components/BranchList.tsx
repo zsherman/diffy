@@ -1,6 +1,7 @@
-import React, { useMemo, useState, useCallback, useEffect, memo } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, memo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useVirtualizer } from '@tanstack/react-virtual';
+import { VList } from 'virtua';
+import type { VListHandle } from 'virtua';
 import { listBranches, checkoutBranch } from '../../../lib/tauri';
 import { useGitStore } from '../../../stores/git-store';
 import { useUIStore } from '../../../stores/ui-store';
@@ -10,16 +11,11 @@ import type { BranchInfo } from '../../../types/git';
 // Memoized header row
 const BranchHeaderRow = memo(function BranchHeaderRow({
   text,
-  style,
 }: {
   text: string;
-  style: React.CSSProperties;
 }) {
   return (
-    <div
-      style={style}
-      className="px-2 py-1 text-xs font-semibold text-text-muted bg-bg-tertiary uppercase tracking-wider"
-    >
+    <div className="px-2 py-1 text-xs font-semibold text-text-muted bg-bg-tertiary uppercase tracking-wider">
       {text}
     </div>
   );
@@ -30,14 +26,12 @@ const BranchRow = memo(function BranchRow({
   branch,
   isSelected,
   isFocused,
-  style,
   onClick,
   onDoubleClick,
 }: {
   branch: BranchInfo;
   isSelected: boolean;
   isFocused: boolean;
-  style: React.CSSProperties;
   onClick: () => void;
   onDoubleClick: () => void;
 }) {
@@ -45,7 +39,6 @@ const BranchRow = memo(function BranchRow({
 
   return (
     <div
-      style={style}
       className={`flex items-center px-2 py-1 cursor-pointer text-sm ${
         isFocused ? 'bg-bg-selected' : isSelected ? 'bg-bg-hover' : 'hover:bg-bg-hover'
       }`}
@@ -77,14 +70,14 @@ export function BranchList() {
     setSelectedCommit
   } = useUIStore();
   const queryClient = useQueryClient();
-  const parentRef = React.useRef<HTMLDivElement>(null);
+  const listRef = useRef<VListHandle>(null);
   const [focusedIndex, setFocusedIndex] = useState(0);
 
   const { data: branches = [], isLoading } = useQuery({
     queryKey: ['branches', repository?.path],
     queryFn: () => listBranches(repository!.path),
     enabled: !!repository?.path,
-    staleTime: 30000, // Cache for 30 seconds
+    staleTime: 30000,
   });
 
   const checkoutMutation = useMutation({
@@ -124,13 +117,6 @@ export function BranchList() {
     }
     return items;
   }, [groupedBranches]);
-
-  const virtualizer = useVirtualizer({
-    count: flatList.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 28,
-    overscan: 5,
-  });
 
   // Keyboard navigation
   useEffect(() => {
@@ -179,8 +165,8 @@ export function BranchList() {
 
   // Scroll focused item into view
   useEffect(() => {
-    virtualizer.scrollToIndex(focusedIndex, { align: 'auto' });
-  }, [focusedIndex, virtualizer]);
+    listRef.current?.scrollToIndex(focusedIndex, { align: 'center' });
+  }, [focusedIndex]);
 
   const handleBranchClick = useCallback(
     (branch: BranchInfo, index: number) => {
@@ -227,50 +213,30 @@ export function BranchList() {
       </div>
 
       {/* Branch list */}
-      <div ref={parentRef} className="flex-1 overflow-auto">
-        <div
-          style={{
-            height: `${virtualizer.getTotalSize()}px`,
-            width: '100%',
-            position: 'relative',
-          }}
-        >
-          {virtualizer.getVirtualItems().map((virtualItem) => {
-            const item = flatList[virtualItem.index];
-            const style: React.CSSProperties = {
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: `${virtualItem.size}px`,
-              transform: `translateY(${virtualItem.start}px)`,
-            };
-
-            if (item.type === 'header') {
-              return (
-                <BranchHeaderRow
-                  key={virtualItem.key}
-                  text={item.data as string}
-                  style={style}
-                />
-              );
-            }
-
-            const branch = item.data as BranchInfo;
+      <VList ref={listRef} className="flex-1">
+        {flatList.map((item, index) => {
+          if (item.type === 'header') {
             return (
-              <BranchRow
-                key={virtualItem.key}
-                branch={branch}
-                isSelected={selectedBranch === branch.name}
-                isFocused={virtualItem.index === focusedIndex}
-                style={style}
-                onClick={() => handleBranchClick(branch, virtualItem.index)}
-                onDoubleClick={() => handleBranchDoubleClick(branch)}
+              <BranchHeaderRow
+                key={`header-${item.data}`}
+                text={item.data as string}
               />
             );
-          })}
-        </div>
-      </div>
+          }
+
+          const branch = item.data as BranchInfo;
+          return (
+            <BranchRow
+              key={branch.name}
+              branch={branch}
+              isSelected={selectedBranch === branch.name}
+              isFocused={index === focusedIndex}
+              onClick={() => handleBranchClick(branch, index)}
+              onDoubleClick={() => handleBranchDoubleClick(branch)}
+            />
+          );
+        })}
+      </VList>
     </div>
   );
 }
