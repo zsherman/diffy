@@ -1,4 +1,3 @@
-import React from 'react';
 import { useGitStore } from '../../stores/git-store';
 import { useUIStore } from '../../stores/ui-store';
 
@@ -6,11 +5,12 @@ export function StatusBar() {
   const { repository } = useGitStore();
   const { activePanel, diffViewMode } = useUIStore();
 
-  const hints = {
+  const hints: Record<string, string> = {
     branches: 'j/k:navigate | Enter:checkout | Tab:next panel',
     commits: 'j/k:navigate | Enter:select | Tab:next panel',
     files: 'j/k:navigate | Space:stage | u:unstage | d:discard',
     diff: 'v:toggle view | Tab:next panel',
+    staging: 'Stage/unstage files | Enter:commit',
   };
 
   return (

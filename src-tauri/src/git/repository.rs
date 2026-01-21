@@ -50,6 +50,9 @@ pub struct CommitInfo {
     pub author_email: String,
     pub time: i64,
     pub parent_ids: Vec<String>,
+    pub files_changed: usize,
+    pub additions: usize,
+    pub deletions: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -195,16 +198,19 @@ pub fn get_commits(
         .filter_map(|oid_result| {
             let oid = oid_result.ok()?;
             let commit = repo.find_commit(oid).ok()?;
-            Some(commit_to_info(&commit))
+            Some(commit_to_info(repo, &commit))
         })
         .collect();
 
     Ok(commits)
 }
 
-fn commit_to_info(commit: &git2::Commit) -> CommitInfo {
+fn commit_to_info(repo: &Repository, commit: &git2::Commit) -> CommitInfo {
     let id = commit.id().to_string();
     let short_id = id[..7.min(id.len())].to_string();
+
+    // Calculate diff stats
+    let (files_changed, additions, deletions) = get_commit_stats(repo, commit).unwrap_or((0, 0, 0));
 
     CommitInfo {
         id,
@@ -215,7 +221,30 @@ fn commit_to_info(commit: &git2::Commit) -> CommitInfo {
         author_email: commit.author().email().unwrap_or("").to_string(),
         time: commit.time().seconds(),
         parent_ids: commit.parent_ids().map(|id| id.to_string()).collect(),
+        files_changed,
+        additions,
+        deletions,
     }
+}
+
+fn get_commit_stats(repo: &Repository, commit: &git2::Commit) -> Result<(usize, usize, usize), git2::Error> {
+    let tree = commit.tree()?;
+
+    // Get parent tree (or empty tree for initial commit)
+    let parent_tree = if commit.parent_count() > 0 {
+        Some(commit.parent(0)?.tree()?)
+    } else {
+        None
+    };
+
+    let diff = repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&tree), None)?;
+    let stats = diff.stats()?;
+
+    Ok((
+        stats.files_changed(),
+        stats.insertions(),
+        stats.deletions(),
+    ))
 }
 
 pub fn get_status(repo: &Repository) -> Result<StatusInfo, GitError> {

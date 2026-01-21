@@ -89,7 +89,6 @@ export function FileList() {
     selectedFile,
     setSelectedFile,
     activePanel,
-    viewMode,
     setViewMode,
     setShowDiffPanel,
   } = useUIStore();

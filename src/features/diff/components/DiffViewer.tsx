@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useEffect } from 'react';
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { parsePatchFiles } from '@pierre/diffs';
 import { FileDiff } from '@pierre/diffs/react';

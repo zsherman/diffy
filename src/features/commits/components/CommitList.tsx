@@ -1,7 +1,8 @@
-import React, { useMemo, useState, useCallback, useEffect, memo, useRef } from 'react';
+import { useMemo, useState, useCallback, useEffect, memo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { VList } from 'virtua';
 import type { VListHandle } from 'virtua';
+import { PencilSimple } from '@phosphor-icons/react';
 import { getCommitHistory, getCommitGraph } from '../../../lib/tauri';
 import { useGitStore } from '../../../stores/git-store';
 import { useUIStore } from '../../../stores/ui-store';
@@ -25,6 +26,13 @@ function formatTimeAgo(timestamp: number): string {
   return `${Math.floor(diff / 31536000)}y ago`;
 }
 
+// Extract commit body (message without the summary line)
+function getCommitBody(commit: CommitInfo): string {
+  const body = commit.message.slice(commit.summary.length).trim();
+  // Replace newlines with spaces for single-line display
+  return body.replace(/\n+/g, ' ');
+}
+
 // Memoized commit row component
 const CommitRow = memo(function CommitRow({
   commit,
@@ -37,6 +45,8 @@ const CommitRow = memo(function CommitRow({
   isFocused: boolean;
   onClick: () => void;
 }) {
+  const body = getCommitBody(commit);
+
   return (
     <div
       className={`flex items-center cursor-pointer h-12 ${
@@ -46,18 +56,38 @@ const CommitRow = memo(function CommitRow({
     >
       <div style={{ width: GRAPH_WIDTH, flexShrink: 0 }} />
       <div className="flex-1 min-w-0 px-2 py-1">
-        <div className="flex items-center gap-2">
-          <span className="text-accent-yellow font-mono text-xs">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-accent-yellow font-mono text-xs shrink-0">
             {commit.short_id}
           </span>
-          <span className="text-text-primary text-sm truncate flex-1">
+          <span className="text-text-primary text-sm truncate">
             {commit.summary}
           </span>
+          {body && (
+            <span className="text-text-muted text-sm truncate">
+              - {body}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2 text-xs text-text-muted">
           <span>{commit.author_name}</span>
           <span>•</span>
           <span>{formatTimeAgo(commit.time)}</span>
+          {commit.files_changed > 0 && (
+            <>
+              <span>•</span>
+              <span className="flex items-center gap-1">
+                <PencilSimple size={12} weight="bold" />
+                {commit.files_changed}
+              </span>
+              {commit.additions > 0 && (
+                <span className="text-accent-green">+{commit.additions}</span>
+              )}
+              {commit.deletions > 0 && (
+                <span className="text-accent-red">-{commit.deletions}</span>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>

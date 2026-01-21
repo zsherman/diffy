@@ -1,5 +1,4 @@
-import React from 'react';
-import type { GraphNode, CommitGraph as CommitGraphType } from '../../../types/git';
+import type { CommitGraph as CommitGraphType } from '../../../types/git';
 
 interface CommitGraphProps {
   graph: CommitGraphType;

@@ -23,6 +23,9 @@ export interface CommitInfo {
   author_email: string;
   time: number;
   parent_ids: string[];
+  files_changed: number;
+  additions: number;
+  deletions: number;
 }
 
 export interface GraphNode {
