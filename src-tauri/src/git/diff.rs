@@ -85,6 +85,8 @@ pub fn get_working_diff(repo: &Repository, staged: bool) -> Result<UnifiedDiff, 
         repo.diff_tree_to_index(Some(&head), None, Some(&mut opts))?
     } else {
         // Unstaged changes: index to workdir
+        // Include untracked files so newly added files show their content
+        opts.include_untracked(true);
         repo.diff_index_to_workdir(None, Some(&mut opts))?
     };
 

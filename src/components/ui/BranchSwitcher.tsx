@@ -9,7 +9,7 @@ import { getErrorMessage } from '../../lib/errors';
 import type { BranchInfo } from '../../types/git';
 
 export function BranchSwitcher() {
-  const { repository } = useGitStore();
+  const { repository, setHeadBranch } = useGitStore();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [inputValue, setInputValue] = useState('');
@@ -28,11 +28,16 @@ export function BranchSwitcher() {
     mutationFn: (branchName: string) => checkoutBranch(repository!.path, branchName),
     onSuccess: (_, branchName) => {
       toast.success('Branch switched', `Switched to ${branchName}`);
-      queryClient.invalidateQueries({ queryKey: ['branches'] });
-      queryClient.invalidateQueries({ queryKey: ['commits'] });
-      queryClient.invalidateQueries({ queryKey: ['graph'] });
-      queryClient.invalidateQueries({ queryKey: ['status'] });
-      queryClient.invalidateQueries({ queryKey: ['repository'] });
+      // Update the head branch in the store immediately
+      setHeadBranch(branchName);
+      // Invalidate all related queries
+      queryClient.invalidateQueries({ queryKey: ['branches'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['commits'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['graph'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['status'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['repository'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['working-diff-staged'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['working-diff-unstaged'], refetchType: 'all' });
     },
     onError: (error) => {
       const message = error instanceof Error ? error.message : String(error);
@@ -44,11 +49,16 @@ export function BranchSwitcher() {
     mutationFn: (branchName: string) => createBranch(repository!.path, branchName, true),
     onSuccess: (_, branchName) => {
       toast.success('Branch created', `Created and switched to ${branchName}`);
-      queryClient.invalidateQueries({ queryKey: ['branches'] });
-      queryClient.invalidateQueries({ queryKey: ['commits'] });
-      queryClient.invalidateQueries({ queryKey: ['graph'] });
-      queryClient.invalidateQueries({ queryKey: ['status'] });
-      queryClient.invalidateQueries({ queryKey: ['repository'] });
+      // Update the head branch in the store immediately
+      setHeadBranch(branchName);
+      // Invalidate all related queries
+      queryClient.invalidateQueries({ queryKey: ['branches'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['commits'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['graph'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['status'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['repository'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['working-diff-staged'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['working-diff-unstaged'], refetchType: 'all' });
       setNewBranchName('');
       setShowCreateForm(false);
       setOpen(false);

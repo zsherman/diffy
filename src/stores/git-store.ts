@@ -20,6 +20,12 @@ export const gitStore = createStore({
       produce(ctx, (draft) => {
         draft.repository = event.repository;
       }),
+    setHeadBranch: (ctx, event: { branch: string }) =>
+      produce(ctx, (draft) => {
+        if (draft.repository) {
+          draft.repository.head_branch = event.branch;
+        }
+      }),
     setIsLoading: (ctx, event: { isLoading: boolean }) =>
       produce(ctx, (draft) => {
         draft.isLoading = event.isLoading;
@@ -43,6 +49,8 @@ export function useGitStore() {
     error,
     setRepository: (repo: RepositoryInfo | null) =>
       gitStore.send({ type: 'setRepository', repository: repo }),
+    setHeadBranch: (branch: string) =>
+      gitStore.send({ type: 'setHeadBranch', branch }),
     setIsLoading: (loading: boolean) =>
       gitStore.send({ type: 'setIsLoading', isLoading: loading }),
     setError: (error: string | null) =>
