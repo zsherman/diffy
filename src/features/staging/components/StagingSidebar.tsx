@@ -168,11 +168,13 @@ export function StagingSidebar() {
   const commitMutation = useMutation({
     mutationFn: (message: string) => createCommit(repository!.path, message),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['status'] });
-      queryClient.invalidateQueries({ queryKey: ['commits'] });
-      queryClient.invalidateQueries({ queryKey: ['working-diff-staged'] });
-      queryClient.invalidateQueries({ queryKey: ['working-diff-unstaged'] });
-      queryClient.invalidateQueries({ queryKey: ['branches'] });
+      // Use refetchType: 'all' to ensure queries refetch even if not actively observed
+      queryClient.invalidateQueries({ queryKey: ['status'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['commits'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['graph'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['working-diff-staged'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['working-diff-unstaged'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['branches'], refetchType: 'all' });
       clearCommitForm();
       setIsCommitting(false);
     },
