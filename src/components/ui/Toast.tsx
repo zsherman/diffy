@@ -53,8 +53,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <Toast.Provider timeout={4000}>
       {children}
       <Toast.Portal>
-        <Toast.Viewport className="fixed bottom-4 right-4 flex flex-col gap-2 z-50" />
-        <ToastList />
+        <Toast.Viewport className="fixed bottom-4 right-4 flex flex-col gap-2 z-50">
+          <ToastList />
+        </Toast.Viewport>
       </Toast.Portal>
     </Toast.Provider>
   );

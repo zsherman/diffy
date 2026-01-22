@@ -17,6 +17,15 @@ export function StatusBar() {
   const [isPulling, setIsPulling] = useState(false);
   const [isPushing, setIsPushing] = useState(false);
 
+  const getErrorMessage = (error: unknown): string => {
+    if (typeof error === 'string') return error;
+    if (error instanceof Error) return error.message;
+    if (error && typeof error === 'object' && 'message' in error) {
+      return String((error as { message: unknown }).message);
+    }
+    return JSON.stringify(error);
+  };
+
   const hints: Record<string, string> = {
     branches: 'j/k:navigate | Enter:checkout | Tab:next panel',
     commits: 'j/k:navigate | Enter:select | Tab:next panel',
@@ -34,7 +43,8 @@ export function StatusBar() {
       queryClient.invalidateQueries({ queryKey: ['branches'] });
       queryClient.invalidateQueries({ queryKey: ['commits'] });
     } catch (error) {
-      toast.error('Fetch failed', String(error));
+      console.error('Fetch failed:', error);
+      toast.error('Fetch failed', getErrorMessage(error));
     } finally {
       setIsFetching(false);
     }
@@ -50,7 +60,8 @@ export function StatusBar() {
       queryClient.invalidateQueries({ queryKey: ['commits'] });
       queryClient.invalidateQueries({ queryKey: ['status'] });
     } catch (error) {
-      toast.error('Pull failed', String(error));
+      console.error('Pull failed:', error);
+      toast.error('Pull failed', getErrorMessage(error));
     } finally {
       setIsPulling(false);
     }
@@ -65,7 +76,8 @@ export function StatusBar() {
       queryClient.invalidateQueries({ queryKey: ['branches'] });
       queryClient.invalidateQueries({ queryKey: ['commits'] });
     } catch (error) {
-      toast.error('Push failed', String(error));
+      console.error('Push failed:', error);
+      toast.error('Push failed', getErrorMessage(error));
     } finally {
       setIsPushing(false);
     }

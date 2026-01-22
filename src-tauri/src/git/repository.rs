@@ -433,8 +433,9 @@ pub fn git_pull(repo_path: &str) -> Result<String, GitError> {
 }
 
 pub fn git_push(repo_path: &str) -> Result<String, GitError> {
+    // Use -u origin HEAD to automatically set upstream for new branches
     let output = Command::new("git")
-        .args(["push"])
+        .args(["push", "-u", "origin", "HEAD"])
         .current_dir(repo_path)
         .output()
         .map_err(|e| git2::Error::from_str(&format!("Failed to run git push: {}", e)))?;
