@@ -79,6 +79,19 @@ export async function discardChanges(repoPath: string, paths: string[]): Promise
   return invoke<void>('discard_changes', { repoPath, paths });
 }
 
+// Remote operations
+export async function gitFetch(repoPath: string): Promise<string> {
+  return invoke<string>('git_fetch', { repoPath });
+}
+
+export async function gitPull(repoPath: string): Promise<string> {
+  return invoke<string>('git_pull', { repoPath });
+}
+
+export async function gitPush(repoPath: string): Promise<string> {
+  return invoke<string>('git_push', { repoPath });
+}
+
 // Commit
 export async function createCommit(repoPath: string, message: string): Promise<string> {
   return invoke<string>('create_commit', { repoPath, message });

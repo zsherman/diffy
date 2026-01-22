@@ -32,7 +32,7 @@ export function RepoSelector() {
       if (repository) {
         await window.setTitle(repository.name);
       } else {
-        await window.setTitle('Git GUI');
+        await window.setTitle('Diffy');
       }
     };
     updateTitle();

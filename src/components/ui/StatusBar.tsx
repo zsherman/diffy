@@ -1,9 +1,21 @@
+import { useState } from 'react';
+import { Toolbar } from '@base-ui/react/toolbar';
+import { ArrowDown, ArrowUp, ArrowsClockwise, CloudArrowDown } from '@phosphor-icons/react';
 import { useGitStore } from '../../stores/git-store';
 import { useUIStore } from '../../stores/ui-store';
+import { useToast } from './Toast';
+import { gitFetch, gitPull, gitPush } from '../../lib/tauri';
+import { useQueryClient } from '@tanstack/react-query';
 
 export function StatusBar() {
   const { repository } = useGitStore();
   const { activePanel, diffViewMode } = useUIStore();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+
+  const [isFetching, setIsFetching] = useState(false);
+  const [isPulling, setIsPulling] = useState(false);
+  const [isPushing, setIsPushing] = useState(false);
 
   const hints: Record<string, string> = {
     branches: 'j/k:navigate | Enter:checkout | Tab:next panel',
@@ -13,10 +25,59 @@ export function StatusBar() {
     staging: 'Stage/unstage files | Enter:commit',
   };
 
+  const handleFetch = async () => {
+    if (!repository || isFetching) return;
+    setIsFetching(true);
+    try {
+      await gitFetch(repository.path);
+      toast.success('Fetch complete', 'Successfully fetched from remote');
+      queryClient.invalidateQueries({ queryKey: ['branches'] });
+      queryClient.invalidateQueries({ queryKey: ['commits'] });
+    } catch (error) {
+      toast.error('Fetch failed', String(error));
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
+  const handlePull = async () => {
+    if (!repository || isPulling) return;
+    setIsPulling(true);
+    try {
+      const result = await gitPull(repository.path);
+      toast.success('Pull complete', result || 'Successfully pulled from remote');
+      queryClient.invalidateQueries({ queryKey: ['branches'] });
+      queryClient.invalidateQueries({ queryKey: ['commits'] });
+      queryClient.invalidateQueries({ queryKey: ['status'] });
+    } catch (error) {
+      toast.error('Pull failed', String(error));
+    } finally {
+      setIsPulling(false);
+    }
+  };
+
+  const handlePush = async () => {
+    if (!repository || isPushing) return;
+    setIsPushing(true);
+    try {
+      await gitPush(repository.path);
+      toast.success('Push complete', 'Successfully pushed to remote');
+      queryClient.invalidateQueries({ queryKey: ['branches'] });
+      queryClient.invalidateQueries({ queryKey: ['commits'] });
+    } catch (error) {
+      toast.error('Push failed', String(error));
+    } finally {
+      setIsPushing(false);
+    }
+  };
+
+  const toolbarButtonClass =
+    'flex items-center gap-1.5 px-2 py-1 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-blue';
+
   return (
-    <div className="flex items-center justify-between px-3 py-1.5 bg-bg-tertiary border-t border-border-primary text-xs">
-      {/* Left: Branch and sync status */}
-      <div className="flex items-center gap-3">
+    <div className="flex items-center justify-between px-3 py-1 bg-bg-tertiary border-t border-border-primary text-xs">
+      {/* Left: Branch and git actions */}
+      <div className="flex items-center gap-2">
         {repository?.head_branch && (
           <span className="flex items-center gap-1 text-accent-green">
             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16">
@@ -28,13 +89,62 @@ export function StatusBar() {
             {repository.head_branch}
           </span>
         )}
+
+        {/* Git actions toolbar */}
+        {repository && (
+          <>
+            <div className="w-px h-4 bg-border-primary mx-1" />
+            <Toolbar.Root className="flex items-center gap-0.5">
+              <Toolbar.Button
+                className={toolbarButtonClass}
+                onClick={handleFetch}
+                disabled={isFetching}
+              >
+                {isFetching ? (
+                  <ArrowsClockwise size={14} weight="bold" className="animate-spin" />
+                ) : (
+                  <CloudArrowDown size={14} weight="bold" />
+                )}
+                <span className="hidden sm:inline">Fetch</span>
+              </Toolbar.Button>
+
+              <Toolbar.Button
+                className={toolbarButtonClass}
+                onClick={handlePull}
+                disabled={isPulling}
+              >
+                {isPulling ? (
+                  <ArrowsClockwise size={14} weight="bold" className="animate-spin" />
+                ) : (
+                  <ArrowDown size={14} weight="bold" />
+                )}
+                <span className="hidden sm:inline">Pull</span>
+              </Toolbar.Button>
+
+              <Toolbar.Button
+                className={toolbarButtonClass}
+                onClick={handlePush}
+                disabled={isPushing}
+              >
+                {isPushing ? (
+                  <ArrowsClockwise size={14} weight="bold" className="animate-spin" />
+                ) : (
+                  <ArrowUp size={14} weight="bold" />
+                )}
+                <span className="hidden sm:inline">Push</span>
+              </Toolbar.Button>
+            </Toolbar.Root>
+          </>
+        )}
+
+        <div className="w-px h-4 bg-border-primary mx-1" />
         <span className="text-text-muted">
           View: {diffViewMode === 'split' ? 'Split' : 'Unified'}
         </span>
       </div>
 
       {/* Center: Context-sensitive hints */}
-      <div className="text-text-muted">{hints[activePanel]}</div>
+      <div className="text-text-muted hidden md:block">{hints[activePanel]}</div>
 
       {/* Right: Help shortcut */}
       <div className="flex items-center gap-2 text-text-muted">

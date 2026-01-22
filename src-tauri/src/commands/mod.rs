@@ -98,3 +98,18 @@ pub async fn create_commit(repo_path: String, message: String) -> Result<String>
     let repo = git::open_repo(&repo_path).map_err(map_err)?;
     git::create_commit(&repo, &message).map_err(map_err)
 }
+
+#[tauri::command]
+pub async fn git_fetch(repo_path: String) -> Result<String> {
+    git::git_fetch(&repo_path).map_err(map_err)
+}
+
+#[tauri::command]
+pub async fn git_pull(repo_path: String) -> Result<String> {
+    git::git_pull(&repo_path).map_err(map_err)
+}
+
+#[tauri::command]
+pub async fn git_push(repo_path: String) -> Result<String> {
+    git::git_push(&repo_path).map_err(map_err)
+}

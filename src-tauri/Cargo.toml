@@ -1,12 +1,12 @@
 [package]
-name = "git-gui"
+name = "diffy"
 version = "0.1.0"
 description = "A modern Git GUI application"
 authors = ["you"]
 edition = "2021"
 
 [lib]
-name = "git_gui_lib"
+name = "diffy_lib"
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [build-dependencies]

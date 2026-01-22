@@ -14,7 +14,7 @@ import {
   StagingPanel,
 } from './panels';
 
-const LAYOUT_STORAGE_KEY = 'git-gui-dockview-layout';
+const LAYOUT_STORAGE_KEY = 'diffy-dockview-layout';
 
 // Press Ctrl+Shift+L to reset layout to default
 if (typeof window !== 'undefined') {

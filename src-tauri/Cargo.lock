@@ -504,6 +504,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "diffy"
+version = "0.1.0"
+dependencies = [
+ "git2",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-shell",
+ "thiserror 1.0.69",
+ "tokio",
+]
+
+[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1019,21 +1034,6 @@ dependencies = [
  "libc",
  "system-deps",
  "winapi",
-]
-
-[[package]]
-name = "git-gui"
-version = "0.1.0"
-dependencies = [
- "git2",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-shell",
- "thiserror 1.0.69",
- "tokio",
 ]
 
 [[package]]

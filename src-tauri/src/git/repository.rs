@@ -395,3 +395,57 @@ pub fn checkout_branch(repo: &Repository, branch_name: &str) -> Result<(), GitEr
 
     Ok(())
 }
+
+// Remote operations - using git CLI for better credential handling
+use std::process::Command;
+
+pub fn git_fetch(repo_path: &str) -> Result<String, GitError> {
+    let output = Command::new("git")
+        .args(["fetch", "--all", "--prune"])
+        .current_dir(repo_path)
+        .output()
+        .map_err(|e| git2::Error::from_str(&format!("Failed to run git fetch: {}", e)))?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Ok(format!("{}{}", stdout, stderr).trim().to_string())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(git2::Error::from_str(&format!("git fetch failed: {}", stderr)).into())
+    }
+}
+
+pub fn git_pull(repo_path: &str) -> Result<String, GitError> {
+    let output = Command::new("git")
+        .args(["pull"])
+        .current_dir(repo_path)
+        .output()
+        .map_err(|e| git2::Error::from_str(&format!("Failed to run git pull: {}", e)))?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        Ok(stdout.trim().to_string())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(git2::Error::from_str(&format!("git pull failed: {}", stderr)).into())
+    }
+}
+
+pub fn git_push(repo_path: &str) -> Result<String, GitError> {
+    let output = Command::new("git")
+        .args(["push"])
+        .current_dir(repo_path)
+        .output()
+        .map_err(|e| git2::Error::from_str(&format!("Failed to run git push: {}", e)))?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        // git push outputs to stderr even on success
+        Ok(format!("{}{}", stdout, stderr).trim().to_string())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(git2::Error::from_str(&format!("git push failed: {}", stderr)).into())
+    }
+}

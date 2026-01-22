@@ -22,6 +22,9 @@ pub fn run() {
             commands::unstage_files,
             commands::discard_changes,
             commands::create_commit,
+            commands::git_fetch,
+            commands::git_pull,
+            commands::git_push,
         ])
         .setup(|app| {
             #[cfg(debug_assertions)]
