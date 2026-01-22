@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import type { IDockviewHeaderActionsProps } from 'dockview-react';
-import { ArrowsOutSimple, ArrowsInSimple, Rows, SplitHorizontal } from '@phosphor-icons/react';
+import { ArrowsOutSimple, ArrowsInSimple, Rows, SplitHorizontal, Sparkle } from '@phosphor-icons/react';
 import { useUIStore } from '../../stores/ui-store';
 
 export function DockviewHeaderActions({ containerApi, group }: IDockviewHeaderActionsProps) {
   const [isMaximized, setIsMaximized] = useState(() => group.api.isMaximized());
-  const { diffViewMode, setDiffViewMode } = useUIStore();
+  const { diffViewMode, setDiffViewMode, showAIReviewPanel, setShowAIReviewPanel } = useUIStore();
 
   // Check if this group contains the diff panel
   const isDiffPanel = group.panels.some((panel) => panel.id === 'diff');
@@ -50,6 +50,18 @@ export function DockviewHeaderActions({ containerApi, group }: IDockviewHeaderAc
             title="Split view"
           >
             <SplitHorizontal size={14} weight="bold" />
+          </button>
+          <div className="w-px h-3 bg-white/20 mx-1" />
+          <button
+            onClick={() => setShowAIReviewPanel(!showAIReviewPanel)}
+            className={`p-1 rounded transition-colors ${
+              showAIReviewPanel
+                ? 'bg-accent-purple/30 text-accent-purple'
+                : 'hover:bg-white/10 text-white/60 hover:text-white'
+            }`}
+            title={showAIReviewPanel ? 'Hide AI Review' : 'Show AI Review'}
+          >
+            <Sparkle size={14} weight="bold" />
           </button>
           <div className="w-px h-3 bg-white/20 mx-1" />
         </>

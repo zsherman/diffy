@@ -1,5 +1,6 @@
 import { createStore } from '@xstate/store';
 import { useSelector } from '@xstate/store/react';
+import { produce } from 'immer';
 import type { RepositoryInfo } from '../types/git';
 
 interface GitContext {
@@ -15,18 +16,18 @@ export const gitStore = createStore({
     error: null,
   } as GitContext,
   on: {
-    setRepository: (ctx, event: { repository: RepositoryInfo | null }) => ({
-      ...ctx,
-      repository: event.repository,
-    }),
-    setIsLoading: (ctx, event: { isLoading: boolean }) => ({
-      ...ctx,
-      isLoading: event.isLoading,
-    }),
-    setError: (ctx, event: { error: string | null }) => ({
-      ...ctx,
-      error: event.error,
-    }),
+    setRepository: (ctx, event: { repository: RepositoryInfo | null }) =>
+      produce(ctx, (draft) => {
+        draft.repository = event.repository;
+      }),
+    setIsLoading: (ctx, event: { isLoading: boolean }) =>
+      produce(ctx, (draft) => {
+        draft.isLoading = event.isLoading;
+      }),
+    setError: (ctx, event: { error: string | null }) =>
+      produce(ctx, (draft) => {
+        draft.error = event.error;
+      }),
   },
 });
 

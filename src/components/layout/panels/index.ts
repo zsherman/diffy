@@ -3,3 +3,4 @@ export { CommitsPanel } from './CommitsPanel';
 export { FilesPanel } from './FilesPanel';
 export { DiffPanel } from './DiffPanel';
 export { StagingPanel } from './StagingPanel';
+export { AIReviewPanel } from './AIReviewPanel';

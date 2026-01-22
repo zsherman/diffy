@@ -7,6 +7,7 @@ import type {
   StatusInfo,
   UnifiedDiff,
   FileDiff,
+  AIReviewData,
 } from '../types/git';
 
 // Repository
@@ -100,4 +101,49 @@ export async function createCommit(repoPath: string, message: string): Promise<s
 // AI
 export async function generateCommitMessage(repoPath: string): Promise<string> {
   return invoke<string>('generate_commit_message', { repoPath });
+}
+
+export interface IssueToFix {
+  issueType: 'bug' | 'file_comment';
+  title: string;
+  description: string;
+  filePath?: string;
+}
+
+export async function generateAIReview(repoPath: string, commitId?: string): Promise<AIReviewData> {
+  const result = await invoke<{
+    overview: string;
+    potential_bugs: Array<{ title: string; description: string; severity: string }>;
+    file_comments: Array<{ file_path: string; severity: string; title: string; explanation: string }>;
+    generated_at: number;
+  }>('generate_ai_review', { repoPath, commitId });
+
+  // Transform snake_case to camelCase
+  return {
+    overview: result.overview,
+    potentialBugs: result.potential_bugs.map((bug) => ({
+      title: bug.title,
+      description: bug.description,
+      severity: bug.severity as 'low' | 'medium' | 'high',
+    })),
+    fileComments: result.file_comments.map((comment) => ({
+      filePath: comment.file_path,
+      severity: comment.severity as 'info' | 'warning' | 'error',
+      title: comment.title,
+      explanation: comment.explanation,
+    })),
+    generatedAt: result.generated_at,
+  };
+}
+
+export async function fixAIReviewIssues(repoPath: string, issues: IssueToFix[]): Promise<string> {
+  // Transform camelCase to snake_case for Rust
+  const transformedIssues = issues.map((issue) => ({
+    issue_type: issue.issueType,
+    title: issue.title,
+    description: issue.description,
+    file_path: issue.filePath,
+  }));
+
+  return invoke<string>('fix_ai_review_issues', { repoPath, issues: transformedIssues });
 }

@@ -215,6 +215,42 @@ export const layoutPresets: LayoutPreset[] = [
       }
     },
   },
+  {
+    id: 'ai-review',
+    name: 'AI Review',
+    description: 'Files on left, diff in center, AI Review on right',
+    apply: (api) => {
+      clearLayout(api);
+
+      const filesPanel = api.addPanel({
+        id: 'files',
+        component: 'files',
+        title: 'Files',
+      });
+
+      const diffPanel = api.addPanel({
+        id: 'diff',
+        component: 'diff',
+        title: 'Diff',
+        position: { referencePanel: filesPanel, direction: 'right' },
+      });
+
+      api.addPanel({
+        id: 'ai-review',
+        component: 'ai-review',
+        title: 'AI Review',
+        position: { referencePanel: diffPanel, direction: 'right' },
+      });
+
+      // Set sizes: 20% files, 45% diff, 35% review
+      const groups = api.groups;
+      if (groups.length >= 3) {
+        groups[0].api.setSize({ width: 220 });
+        groups[1].api.setSize({ width: 495 });
+        groups[2].api.setSize({ width: 385 });
+      }
+    },
+  },
 ];
 
 export function applyLayout(api: DockviewApi, layoutId: string) {

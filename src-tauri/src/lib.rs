@@ -26,6 +26,8 @@ pub fn run() {
             commands::git_pull,
             commands::git_push,
             commands::generate_commit_message,
+            commands::generate_ai_review,
+            commands::fix_ai_review_issues,
         ])
         .setup(|app| {
             #[cfg(debug_assertions)]

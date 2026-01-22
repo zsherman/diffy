@@ -2,14 +2,14 @@ import { useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { open } from '@tauri-apps/plugin-dialog';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { Sidebar, FolderOpen, GitBranch } from '@phosphor-icons/react';
+import { Sidebar, FolderOpen, GitBranch, TreeStructure } from '@phosphor-icons/react';
 import { openRepository, discoverRepository, getStatus } from '../../../lib/tauri';
 import { useGitStore } from '../../../stores/git-store';
 import { useUIStore } from '../../../stores/ui-store';
 
 export function RepoSelector() {
   const { repository, setRepository, setError, isLoading, setIsLoading } = useGitStore();
-  const { showStagingSidebar, toggleStagingSidebar } = useUIStore();
+  const { showBranchesPanel, toggleBranchesPanel, showStagingSidebar, toggleStagingSidebar } = useUIStore();
 
   // Fetch working directory status for badge count
   const { data: status } = useQuery({
@@ -74,7 +74,22 @@ export function RepoSelector() {
       data-tauri-drag-region
       className="flex items-center gap-3 pl-[78px] pr-3 h-[38px] bg-bg-tertiary border-b border-border-primary select-none"
     >
-      {/* Branch indicator - far left */}
+      {/* Branches panel toggle - far left */}
+      {repository && (
+        <button
+          onClick={toggleBranchesPanel}
+          className={`p-1.5 rounded-md transition-colors ${
+            showBranchesPanel
+              ? 'bg-accent-blue/20 text-accent-blue'
+              : 'hover:bg-bg-hover text-text-muted hover:text-text-primary'
+          }`}
+          title="Toggle Branches Panel"
+        >
+          <TreeStructure size={18} weight={showBranchesPanel ? 'fill' : 'regular'} />
+        </button>
+      )}
+
+      {/* Branch indicator */}
       {repository?.head_branch && (
         <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-bg-hover text-xs">
           <GitBranch size={14} weight="bold" className="text-accent-green" />

@@ -76,6 +76,26 @@ export interface FileDiff {
   patch: string;
 }
 
-export type PanelId = 'branches' | 'commits' | 'files' | 'diff' | 'staging';
+export type PanelId = 'branches' | 'commits' | 'files' | 'diff' | 'staging' | 'ai-review';
 
 export type ViewMode = 'working' | 'commit';
+
+export interface AIReviewBug {
+  title: string;
+  description: string;
+  severity: 'low' | 'medium' | 'high';
+}
+
+export interface AIReviewFileComment {
+  filePath: string;
+  severity: 'info' | 'warning' | 'error';
+  title: string;
+  explanation: string;
+}
+
+export interface AIReviewData {
+  overview: string;
+  potentialBugs: AIReviewBug[];
+  fileComments: AIReviewFileComment[];
+  generatedAt: number;
+}

@@ -1,0 +1,100 @@
+import { useState } from 'react';
+import { Dialog } from '@base-ui/react/dialog';
+import { X, Sliders, Minus, Plus } from '@phosphor-icons/react';
+import { useUIStore } from '../../stores/ui-store';
+
+type SettingsSection = 'diff';
+
+const sections: { id: SettingsSection; label: string }[] = [
+  { id: 'diff', label: 'Diff' },
+];
+
+export function SettingsDialog() {
+  const { showSettingsDialog, setShowSettingsDialog, diffFontSize, setDiffFontSize } = useUIStore();
+  const [activeSection, setActiveSection] = useState<SettingsSection>('diff');
+
+  const handleFontSizeChange = (delta: number) => {
+    const newSize = Math.min(24, Math.max(10, diffFontSize + delta));
+    setDiffFontSize(newSize);
+  };
+
+  return (
+    <Dialog.Root open={showSettingsDialog} onOpenChange={setShowSettingsDialog}>
+      <Dialog.Portal>
+        <Dialog.Backdrop className="fixed inset-0 z-50 bg-black/50 transition-opacity" />
+        <Dialog.Popup className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-[600px] max-w-[90vw] max-h-[80vh] bg-bg-secondary rounded-lg shadow-xl border border-border-primary flex flex-col overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border-primary">
+            <Dialog.Title className="flex items-center gap-2 text-sm font-medium text-text-primary">
+              <Sliders size={16} weight="bold" />
+              Settings
+            </Dialog.Title>
+            <Dialog.Close className="p-1 rounded hover:bg-bg-hover transition-colors text-text-muted hover:text-text-primary">
+              <X size={16} weight="bold" />
+            </Dialog.Close>
+          </div>
+
+          {/* Content */}
+          <div className="flex flex-1 min-h-0">
+            {/* Left sidebar - sections */}
+            <div className="w-40 border-r border-border-primary bg-bg-tertiary p-2 flex flex-col gap-1">
+              {sections.map((section) => (
+                <button
+                  key={section.id}
+                  onClick={() => setActiveSection(section.id)}
+                  className={`px-3 py-2 rounded text-sm text-left transition-colors ${
+                    activeSection === section.id
+                      ? 'bg-accent-blue/20 text-accent-blue'
+                      : 'text-text-muted hover:bg-bg-hover hover:text-text-primary'
+                  }`}
+                >
+                  {section.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Right content */}
+            <div className="flex-1 p-4 overflow-auto">
+              {activeSection === 'diff' && (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-sm font-medium text-text-primary mb-4">Diff Settings</h3>
+
+                    {/* Font Size */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="text-sm text-text-primary">Font Size</label>
+                        <p className="text-xs text-text-muted mt-0.5">
+                          Adjust the text size in diff views
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleFontSizeChange(-1)}
+                          disabled={diffFontSize <= 10}
+                          className="p-1.5 rounded bg-bg-hover hover:bg-bg-tertiary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Minus size={14} weight="bold" className="text-text-muted" />
+                        </button>
+                        <span className="w-12 text-center text-sm text-text-primary tabular-nums">
+                          {diffFontSize}px
+                        </span>
+                        <button
+                          onClick={() => handleFontSizeChange(1)}
+                          disabled={diffFontSize >= 24}
+                          className="p-1.5 rounded bg-bg-hover hover:bg-bg-tertiary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Plus size={14} weight="bold" className="text-text-muted" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </Dialog.Popup>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}

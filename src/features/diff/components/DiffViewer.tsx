@@ -39,11 +39,13 @@ const CollapsibleFileDiff = memo(function CollapsibleFileDiff({
   fileDiff,
   diffStyle,
   defaultCollapsed,
+  fontSize,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   fileDiff: any;
   diffStyle: 'split' | 'unified';
   defaultCollapsed?: boolean;
+  fontSize: number;
 }) {
   const lineCount = getDiffLineCount(fileDiff);
   const isLargeDiff = lineCount > LARGE_DIFF_THRESHOLD;
@@ -92,14 +94,16 @@ const CollapsibleFileDiff = memo(function CollapsibleFileDiff({
         </span>
       </button>
       {!isCollapsed && (
-        <FileDiff
-          fileDiff={fileDiff}
-          options={{
-            diffStyle,
-            themeType: 'dark',
-            disableFileHeader: true,
-          }}
-        />
+        <div style={{ '--diffs-font-size': `${fontSize}px` } as React.CSSProperties}>
+          <FileDiff
+            fileDiff={fileDiff}
+            options={{
+              diffStyle,
+              themeType: 'dark',
+              disableFileHeader: true,
+            }}
+          />
+        </div>
       )}
     </div>
   );
@@ -111,11 +115,13 @@ function SingleFileDiff({
   commitId,
   filePath,
   diffViewMode,
+  fontSize,
 }: {
   repoPath: string;
   commitId: string;
   filePath: string;
   diffViewMode: 'split' | 'unified';
+  fontSize: number;
 }) {
   const { data: fileDiff, isLoading } = useQuery({
     queryKey: ['file-diff', repoPath, commitId, filePath],
@@ -151,19 +157,21 @@ function SingleFileDiff({
   }
 
   return (
-    <FileDiff
-      fileDiff={parsedFile}
-      options={{
-        diffStyle: diffViewMode === 'split' ? 'split' : 'unified',
-        themeType: 'dark',
-      }}
-    />
+    <div style={{ '--diffs-font-size': `${fontSize}px` } as React.CSSProperties}>
+      <FileDiff
+        fileDiff={parsedFile}
+        options={{
+          diffStyle: diffViewMode === 'split' ? 'split' : 'unified',
+          themeType: 'dark',
+        }}
+      />
+    </div>
   );
 }
 
 export function DiffViewer() {
   const { repository } = useGitStore();
-  const { selectedCommit, selectedFile, diffViewMode } = useUIStore();
+  const { selectedCommit, selectedFile, diffViewMode, diffFontSize } = useUIStore();
 
   // Only fetch working diff when no commit is selected
   const { data: stagedDiff, isLoading: stagedLoading } = useQuery({
@@ -244,6 +252,7 @@ export function DiffViewer() {
             commitId={selectedCommit}
             filePath={selectedFile}
             diffViewMode={diffViewMode}
+            fontSize={diffFontSize}
           />
         </div>
       );
@@ -278,6 +287,7 @@ export function DiffViewer() {
             key={fileDiff.name || fileDiff.prevName || index}
             fileDiff={fileDiff}
             diffStyle={diffViewMode === 'split' ? 'split' : 'unified'}
+            fontSize={diffFontSize}
           />
         ))}
       </VList>
@@ -313,6 +323,7 @@ export function DiffViewer() {
           key={fileDiff.name || fileDiff.prevName || index}
           fileDiff={fileDiff}
           diffStyle={diffViewMode === 'split' ? 'split' : 'unified'}
+          fontSize={diffFontSize}
         />
       ))}
     </VList>

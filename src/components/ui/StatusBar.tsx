@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Toolbar } from '@base-ui/react/toolbar';
-import { ArrowDown, ArrowUp, ArrowsClockwise, CloudArrowDown } from '@phosphor-icons/react';
+import { ArrowDown, ArrowUp, ArrowsClockwise, CloudArrowDown, GearSix } from '@phosphor-icons/react';
 import { useGitStore } from '../../stores/git-store';
 import { useUIStore } from '../../stores/ui-store';
 import { useToast } from './Toast';
@@ -11,7 +11,7 @@ import { LayoutSwitcher } from './LayoutSwitcher';
 
 export function StatusBar() {
   const { repository } = useGitStore();
-  const { activePanel } = useUIStore();
+  const { activePanel, setShowSettingsDialog } = useUIStore();
   const toast = useToast();
   const queryClient = useQueryClient();
 
@@ -148,10 +148,19 @@ export function StatusBar() {
       {/* Center: Context-sensitive hints */}
       <div className="text-text-muted hidden md:block">{hints[activePanel]}</div>
 
-      {/* Right: Help shortcut */}
-      <div className="flex items-center gap-2 text-text-muted">
-        <span className="px-1.5 py-0.5 bg-bg-hover rounded text-xs">?</span>
-        <span>help</span>
+      {/* Right: Settings and Help */}
+      <div className="flex items-center gap-3 text-text-muted">
+        <button
+          onClick={() => setShowSettingsDialog(true)}
+          className="p-1 rounded hover:bg-bg-hover transition-colors hover:text-text-primary"
+          title="Settings"
+        >
+          <GearSix size={16} weight="bold" />
+        </button>
+        <div className="flex items-center gap-2">
+          <span className="px-1.5 py-0.5 bg-bg-hover rounded text-xs">?</span>
+          <span>help</span>
+        </div>
       </div>
     </div>
   );

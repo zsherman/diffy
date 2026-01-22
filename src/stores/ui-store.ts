@@ -1,7 +1,8 @@
 import { createStore } from '@xstate/store';
 import { useSelector } from '@xstate/store/react';
+import { produce } from 'immer';
 import type { DockviewApi } from 'dockview-react';
-import type { PanelId, ViewMode } from '../types/git';
+import type { PanelId, ViewMode, AIReviewData } from '../types/git';
 
 // Dockview API reference (stored outside of xstate store for direct access)
 let dockviewApiRef: DockviewApi | null = null;
@@ -29,7 +30,9 @@ interface UIContext {
   // UI state
   showHelpOverlay: boolean;
   showCommandPalette: boolean;
+  showSettingsDialog: boolean;
   diffViewMode: 'split' | 'unified';
+  diffFontSize: number;
 
   // Panel sizes (percentages)
   branchesPanelSize: number;
@@ -47,8 +50,15 @@ interface UIContext {
   amendPreviousCommit: boolean;
 
   // Collapsible panels
+  showBranchesPanel: boolean;
   showFilesPanel: boolean;
   showDiffPanel: boolean;
+
+  // AI Review panel
+  showAIReviewPanel: boolean;
+  aiReview: AIReviewData | null;
+  aiReviewLoading: boolean;
+  aiReviewError: string | null;
 }
 
 export const uiStore = createStore({
@@ -60,7 +70,9 @@ export const uiStore = createStore({
     selectedFile: null,
     showHelpOverlay: false,
     showCommandPalette: false,
+    showSettingsDialog: false,
     diffViewMode: 'unified',
+    diffFontSize: 13,
     branchesPanelSize: 15,
     commitsPanelSize: 35,
     filesPanelSize: 50,
@@ -70,93 +82,135 @@ export const uiStore = createStore({
     commitMessage: '',
     commitDescription: '',
     amendPreviousCommit: false,
+    showBranchesPanel: false,
     showFilesPanel: true,
     showDiffPanel: true,
+    showAIReviewPanel: false,
+    aiReview: null,
+    aiReviewLoading: false,
+    aiReviewError: null,
   } as UIContext,
   on: {
-    setActivePanel: (ctx, event: { panel: PanelId }) => ({
-      ...ctx,
-      activePanel: event.panel,
-    }),
-    setViewMode: (ctx, event: { mode: ViewMode }) => ({
-      ...ctx,
-      viewMode: event.mode,
-    }),
-    setSelectedBranch: (ctx, event: { branch: string | null }) => ({
-      ...ctx,
-      selectedBranch: event.branch,
-    }),
-    setSelectedCommit: (ctx, event: { commit: string | null }) => ({
-      ...ctx,
-      selectedCommit: event.commit,
-    }),
-    setSelectedFile: (ctx, event: { file: string | null }) => ({
-      ...ctx,
-      selectedFile: event.file,
-    }),
-    setShowHelpOverlay: (ctx, event: { show: boolean }) => ({
-      ...ctx,
-      showHelpOverlay: event.show,
-    }),
-    setShowCommandPalette: (ctx, event: { show: boolean }) => ({
-      ...ctx,
-      showCommandPalette: event.show,
-    }),
-    setDiffViewMode: (ctx, event: { mode: 'split' | 'unified' }) => ({
-      ...ctx,
-      diffViewMode: event.mode,
-    }),
+    setActivePanel: (ctx, event: { panel: PanelId }) =>
+      produce(ctx, (draft) => {
+        draft.activePanel = event.panel;
+      }),
+    setViewMode: (ctx, event: { mode: ViewMode }) =>
+      produce(ctx, (draft) => {
+        draft.viewMode = event.mode;
+      }),
+    setSelectedBranch: (ctx, event: { branch: string | null }) =>
+      produce(ctx, (draft) => {
+        draft.selectedBranch = event.branch;
+      }),
+    setSelectedCommit: (ctx, event: { commit: string | null }) =>
+      produce(ctx, (draft) => {
+        draft.selectedCommit = event.commit;
+      }),
+    setSelectedFile: (ctx, event: { file: string | null }) =>
+      produce(ctx, (draft) => {
+        draft.selectedFile = event.file;
+      }),
+    setShowHelpOverlay: (ctx, event: { show: boolean }) =>
+      produce(ctx, (draft) => {
+        draft.showHelpOverlay = event.show;
+      }),
+    setShowCommandPalette: (ctx, event: { show: boolean }) =>
+      produce(ctx, (draft) => {
+        draft.showCommandPalette = event.show;
+      }),
+    setShowSettingsDialog: (ctx, event: { show: boolean }) =>
+      produce(ctx, (draft) => {
+        draft.showSettingsDialog = event.show;
+      }),
+    setDiffViewMode: (ctx, event: { mode: 'split' | 'unified' }) =>
+      produce(ctx, (draft) => {
+        draft.diffViewMode = event.mode;
+      }),
+    setDiffFontSize: (ctx, event: { size: number }) =>
+      produce(ctx, (draft) => {
+        draft.diffFontSize = event.size;
+      }),
     setPanelSizes: (
       ctx,
       event: { branches: number; commits: number; files: number }
-    ) => ({
-      ...ctx,
-      branchesPanelSize: event.branches,
-      commitsPanelSize: event.commits,
-      filesPanelSize: event.files,
-    }),
-    setBranchFilter: (ctx, event: { filter: string }) => ({
-      ...ctx,
-      branchFilter: event.filter,
-    }),
-    setCommitFilter: (ctx, event: { filter: string }) => ({
-      ...ctx,
-      commitFilter: event.filter,
-    }),
-    setShowStagingSidebar: (ctx, event: { show: boolean }) => ({
-      ...ctx,
-      showStagingSidebar: event.show,
-    }),
-    toggleStagingSidebar: (ctx) => ({
-      ...ctx,
-      showStagingSidebar: !ctx.showStagingSidebar,
-    }),
-    setCommitMessage: (ctx, event: { message: string }) => ({
-      ...ctx,
-      commitMessage: event.message,
-    }),
-    setCommitDescription: (ctx, event: { description: string }) => ({
-      ...ctx,
-      commitDescription: event.description,
-    }),
-    setAmendPreviousCommit: (ctx, event: { amend: boolean }) => ({
-      ...ctx,
-      amendPreviousCommit: event.amend,
-    }),
-    clearCommitForm: (ctx) => ({
-      ...ctx,
-      commitMessage: '',
-      commitDescription: '',
-      amendPreviousCommit: false,
-    }),
-    setShowFilesPanel: (ctx, event: { show: boolean }) => ({
-      ...ctx,
-      showFilesPanel: event.show,
-    }),
-    setShowDiffPanel: (ctx, event: { show: boolean }) => ({
-      ...ctx,
-      showDiffPanel: event.show,
-    }),
+    ) =>
+      produce(ctx, (draft) => {
+        draft.branchesPanelSize = event.branches;
+        draft.commitsPanelSize = event.commits;
+        draft.filesPanelSize = event.files;
+      }),
+    setBranchFilter: (ctx, event: { filter: string }) =>
+      produce(ctx, (draft) => {
+        draft.branchFilter = event.filter;
+      }),
+    setCommitFilter: (ctx, event: { filter: string }) =>
+      produce(ctx, (draft) => {
+        draft.commitFilter = event.filter;
+      }),
+    setShowStagingSidebar: (ctx, event: { show: boolean }) =>
+      produce(ctx, (draft) => {
+        draft.showStagingSidebar = event.show;
+      }),
+    toggleStagingSidebar: (ctx) =>
+      produce(ctx, (draft) => {
+        draft.showStagingSidebar = !draft.showStagingSidebar;
+      }),
+    setCommitMessage: (ctx, event: { message: string }) =>
+      produce(ctx, (draft) => {
+        draft.commitMessage = event.message;
+      }),
+    setCommitDescription: (ctx, event: { description: string }) =>
+      produce(ctx, (draft) => {
+        draft.commitDescription = event.description;
+      }),
+    setAmendPreviousCommit: (ctx, event: { amend: boolean }) =>
+      produce(ctx, (draft) => {
+        draft.amendPreviousCommit = event.amend;
+      }),
+    clearCommitForm: (ctx) =>
+      produce(ctx, (draft) => {
+        draft.commitMessage = '';
+        draft.commitDescription = '';
+        draft.amendPreviousCommit = false;
+      }),
+    setShowBranchesPanel: (ctx, event: { show: boolean }) =>
+      produce(ctx, (draft) => {
+        draft.showBranchesPanel = event.show;
+      }),
+    toggleBranchesPanel: (ctx) =>
+      produce(ctx, (draft) => {
+        draft.showBranchesPanel = !draft.showBranchesPanel;
+      }),
+    setShowFilesPanel: (ctx, event: { show: boolean }) =>
+      produce(ctx, (draft) => {
+        draft.showFilesPanel = event.show;
+      }),
+    setShowDiffPanel: (ctx, event: { show: boolean }) =>
+      produce(ctx, (draft) => {
+        draft.showDiffPanel = event.show;
+      }),
+    setShowAIReviewPanel: (ctx, event: { show: boolean }) =>
+      produce(ctx, (draft) => {
+        draft.showAIReviewPanel = event.show;
+      }),
+    setAIReview: (ctx, event: { review: AIReviewData | null }) =>
+      produce(ctx, (draft) => {
+        draft.aiReview = event.review;
+      }),
+    setAIReviewLoading: (ctx, event: { loading: boolean }) =>
+      produce(ctx, (draft) => {
+        draft.aiReviewLoading = event.loading;
+      }),
+    setAIReviewError: (ctx, event: { error: string | null }) =>
+      produce(ctx, (draft) => {
+        draft.aiReviewError = event.error;
+      }),
+    clearAIReview: (ctx) =>
+      produce(ctx, (draft) => {
+        draft.aiReview = null;
+        draft.aiReviewError = null;
+      }),
   },
 });
 
@@ -169,7 +223,9 @@ export function useUIStore() {
   const selectedFile = useSelector(uiStore, (s) => s.context.selectedFile);
   const showHelpOverlay = useSelector(uiStore, (s) => s.context.showHelpOverlay);
   const showCommandPalette = useSelector(uiStore, (s) => s.context.showCommandPalette);
+  const showSettingsDialog = useSelector(uiStore, (s) => s.context.showSettingsDialog);
   const diffViewMode = useSelector(uiStore, (s) => s.context.diffViewMode);
+  const diffFontSize = useSelector(uiStore, (s) => s.context.diffFontSize);
   const branchesPanelSize = useSelector(uiStore, (s) => s.context.branchesPanelSize);
   const commitsPanelSize = useSelector(uiStore, (s) => s.context.commitsPanelSize);
   const filesPanelSize = useSelector(uiStore, (s) => s.context.filesPanelSize);
@@ -179,8 +235,13 @@ export function useUIStore() {
   const commitMessage = useSelector(uiStore, (s) => s.context.commitMessage);
   const commitDescription = useSelector(uiStore, (s) => s.context.commitDescription);
   const amendPreviousCommit = useSelector(uiStore, (s) => s.context.amendPreviousCommit);
+  const showBranchesPanel = useSelector(uiStore, (s) => s.context.showBranchesPanel);
   const showFilesPanel = useSelector(uiStore, (s) => s.context.showFilesPanel);
   const showDiffPanel = useSelector(uiStore, (s) => s.context.showDiffPanel);
+  const showAIReviewPanel = useSelector(uiStore, (s) => s.context.showAIReviewPanel);
+  const aiReview = useSelector(uiStore, (s) => s.context.aiReview);
+  const aiReviewLoading = useSelector(uiStore, (s) => s.context.aiReviewLoading);
+  const aiReviewError = useSelector(uiStore, (s) => s.context.aiReviewError);
 
   return {
     // State
@@ -191,7 +252,9 @@ export function useUIStore() {
     selectedFile,
     showHelpOverlay,
     showCommandPalette,
+    showSettingsDialog,
     diffViewMode,
+    diffFontSize,
     branchesPanelSize,
     commitsPanelSize,
     filesPanelSize,
@@ -201,8 +264,13 @@ export function useUIStore() {
     commitMessage,
     commitDescription,
     amendPreviousCommit,
+    showBranchesPanel,
     showFilesPanel,
     showDiffPanel,
+    showAIReviewPanel,
+    aiReview,
+    aiReviewLoading,
+    aiReviewError,
 
     // Actions
     setActivePanel: (panel: PanelId) =>
@@ -219,8 +287,12 @@ export function useUIStore() {
       uiStore.send({ type: 'setShowHelpOverlay', show }),
     setShowCommandPalette: (show: boolean) =>
       uiStore.send({ type: 'setShowCommandPalette', show }),
+    setShowSettingsDialog: (show: boolean) =>
+      uiStore.send({ type: 'setShowSettingsDialog', show }),
     setDiffViewMode: (mode: 'split' | 'unified') =>
       uiStore.send({ type: 'setDiffViewMode', mode }),
+    setDiffFontSize: (size: number) =>
+      uiStore.send({ type: 'setDiffFontSize', size }),
     setPanelSizes: (branches: number, commits: number, files: number) =>
       uiStore.send({ type: 'setPanelSizes', branches, commits, files }),
     setBranchFilter: (filter: string) =>
@@ -239,9 +311,23 @@ export function useUIStore() {
       uiStore.send({ type: 'setAmendPreviousCommit', amend }),
     clearCommitForm: () =>
       uiStore.send({ type: 'clearCommitForm' }),
+    setShowBranchesPanel: (show: boolean) =>
+      uiStore.send({ type: 'setShowBranchesPanel', show }),
+    toggleBranchesPanel: () =>
+      uiStore.send({ type: 'toggleBranchesPanel' }),
     setShowFilesPanel: (show: boolean) =>
       uiStore.send({ type: 'setShowFilesPanel', show }),
     setShowDiffPanel: (show: boolean) =>
       uiStore.send({ type: 'setShowDiffPanel', show }),
+    setShowAIReviewPanel: (show: boolean) =>
+      uiStore.send({ type: 'setShowAIReviewPanel', show }),
+    setAIReview: (review: AIReviewData | null) =>
+      uiStore.send({ type: 'setAIReview', review }),
+    setAIReviewLoading: (loading: boolean) =>
+      uiStore.send({ type: 'setAIReviewLoading', loading }),
+    setAIReviewError: (error: string | null) =>
+      uiStore.send({ type: 'setAIReviewError', error }),
+    clearAIReview: () =>
+      uiStore.send({ type: 'clearAIReview' }),
   };
 }

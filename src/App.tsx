@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { open } from '@tauri-apps/plugin-dialog';
 import { FolderOpen, ClockCounterClockwise, X } from '@phosphor-icons/react';
 import { DockviewLayout } from './components/layout';
-import { StatusBar, HelpOverlay, ToastProvider } from './components/ui';
+import { StatusBar, HelpOverlay, SettingsDialog, ToastProvider } from './components/ui';
 import { RepoSelector } from './features/repository/components';
 import { openRepository, discoverRepository } from './lib/tauri';
 import { useGitStore } from './stores/git-store';
@@ -183,6 +183,9 @@ function AppContent() {
 
       {/* Help overlay */}
       <HelpOverlay />
+
+      {/* Settings dialog */}
+      <SettingsDialog />
     </div>
   );
 }

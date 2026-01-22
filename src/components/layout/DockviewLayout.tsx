@@ -12,6 +12,7 @@ import {
   FilesPanel,
   DiffPanel,
   StagingPanel,
+  AIReviewPanel,
 } from './panels';
 import { DockviewHeaderActions } from './DockviewHeaderActions';
 
@@ -33,6 +34,7 @@ const components = {
   files: FilesPanel,
   diff: DiffPanel,
   staging: StagingPanel,
+  'ai-review': AIReviewPanel,
 };
 
 function createDefaultLayout(api: DockviewApi) {
@@ -103,7 +105,7 @@ function loadLayout(): SerializedDockview | null {
 }
 
 export function DockviewLayout() {
-  const { showFilesPanel, showDiffPanel, showStagingSidebar, setShowFilesPanel, setShowDiffPanel, setShowStagingSidebar } = useUIStore();
+  const { showBranchesPanel, showFilesPanel, showDiffPanel, showStagingSidebar, showAIReviewPanel, setShowBranchesPanel, setShowFilesPanel, setShowDiffPanel, setShowStagingSidebar, setShowAIReviewPanel } = useUIStore();
   const apiRef = useRef<DockviewApi | null>(null);
   const isInitializedRef = useRef(false);
 
@@ -142,12 +144,16 @@ export function DockviewLayout() {
     // Listen for panel close events
     const removeDisposable = api.onDidRemovePanel((event) => {
       const panelId = event.id;
-      if (panelId === 'files') {
+      if (panelId === 'branches') {
+        setShowBranchesPanel(false);
+      } else if (panelId === 'files') {
         setShowFilesPanel(false);
       } else if (panelId === 'diff') {
         setShowDiffPanel(false);
       } else if (panelId === 'staging') {
         setShowStagingSidebar(false);
+      } else if (panelId === 'ai-review') {
+        setShowAIReviewPanel(false);
       }
     });
 
@@ -157,9 +163,31 @@ export function DockviewLayout() {
       layoutDisposable.dispose();
       removeDisposable.dispose();
     };
-  }, [setShowFilesPanel, setShowDiffPanel, setShowStagingSidebar]);
+  }, [setShowBranchesPanel, setShowFilesPanel, setShowDiffPanel, setShowStagingSidebar, setShowAIReviewPanel]);
 
-  // Sync panel visibility with dockview
+  // Sync branches panel visibility with dockview
+  useEffect(() => {
+    const api = apiRef.current;
+    if (!api || !isInitializedRef.current) return;
+
+    const branchesPanel = api.getPanel('branches');
+    if (showBranchesPanel && !branchesPanel) {
+      // Add branches panel on the left side
+      const commitsPanel = api.getPanel('commits');
+      if (commitsPanel) {
+        api.addPanel({
+          id: 'branches',
+          component: 'branches',
+          title: 'Branches',
+          position: { referencePanel: commitsPanel, direction: 'left' },
+        });
+      }
+    } else if (!showBranchesPanel && branchesPanel) {
+      api.removePanel(branchesPanel);
+    }
+  }, [showBranchesPanel]);
+
+  // Sync files panel visibility with dockview
   useEffect(() => {
     const api = apiRef.current;
     if (!api || !isInitializedRef.current) return;
@@ -236,6 +264,35 @@ export function DockviewLayout() {
       api.removePanel(stagingPanel);
     }
   }, [showStagingSidebar]);
+
+  useEffect(() => {
+    const api = apiRef.current;
+    if (!api || !isInitializedRef.current) return;
+
+    const aiReviewPanel = api.getPanel('ai-review');
+    if (showAIReviewPanel && !aiReviewPanel) {
+      // Add AI Review panel to the right of the diff panel
+      const diffPanel = api.getPanel('diff');
+      if (diffPanel) {
+        api.addPanel({
+          id: 'ai-review',
+          component: 'ai-review',
+          title: 'AI Review',
+          position: { referencePanel: diffPanel, direction: 'right' },
+        });
+      } else {
+        // Fallback: add to far right
+        api.addPanel({
+          id: 'ai-review',
+          component: 'ai-review',
+          title: 'AI Review',
+          position: { direction: 'right' },
+        });
+      }
+    } else if (!showAIReviewPanel && aiReviewPanel) {
+      api.removePanel(aiReviewPanel);
+    }
+  }, [showAIReviewPanel]);
 
   return (
     <DockviewReact
