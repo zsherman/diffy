@@ -11,7 +11,7 @@ import { CommitGraphSVG } from './CommitGraph';
 import type { CommitInfo } from '../../../types/git';
 
 const ROW_HEIGHT = 48;
-const GRAPH_WIDTH = 80;
+const GRAPH_WIDTH = 24;
 
 function formatTimeAgo(timestamp: number): string {
   const now = Date.now() / 1000;
