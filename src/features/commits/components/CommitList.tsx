@@ -26,13 +26,6 @@ function formatTimeAgo(timestamp: number): string {
   return `${Math.floor(diff / 31536000)}y ago`;
 }
 
-// Extract commit body (message without the summary line)
-function getCommitBody(commit: CommitInfo): string {
-  const body = commit.message.slice(commit.summary.length).trim();
-  // Replace newlines with spaces for single-line display
-  return body.replace(/\n+/g, ' ');
-}
-
 // Memoized commit row component
 const CommitRow = memo(function CommitRow({
   commit,
@@ -45,8 +38,6 @@ const CommitRow = memo(function CommitRow({
   isFocused: boolean;
   onClick: () => void;
 }) {
-  const body = getCommitBody(commit);
-
   return (
     <div
       className={`flex items-center cursor-pointer h-12 ${
@@ -55,7 +46,7 @@ const CommitRow = memo(function CommitRow({
       onClick={onClick}
     >
       <div style={{ width: GRAPH_WIDTH, flexShrink: 0 }} />
-      <div className="flex-1 min-w-0 px-2 py-1">
+      <div className="flex-1 min-w-0 px-2 py-1 overflow-hidden">
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-accent-yellow font-mono text-xs shrink-0">
             {commit.short_id}
@@ -63,28 +54,23 @@ const CommitRow = memo(function CommitRow({
           <span className="text-text-primary text-sm truncate">
             {commit.summary}
           </span>
-          {body && (
-            <span className="text-text-muted text-sm truncate">
-              - {body}
-            </span>
-          )}
         </div>
-        <div className="flex items-center gap-2 text-xs text-text-muted">
-          <span>{commit.author_name}</span>
-          <span>•</span>
-          <span>{formatTimeAgo(commit.time)}</span>
+        <div className="flex items-center gap-1.5 text-xs text-text-muted whitespace-nowrap overflow-hidden">
+          <span className="truncate max-w-[100px]">{commit.author_name}</span>
+          <span className="shrink-0">•</span>
+          <span className="shrink-0">{formatTimeAgo(commit.time)}</span>
           {commit.files_changed > 0 && (
             <>
-              <span>•</span>
-              <span className="flex items-center gap-1">
-                <PencilSimple size={12} weight="bold" />
+              <span className="shrink-0">•</span>
+              <span className="flex items-center gap-0.5 shrink-0">
+                <PencilSimple size={10} weight="bold" />
                 {commit.files_changed}
               </span>
               {commit.additions > 0 && (
-                <span className="text-accent-green">+{commit.additions}</span>
+                <span className="text-accent-green shrink-0">+{commit.additions}</span>
               )}
               {commit.deletions > 0 && (
-                <span className="text-accent-red">-{commit.deletions}</span>
+                <span className="text-accent-red shrink-0">-{commit.deletions}</span>
               )}
             </>
           )}
