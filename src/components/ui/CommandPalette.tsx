@@ -16,6 +16,8 @@ import {
   GearSix,
   Keyboard,
   GitCommit,
+  Sun,
+  Moon,
 } from '@phosphor-icons/react';
 import { useUIStore, getDockviewApi } from '../../stores/ui-store';
 import { useGitStore } from '../../stores/git-store';
@@ -32,6 +34,7 @@ export function CommandPalette() {
     showDiffPanel,
     showStagingSidebar,
     showAIReviewPanel,
+    theme,
     diffViewMode,
     diffFontSize,
     toggleBranchesPanel,
@@ -39,6 +42,7 @@ export function CommandPalette() {
     setShowDiffPanel,
     toggleStagingSidebar,
     setShowAIReviewPanel,
+    setTheme,
     setDiffViewMode,
     setDiffFontSize,
     setShowSettingsDialog,
@@ -332,6 +336,25 @@ export function CommandPalette() {
             heading="View"
             className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
           >
+            <Command.Item
+              onSelect={() =>
+                runCommand(() =>
+                  setTheme(theme === 'pierre-dark' ? 'pierre-light' : 'pierre-dark')
+                )
+              }
+              className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+            >
+              {theme === 'pierre-dark' ? (
+                <Sun size={16} className="text-text-muted" />
+              ) : (
+                <Moon size={16} className="text-text-muted" />
+              )}
+              <span className="flex-1">Toggle Theme</span>
+              <span className="text-xs text-text-muted">
+                {theme === 'pierre-dark' ? 'Switch to Light' : 'Switch to Dark'}
+              </span>
+            </Command.Item>
+
             <Command.Item
               onSelect={() =>
                 runCommand(() =>
