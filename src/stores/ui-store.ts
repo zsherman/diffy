@@ -60,7 +60,7 @@ export const uiStore = createStore({
     selectedFile: null,
     showHelpOverlay: false,
     showCommandPalette: false,
-    diffViewMode: 'split',
+    diffViewMode: 'unified',
     branchesPanelSize: 15,
     commitsPanelSize: 35,
     filesPanelSize: 50,

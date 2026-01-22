@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { parsePatchFiles } from '@pierre/diffs';
 import { FileDiff } from '@pierre/diffs/react';
-import { getFileDiff, getWorkingDiff } from '../../../lib/tauri';
+import { getFileDiff, getWorkingDiff, getCommitDiff } from '../../../lib/tauri';
 import { useGitStore } from '../../../stores/git-store';
 import { useUIStore } from '../../../stores/ui-store';
 import { LoadingSpinner, SkeletonDiff } from '../../../components/ui';
@@ -115,24 +115,76 @@ export function DiffViewer() {
     });
   }, [workingParsedFiles, selectedFile]);
 
-  // Commit mode: render individual file diff loaders
+  // Fetch full commit diff when a commit is selected (for showing all files)
+  const { data: commitDiff, isLoading: commitDiffLoading } = useQuery({
+    queryKey: ['commit-diff-full', repository?.path, selectedCommit],
+    queryFn: () => getCommitDiff(repository!.path, selectedCommit!),
+    enabled: !!repository?.path && !!selectedCommit && !selectedFile,
+    staleTime: 60000,
+  });
+
+  // Parse commit diff for showing all files
+  const commitParsedFiles = useMemo(() => {
+    if (!commitDiff?.patch) return [];
+    try {
+      const parsed = parsePatchFiles(commitDiff.patch);
+      return parsed.flatMap(p => p.files);
+    } catch (e) {
+      console.error('Failed to parse commit diff:', e);
+      return [];
+    }
+  }, [commitDiff]);
+
+  // Commit mode: render diffs
   if (selectedCommit && repository) {
-    if (!selectedFile) {
+    // Single file selected - show just that file's diff
+    if (selectedFile) {
+      return (
+        <div className="h-full overflow-auto bg-bg-tertiary">
+          <SingleFileDiff
+            repoPath={repository.path}
+            commitId={selectedCommit}
+            filePath={selectedFile}
+            diffViewMode={diffViewMode}
+          />
+        </div>
+      );
+    }
+
+    // No file selected - show all diffs stacked
+    if (commitDiffLoading) {
+      return (
+        <div className="flex flex-col h-full p-4">
+          <div className="flex items-center py-3">
+            <LoadingSpinner size="sm" message="Loading diffs..." />
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <SkeletonDiff lines={12} />
+          </div>
+        </div>
+      );
+    }
+
+    if (commitParsedFiles.length === 0) {
       return (
         <div className="flex items-center justify-center h-full text-text-muted">
-          Select a file to view diff
+          No changes in this commit
         </div>
       );
     }
 
     return (
       <div className="h-full overflow-auto bg-bg-tertiary">
-        <SingleFileDiff
-          repoPath={repository.path}
-          commitId={selectedCommit}
-          filePath={selectedFile}
-          diffViewMode={diffViewMode}
-        />
+        {commitParsedFiles.map((fileDiff, index) => (
+          <FileDiff
+            key={fileDiff.newPath || fileDiff.oldPath || index}
+            fileDiff={fileDiff}
+            options={{
+              diffStyle: diffViewMode === 'split' ? 'split' : 'unified',
+              themeType: 'dark',
+            }}
+          />
+        ))}
       </div>
     );
   }

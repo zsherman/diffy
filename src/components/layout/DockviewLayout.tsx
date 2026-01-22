@@ -13,6 +13,7 @@ import {
   DiffPanel,
   StagingPanel,
 } from './panels';
+import { DockviewHeaderActions } from './DockviewHeaderActions';
 
 const LAYOUT_STORAGE_KEY = 'diffy-dockview-layout';
 
@@ -35,22 +36,14 @@ const components = {
 };
 
 function createDefaultLayout(api: DockviewApi) {
-  // Create left group with branches panel (15% width)
-  const branchesPanel = api.addPanel({
-    id: 'branches',
-    component: 'branches',
-    title: 'Branches',
-  });
-
-  // Create center group with commits panel (35% width)
+  // Create left group with commits panel (40% width)
   const commitsPanel = api.addPanel({
     id: 'commits',
     component: 'commits',
     title: 'Commits',
-    position: { referencePanel: branchesPanel, direction: 'right' },
   });
 
-  // Create right group with files panel at top (50% width, 35% height)
+  // Create right group with files panel at top (60% width, 35% height)
   const filesPanel = api.addPanel({
     id: 'files',
     component: 'files',
@@ -66,14 +59,11 @@ function createDefaultLayout(api: DockviewApi) {
     position: { referencePanel: filesPanel, direction: 'below' },
   });
 
-  // Set initial sizes: [branches 15%] | [commits 35%] | [files/diff 50%]
-  // Dockview handles proportional sizing, we can adjust group widths via the grid
+  // Set initial sizes: [commits 40%] | [files/diff 60%]
   const groups = api.groups;
-  if (groups.length >= 3) {
-    // Groups are ordered left to right, set proportions 15:35:50
-    groups[0].api.setSize({ width: 200 }); // branches ~15%
-    groups[1].api.setSize({ width: 450 }); // commits ~35%
-    groups[2].api.setSize({ width: 650 }); // files/diff ~50%
+  if (groups.length >= 2) {
+    groups[0].api.setSize({ width: 450 }); // commits ~40%
+    groups[1].api.setSize({ width: 650 }); // files/diff ~60%
   }
 }
 
@@ -252,6 +242,7 @@ export function DockviewLayout() {
       components={components}
       onReady={onReady}
       className="dockview-theme-dark"
+      rightHeaderActionsComponent={DockviewHeaderActions}
     />
   );
 }

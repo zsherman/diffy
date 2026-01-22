@@ -6,7 +6,7 @@ import { getStatus, getCommitDiff, stageFiles, unstageFiles, discardChanges } fr
 import { useGitStore } from '../../../stores/git-store';
 import { useUIStore } from '../../../stores/ui-store';
 import { LoadingSpinner, SkeletonList } from '../../../components/ui';
-import type { FileStatus, DiffFile } from '../../../types/git';
+import type { FileStatus, DiffFile, CommitInfo } from '../../../types/git';
 
 const STATUS_COLORS: Record<string, string> = {
   A: 'text-accent-green',
@@ -82,6 +82,39 @@ const FileRow = memo(function FileRow({
   );
 });
 
+// Commit header component
+const CommitHeader = memo(function CommitHeader({ commit }: { commit: CommitInfo }) {
+  const date = new Date(commit.time * 1000);
+  const formattedDate = date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  return (
+    <div className="px-3 py-2 border-b border-border-primary bg-bg-tertiary">
+      <div className="text-sm text-text-primary font-medium mb-1">{commit.summary}</div>
+      {commit.message !== commit.summary && (
+        <div className="text-xs text-text-muted whitespace-pre-wrap mb-2">
+          {commit.message.slice(commit.summary.length).trim()}
+        </div>
+      )}
+      <div className="flex items-center gap-3 text-xs text-text-muted">
+        <span className="font-mono text-accent-blue">{commit.short_id}</span>
+        <span>{commit.author_name}</span>
+        <span>{formattedDate}</span>
+      </div>
+      <div className="flex items-center gap-3 text-xs text-text-muted mt-1">
+        <span className="text-accent-green">+{commit.additions}</span>
+        <span className="text-accent-red">-{commit.deletions}</span>
+        <span>{commit.files_changed} file{commit.files_changed !== 1 ? 's' : ''}</span>
+      </div>
+    </div>
+  );
+});
+
 export function FileList() {
   const { repository } = useGitStore();
   const {
@@ -91,10 +124,18 @@ export function FileList() {
     activePanel,
     setViewMode,
     setShowDiffPanel,
+    selectedBranch,
   } = useUIStore();
   const queryClient = useQueryClient();
   const listRef = useRef<VListHandle>(null);
   const [focusedIndex, setFocusedIndex] = useState(0);
+
+  // Get commit info from cache
+  const commitInfo = useMemo(() => {
+    if (!selectedCommit || !repository?.path) return null;
+    const commits = queryClient.getQueryData<CommitInfo[]>(['commits', repository.path, selectedBranch]);
+    return commits?.find((c) => c.id === selectedCommit) ?? null;
+  }, [selectedCommit, repository?.path, selectedBranch, queryClient]);
 
   // Fetch working directory status
   const { data: status, isLoading: statusLoading } = useQuery({
@@ -292,6 +333,7 @@ export function FileList() {
 
   return (
     <div className="flex flex-col h-full">
+      {commitInfo && <CommitHeader commit={commitInfo} />}
       <VList ref={listRef} className="flex-1">
         {flatList.map((item, index) => {
           if (item.type === 'header') {
