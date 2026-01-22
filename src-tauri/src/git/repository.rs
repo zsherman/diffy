@@ -205,6 +205,37 @@ pub fn get_commits(
     Ok(commits)
 }
 
+/// Get commits from all local branches for graph visualization
+pub fn get_commits_all_branches(
+    repo: &Repository,
+    limit: usize,
+    offset: usize,
+) -> Result<Vec<CommitInfo>, GitError> {
+    let mut revwalk = repo.revwalk()?;
+    revwalk.set_sorting(git2::Sort::TIME | git2::Sort::TOPOLOGICAL)?;
+
+    // Push all local branch tips
+    let branches = repo.branches(Some(BranchType::Local))?;
+    for branch_result in branches {
+        let (branch, _) = branch_result?;
+        if let Some(target) = branch.get().target() {
+            let _ = revwalk.push(target);
+        }
+    }
+
+    let commits: Vec<CommitInfo> = revwalk
+        .skip(offset)
+        .take(limit)
+        .filter_map(|oid_result| {
+            let oid = oid_result.ok()?;
+            let commit = repo.find_commit(oid).ok()?;
+            Some(commit_to_info(repo, &commit))
+        })
+        .collect();
+
+    Ok(commits)
+}
+
 fn commit_to_info(repo: &Repository, commit: &git2::Commit) -> CommitInfo {
     let id = commit.id().to_string();
     let short_id = id[..7.min(id.len())].to_string();
@@ -391,6 +422,22 @@ pub fn checkout_branch(repo: &Repository, branch_name: &str) -> Result<(), GitEr
     match reference {
         Some(gref) => repo.set_head(gref.name().unwrap())?,
         None => repo.set_head_detached(object.id())?,
+    }
+
+    Ok(())
+}
+
+pub fn create_branch(repo: &Repository, branch_name: &str, checkout: bool) -> Result<(), GitError> {
+    // Get the current HEAD commit
+    let head = repo.head()?;
+    let commit = head.peel_to_commit()?;
+
+    // Create the new branch pointing to HEAD
+    repo.branch(branch_name, &commit, false)?;
+
+    // Optionally checkout the new branch
+    if checkout {
+        checkout_branch(repo, branch_name)?;
     }
 
     Ok(())

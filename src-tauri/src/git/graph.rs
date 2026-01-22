@@ -54,15 +54,27 @@ pub fn build_commit_graph(
         // Find which column this commit should be in
         let column = find_column_for_commit(&mut active_columns, commit_id);
 
+        // Clear this column since we're processing the commit it was waiting for
+        if column < active_columns.len() {
+            active_columns[column] = None;
+        }
+
         // Create connections to parents
         let mut connections = Vec::new();
 
         for (i, parent_id) in parent_ids.iter().enumerate() {
             let is_merge = i > 0;
 
-            // Find or create column for parent
-            let parent_column = if i == 0 {
-                // First parent continues in same column
+            // Check if parent is already expected in another column (branch convergence)
+            let existing_column = active_columns
+                .iter()
+                .position(|c| c.as_ref() == Some(&parent_id.to_string()));
+
+            let parent_column = if let Some(existing_col) = existing_column {
+                // Parent already expected in another column - converge to that column
+                existing_col
+            } else if i == 0 {
+                // First parent, not expected elsewhere - continue in same column
                 active_columns[column] = Some(parent_id.clone());
                 column
             } else {
@@ -81,12 +93,7 @@ pub fn build_commit_graph(
             }
         }
 
-        // If no parents (or parents not in list), close the column
-        if parent_ids.is_empty() || parent_ids.iter().all(|p| !commit_to_row.contains_key(p)) {
-            if column < active_columns.len() {
-                active_columns[column] = None;
-            }
-        }
+        // If no parents (or parents not in list), the column stays closed (already set to None)
 
         nodes.push(GraphNode {
             commit_id: commit_id.clone(),

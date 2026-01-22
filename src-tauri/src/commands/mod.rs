@@ -147,6 +147,12 @@ pub async fn checkout_branch(repo_path: String, branch_name: String) -> Result<(
 }
 
 #[tauri::command]
+pub async fn create_branch(repo_path: String, branch_name: String, checkout: bool) -> Result<()> {
+    let repo = git::open_repo(&repo_path).map_err(map_err)?;
+    git::create_branch(&repo, &branch_name, checkout).map_err(map_err)
+}
+
+#[tauri::command]
 pub async fn get_commit_history(
     repo_path: String,
     branch: Option<String>,
@@ -155,6 +161,16 @@ pub async fn get_commit_history(
 ) -> Result<Vec<CommitInfo>> {
     let repo = git::open_repo(&repo_path).map_err(map_err)?;
     git::get_commits(&repo, branch.as_deref(), limit, offset).map_err(map_err)
+}
+
+#[tauri::command]
+pub async fn get_commit_history_all_branches(
+    repo_path: String,
+    limit: usize,
+    offset: usize,
+) -> Result<Vec<CommitInfo>> {
+    let repo = git::open_repo(&repo_path).map_err(map_err)?;
+    git::get_commits_all_branches(&repo, limit, offset).map_err(map_err)
 }
 
 #[tauri::command]

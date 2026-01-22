@@ -31,6 +31,10 @@ export async function checkoutBranch(repoPath: string, branchName: string): Prom
   return invoke<void>('checkout_branch', { repoPath, branchName });
 }
 
+export async function createBranch(repoPath: string, branchName: string, checkout: boolean = true): Promise<void> {
+  return invoke<void>('create_branch', { repoPath, branchName, checkout });
+}
+
 // Commits
 export async function getCommitHistory(
   repoPath: string,
@@ -39,6 +43,14 @@ export async function getCommitHistory(
   offset: number = 0
 ): Promise<CommitInfo[]> {
   return invoke<CommitInfo[]>('get_commit_history', { repoPath, branch, limit, offset });
+}
+
+export async function getCommitHistoryAllBranches(
+  repoPath: string,
+  limit: number = 100,
+  offset: number = 0
+): Promise<CommitInfo[]> {
+  return invoke<CommitInfo[]>('get_commit_history_all_branches', { repoPath, limit, offset });
 }
 
 export async function getCommitGraph(

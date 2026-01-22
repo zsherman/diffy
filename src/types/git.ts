@@ -76,7 +76,13 @@ export interface FileDiff {
   patch: string;
 }
 
-export type PanelId = 'branches' | 'commits' | 'files' | 'diff' | 'staging' | 'ai-review' | 'worktrees';
+export type PanelId = 'branches' | 'commits' | 'files' | 'diff' | 'staging' | 'ai-review' | 'worktrees' | 'graph';
+
+export interface RefInfo {
+  name: string;
+  type: 'branch' | 'tag' | 'remote';
+  is_head: boolean;
+}
 
 export type ViewMode = 'working' | 'commit';
 

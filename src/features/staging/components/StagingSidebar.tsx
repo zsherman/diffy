@@ -1,4 +1,4 @@
-import React, { useState, useCallback, memo } from 'react';
+import React, { useState, useCallback, memo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   FilePlus,
@@ -146,13 +146,22 @@ export function StagingSidebar() {
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Fetch status
-  const { data: status } = useQuery({
+  const { data: status, refetch } = useQuery({
     queryKey: ['status', repository?.path],
     queryFn: () => getStatus(repository!.path),
     enabled: !!repository?.path,
     refetchInterval: 5000,
-    staleTime: 2000,
+    staleTime: 1000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
+
+  // Force refetch when panel mounts to ensure fresh data
+  useEffect(() => {
+    if (repository?.path) {
+      refetch();
+    }
+  }, [repository?.path, refetch]);
 
   // Mutations
   const stageMutation = useMutation({

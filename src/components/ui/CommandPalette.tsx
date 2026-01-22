@@ -1,5 +1,6 @@
 import { Command } from 'cmdk';
 import { useQueryClient } from '@tanstack/react-query';
+import { useMemo, useState, useEffect } from 'react';
 import {
   GitBranch,
   Files,
@@ -22,13 +23,19 @@ import {
   Plus,
   BookBookmark,
   Trash,
+  SignOut,
+  FolderOpen,
+  CaretRight,
+  ArrowLeft,
+  ArrowCounterClockwise,
 } from '@phosphor-icons/react';
 import { useUIStore, getDockviewApi } from '../../stores/ui-store';
 import { useGitStore } from '../../stores/git-store';
 import { useToast } from './Toast';
-import { gitFetch, gitPull, gitPush } from '../../lib/tauri';
+import { gitFetch, gitPull, gitPush, openRepository, discoverRepository } from '../../lib/tauri';
 import { getErrorMessage } from '../../lib/errors';
 import { applyLayout, layoutPresets } from '../../lib/layouts';
+import { getRecentRepositories, type RecentRepository } from '../../lib/recent-repos';
 
 export function CommandPalette() {
   const {
@@ -61,9 +68,30 @@ export function CommandPalette() {
     clearSelectedSkills,
   } = useUIStore();
 
-  const { repository } = useGitStore();
+  const { repository, setRepository, setIsLoading, setError } = useGitStore();
   const toast = useToast();
   const queryClient = useQueryClient();
+
+  // Nested pages state
+  const [search, setSearch] = useState('');
+  const [pages, setPages] = useState<string[]>([]);
+  const page = pages[pages.length - 1];
+
+  // Reset pages and search when dialog closes
+  useEffect(() => {
+    if (!showCommandPalette) {
+      setPages([]);
+      setSearch('');
+    }
+  }, [showCommandPalette]);
+
+  // Get recent repos (excluding the currently open one)
+  const recentRepos = useMemo(() => {
+    if (!showCommandPalette) return [];
+    const all = getRecentRepositories();
+    // Filter out current repo - only show other repos to switch to
+    return repository ? all.filter((r) => r.path !== repository.path) : all;
+  }, [showCommandPalette, repository?.path]);
 
   const runCommand = (fn: () => void | Promise<void>) => {
     setShowCommandPalette(false);
@@ -117,12 +145,59 @@ export function CommandPalette() {
     }
   };
 
+  const handleCloseRepository = () => {
+    // Clear the saved layout so it starts fresh next time
+    localStorage.removeItem('diffy-dockview-layout');
+    // Clear the repository to go back to selection screen
+    setRepository(null);
+  };
+
+  const handleSwitchRepository = async (repo: RecentRepository) => {
+    // Clear the saved layout so new repo starts fresh
+    localStorage.removeItem('diffy-dockview-layout');
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const opened = await openRepository(repo.path);
+      setRepository(opened);
+      // Invalidate all queries for the new repo
+      queryClient.invalidateQueries();
+    } catch {
+      try {
+        const opened = await discoverRepository(repo.path);
+        setRepository(opened);
+        queryClient.invalidateQueries();
+      } catch (e) {
+        toast.error('Failed to open repository', getErrorMessage(e));
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <Command.Dialog
       open={showCommandPalette}
       onOpenChange={setShowCommandPalette}
       label="Command Palette"
       className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh]"
+      onKeyDown={(e) => {
+        // Escape goes to previous page, or closes if on root
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          if (pages.length > 0) {
+            setPages((pages) => pages.slice(0, -1));
+          } else {
+            setShowCommandPalette(false);
+          }
+        }
+        // Backspace goes to previous page when search is empty
+        if (e.key === 'Backspace' && !search && pages.length > 0) {
+          e.preventDefault();
+          setPages((pages) => pages.slice(0, -1));
+        }
+      }}
     >
       {/* Backdrop */}
       <div
@@ -131,10 +206,27 @@ export function CommandPalette() {
       />
 
       {/* Dialog content */}
-      <div className="relative w-full max-w-lg bg-bg-secondary rounded-lg shadow-xl border border-border-primary overflow-hidden">
+      <div className="relative w-full max-w-2xl bg-bg-secondary rounded-lg shadow-xl border border-border-primary overflow-hidden">
+        {/* Page header for nested pages */}
+        {page && (
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-border-primary bg-bg-tertiary">
+            <button
+              onClick={() => setPages((pages) => pages.slice(0, -1))}
+              className="p-1 hover:bg-bg-hover rounded"
+            >
+              <ArrowLeft size={14} className="text-text-muted" />
+            </button>
+            <span className="text-sm text-text-muted">
+              {page === 'recent' && 'Recent Repositories'}
+            </span>
+          </div>
+        )}
+
         <Command.Input
-          placeholder="Type a command..."
-          className="w-full px-4 py-3 bg-transparent border-b border-border-primary text-text-primary placeholder-text-muted outline-none text-sm"
+          value={search}
+          onValueChange={setSearch}
+          placeholder={page === 'recent' ? 'Search repositories...' : 'Type a command...'}
+          className="w-full px-4 py-3 bg-transparent border-b border-border-primary text-text-primary placeholder-text-muted outline-none focus:outline-none focus-visible:outline-none focus:ring-0 text-sm"
         />
 
         <Command.List className="max-h-80 overflow-y-auto p-2">
@@ -142,7 +234,34 @@ export function CommandPalette() {
             No results found.
           </Command.Empty>
 
-          {/* Panels Group */}
+          {/* Recent Repositories Page */}
+          {page === 'recent' && (
+            <>
+              {recentRepos.map((repo) => (
+                <Command.Item
+                  key={repo.path}
+                  onSelect={() => runCommand(() => handleSwitchRepository(repo))}
+                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                >
+                  <FolderOpen size={16} className="text-text-muted" />
+                  <span className="flex-1">{repo.name}</span>
+                  <span className="text-xs text-text-muted truncate max-w-[300px]">
+                    {repo.path}
+                  </span>
+                </Command.Item>
+              ))}
+              {recentRepos.length === 0 && (
+                <div className="py-6 text-center text-text-muted text-sm">
+                  No recent repositories
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Main menu (no page selected) */}
+          {!page && (
+            <>
+              {/* Panels Group */}
           <Command.Group
             heading="Panels"
             className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
@@ -224,6 +343,36 @@ export function CommandPalette() {
                 {showWorktreesPanel ? 'Hide' : 'Show'}
               </span>
             </Command.Item>
+          </Command.Group>
+
+          {/* Repository Group - Switch/Close repos */}
+          <Command.Group
+            heading="Repository"
+            className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
+          >
+            <Command.Item
+              onSelect={() => {
+                setSearch('');
+                setPages([...pages, 'recent']);
+              }}
+              className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+              keywords={['switch', 'recent', 'open']}
+            >
+              <FolderOpen size={16} className="text-text-muted" />
+              <span className="flex-1">Open Recent...</span>
+              <CaretRight size={16} className="text-text-muted" />
+            </Command.Item>
+
+            {repository && (
+              <Command.Item
+                onSelect={() => runCommand(handleCloseRepository)}
+                className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                keywords={['close', 'exit', 'quit']}
+              >
+                <SignOut size={16} className="text-text-muted" />
+                <span className="flex-1">Close Repository</span>
+              </Command.Item>
+            )}
           </Command.Group>
 
           {/* Navigation Group */}
@@ -446,6 +595,21 @@ export function CommandPalette() {
             heading="Layout"
             className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
           >
+            <Command.Item
+              onSelect={() =>
+                runCommand(() => {
+                  localStorage.removeItem('diffy-dockview-layout');
+                  window.location.reload();
+                })
+              }
+              className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+              keywords={['reset', 'default', 'clear']}
+            >
+              <ArrowCounterClockwise size={16} className="text-text-muted shrink-0" />
+              <span className="shrink-0 whitespace-nowrap">Reset Layout</span>
+              <span className="flex-1 text-xs text-text-muted text-right">Restore default layout</span>
+            </Command.Item>
+
             {layoutPresets.map((preset) => (
               <Command.Item
                 key={preset.id}
@@ -459,9 +623,9 @@ export function CommandPalette() {
                 }
                 className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
               >
-                <Layout size={16} className="text-text-muted" />
-                <span className="flex-1">Layout: {preset.name}</span>
-                <span className="text-xs text-text-muted">{preset.description}</span>
+                <Layout size={16} className="text-text-muted shrink-0" />
+                <span className="shrink-0 whitespace-nowrap">Layout: {preset.name}</span>
+                <span className="flex-1 text-xs text-text-muted text-right truncate">{preset.description}</span>
               </Command.Item>
             ))}
           </Command.Group>
@@ -516,7 +680,10 @@ export function CommandPalette() {
                 ?
               </kbd>
             </Command.Item>
+
           </Command.Group>
+            </>
+          )}
         </Command.List>
       </div>
     </Command.Dialog>

@@ -14,6 +14,7 @@ import {
   StagingPanel,
   AIReviewPanel,
   WorktreesPanel,
+  GraphPanel,
 } from './panels';
 import { DockviewHeaderActions } from './DockviewHeaderActions';
 
@@ -37,17 +38,17 @@ const components = {
   staging: StagingPanel,
   'ai-review': AIReviewPanel,
   worktrees: WorktreesPanel,
+  graph: GraphPanel,
 };
 
 function createDefaultLayout(api: DockviewApi) {
-  // Create left group with commits panel (30% width)
+  // Create three columns: commits | files | diff
   const commitsPanel = api.addPanel({
     id: 'commits',
     component: 'commits',
     title: 'Commits',
   });
 
-  // Create right group with files panel at top (70% width, 35% height)
   const filesPanel = api.addPanel({
     id: 'files',
     component: 'files',
@@ -55,19 +56,19 @@ function createDefaultLayout(api: DockviewApi) {
     position: { referencePanel: commitsPanel, direction: 'right' },
   });
 
-  // Add diff panel below files (65% height)
   api.addPanel({
     id: 'diff',
     component: 'diff',
     title: 'Diff',
-    position: { referencePanel: filesPanel, direction: 'below' },
+    position: { referencePanel: filesPanel, direction: 'right' },
   });
 
-  // Set initial sizes: [commits 30%] | [files/diff 70%]
+  // Set initial sizes: 15% commits | 15% files | 70% diff
   const groups = api.groups;
-  if (groups.length >= 2) {
-    groups[0].api.setSize({ width: 330 }); // commits ~30%
-    groups[1].api.setSize({ width: 770 }); // files/diff ~70%
+  if (groups.length >= 3) {
+    groups[0].api.setSize({ width: 165 }); // commits ~15%
+    groups[1].api.setSize({ width: 165 }); // files ~15%
+    groups[2].api.setSize({ width: 770 }); // diff ~70%
   }
 }
 
@@ -114,7 +115,7 @@ export function setApplyingLayoutPreset(value: boolean) {
 }
 
 export function DockviewLayout() {
-  const { theme, showBranchesPanel, showFilesPanel, showDiffPanel, showStagingSidebar, showAIReviewPanel, showWorktreesPanel, setShowBranchesPanel, setShowFilesPanel, setShowDiffPanel, setShowStagingSidebar, setShowAIReviewPanel, setShowWorktreesPanel } = useUIStore();
+  const { theme, showBranchesPanel, showFilesPanel, showDiffPanel, showStagingSidebar, showAIReviewPanel, showWorktreesPanel, showGraphPanel, setShowBranchesPanel, setShowFilesPanel, setShowDiffPanel, setShowStagingSidebar, setShowAIReviewPanel, setShowWorktreesPanel, setShowGraphPanel } = useUIStore();
   const apiRef = useRef<DockviewApi | null>(null);
   const isInitializedRef = useRef(false);
 
@@ -167,6 +168,8 @@ export function DockviewLayout() {
         setShowAIReviewPanel(false);
       } else if (panelId === 'worktrees') {
         setShowWorktreesPanel(false);
+      } else if (panelId === 'graph') {
+        setShowGraphPanel(false);
       }
     });
 
@@ -176,7 +179,7 @@ export function DockviewLayout() {
       layoutDisposable.dispose();
       removeDisposable.dispose();
     };
-  }, [setShowBranchesPanel, setShowFilesPanel, setShowDiffPanel, setShowStagingSidebar, setShowAIReviewPanel, setShowWorktreesPanel]);
+  }, [setShowBranchesPanel, setShowFilesPanel, setShowDiffPanel, setShowStagingSidebar, setShowAIReviewPanel, setShowWorktreesPanel, setShowGraphPanel]);
 
   // Sync branches panel visibility with dockview
   useEffect(() => {
@@ -343,6 +346,35 @@ export function DockviewLayout() {
       api.removePanel(worktreesPanel);
     }
   }, [showWorktreesPanel]);
+
+  // Sync graph panel visibility with dockview
+  useEffect(() => {
+    const api = apiRef.current;
+    if (!api || !isInitializedRef.current) return;
+
+    const graphPanel = api.getPanel('graph');
+    if (showGraphPanel && !graphPanel) {
+      // Add graph panel in place of commits panel (or to the left)
+      const commitsPanel = api.getPanel('commits');
+      if (commitsPanel) {
+        api.addPanel({
+          id: 'graph',
+          component: 'graph',
+          title: 'Graph',
+          position: { referencePanel: commitsPanel, direction: 'within' },
+        });
+      } else {
+        api.addPanel({
+          id: 'graph',
+          component: 'graph',
+          title: 'Graph',
+          position: { direction: 'left' },
+        });
+      }
+    } else if (!showGraphPanel && graphPanel) {
+      api.removePanel(graphPanel);
+    }
+  }, [showGraphPanel]);
 
   return (
     <DockviewReact

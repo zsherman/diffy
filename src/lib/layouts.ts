@@ -21,7 +21,7 @@ export const layoutPresets: LayoutPreset[] = [
   {
     id: 'standard',
     name: 'Standard',
-    description: 'Commits on left, Files and Diff stacked on right',
+    description: 'Commits, files, and diff in three columns',
     apply: (api) => {
       clearLayout(api);
 
@@ -42,14 +42,15 @@ export const layoutPresets: LayoutPreset[] = [
         id: 'diff',
         component: 'diff',
         title: 'Diff',
-        position: { referencePanel: filesPanel, direction: 'below' },
+        position: { referencePanel: filesPanel, direction: 'right' },
       });
 
-      // Set sizes: 30% commits, 70% files/diff
+      // Set sizes: 15% commits, 15% files, 70% diff
       const groups = api.groups;
-      if (groups.length >= 2) {
-        groups[0].api.setSize({ width: 330 });
-        groups[1].api.setSize({ width: 770 });
+      if (groups.length >= 3) {
+        groups[0].api.setSize({ width: 165 });
+        groups[1].api.setSize({ width: 165 });
+        groups[2].api.setSize({ width: 770 });
       }
     },
   },
@@ -253,6 +254,41 @@ export const layoutPresets: LayoutPreset[] = [
       }
     },
   },
+  {
+    id: 'graph-view',
+    name: 'Graph View',
+    description: 'Commit graph on left, files and diff on right',
+    apply: (api) => {
+      clearLayout(api);
+
+      const graphPanel = api.addPanel({
+        id: 'graph',
+        component: 'graph',
+        title: 'Graph',
+      });
+
+      const filesPanel = api.addPanel({
+        id: 'files',
+        component: 'files',
+        title: 'Files',
+        position: { referencePanel: graphPanel, direction: 'right' },
+      });
+
+      api.addPanel({
+        id: 'diff',
+        component: 'diff',
+        title: 'Diff',
+        position: { referencePanel: filesPanel, direction: 'below' },
+      });
+
+      // Set sizes: 40% graph, 60% files/diff
+      const groups = api.groups;
+      if (groups.length >= 2) {
+        groups[0].api.setSize({ width: 440 });
+        groups[1].api.setSize({ width: 660 });
+      }
+    },
+  },
 ];
 
 export function applyLayout(api: DockviewApi, layoutId: string) {
@@ -265,7 +301,9 @@ export function applyLayout(api: DockviewApi, layoutId: string) {
 
       // Sync store state based on which panels are in the layout
       const hasAIReview = api.getPanel('ai-review') !== undefined;
+      const hasGraph = api.getPanel('graph') !== undefined;
       uiStore.send({ type: 'setShowAIReviewPanel', show: hasAIReview });
+      uiStore.send({ type: 'setShowGraphPanel', show: hasGraph });
     } finally {
       // Use setTimeout to ensure flag is cleared after React effects run
       setTimeout(() => setApplyingLayoutPreset(false), 100);

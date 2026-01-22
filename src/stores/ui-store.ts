@@ -70,6 +70,10 @@ interface UIContext {
   selectedWorktree: string | null;
   worktreeFilter: string;
 
+  // Graph panel
+  showGraphPanel: boolean;
+  graphColumnWidths: { branchTag: number; graph: number };
+
   // Skills
   selectedSkillIds: string[];
   showSkillsDialog: boolean;
@@ -136,6 +140,8 @@ export const uiStore = createStore({
     showWorktreesPanel: false,
     selectedWorktree: null,
     worktreeFilter: '',
+    showGraphPanel: false,
+    graphColumnWidths: { branchTag: 180, graph: 120 },
     selectedSkillIds: getInitialSelectedSkills(),
     showSkillsDialog: false,
   } as UIContext,
@@ -283,6 +289,18 @@ export const uiStore = createStore({
       produce(ctx, (draft) => {
         draft.worktreeFilter = event.filter;
       }),
+    setShowGraphPanel: (ctx, event: { show: boolean }) =>
+      produce(ctx, (draft) => {
+        draft.showGraphPanel = event.show;
+      }),
+    toggleGraphPanel: (ctx) =>
+      produce(ctx, (draft) => {
+        draft.showGraphPanel = !draft.showGraphPanel;
+      }),
+    setGraphColumnWidths: (ctx, event: { widths: { branchTag: number; graph: number } }) =>
+      produce(ctx, (draft) => {
+        draft.graphColumnWidths = event.widths;
+      }),
     setSelectedSkillIds: (ctx, event: { skillIds: string[] }) =>
       produce(ctx, (draft) => {
         draft.selectedSkillIds = event.skillIds;
@@ -348,6 +366,8 @@ export function useUIStore() {
   const showWorktreesPanel = useSelector(uiStore, (s) => s.context.showWorktreesPanel);
   const selectedWorktree = useSelector(uiStore, (s) => s.context.selectedWorktree);
   const worktreeFilter = useSelector(uiStore, (s) => s.context.worktreeFilter);
+  const showGraphPanel = useSelector(uiStore, (s) => s.context.showGraphPanel);
+  const graphColumnWidths = useSelector(uiStore, (s) => s.context.graphColumnWidths);
   const selectedSkillIds = useSelector(uiStore, (s) => s.context.selectedSkillIds);
   const showSkillsDialog = useSelector(uiStore, (s) => s.context.showSkillsDialog);
 
@@ -383,6 +403,8 @@ export function useUIStore() {
     showWorktreesPanel,
     selectedWorktree,
     worktreeFilter,
+    showGraphPanel,
+    graphColumnWidths,
     selectedSkillIds,
     showSkillsDialog,
 
@@ -453,6 +475,12 @@ export function useUIStore() {
       uiStore.send({ type: 'setSelectedWorktree', worktree }),
     setWorktreeFilter: (filter: string) =>
       uiStore.send({ type: 'setWorktreeFilter', filter }),
+    setShowGraphPanel: (show: boolean) =>
+      uiStore.send({ type: 'setShowGraphPanel', show }),
+    toggleGraphPanel: () =>
+      uiStore.send({ type: 'toggleGraphPanel' }),
+    setGraphColumnWidths: (widths: { branchTag: number; graph: number }) =>
+      uiStore.send({ type: 'setGraphColumnWidths', widths }),
     setSelectedSkillIds: (skillIds: string[]) =>
       uiStore.send({ type: 'setSelectedSkillIds', skillIds }),
     toggleSkillSelection: (skillId: string) =>
