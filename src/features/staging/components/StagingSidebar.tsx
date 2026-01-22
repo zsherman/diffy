@@ -8,8 +8,10 @@ import {
   Question,
   CaretDown,
   CaretRight,
+  Sparkle,
+  CircleNotch,
 } from '@phosphor-icons/react';
-import { getStatus, stageFiles, unstageFiles, createCommit } from '../../../lib/tauri';
+import { getStatus, stageFiles, unstageFiles, createCommit, generateCommitMessage } from '../../../lib/tauri';
 import { useGitStore } from '../../../stores/git-store';
 import { useUIStore } from '../../../stores/ui-store';
 import type { FileStatus } from '../../../types/git';
@@ -141,6 +143,7 @@ export function StagingSidebar() {
   const [unstagedExpanded, setUnstagedExpanded] = useState(true);
   const [stagedExpanded, setStagedExpanded] = useState(true);
   const [isCommitting, setIsCommitting] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // Fetch status
   const { data: status } = useQuery({
@@ -233,6 +236,27 @@ export function StagingSidebar() {
     [handleCommit]
   );
 
+  const handleGenerateMessage = useCallback(async () => {
+    if (!repository || stagedFiles.length === 0 || isGenerating) return;
+
+    setIsGenerating(true);
+    try {
+      const message = await generateCommitMessage(repository.path);
+      // Split on first newline to separate title from body
+      const lines = message.split('\n');
+      const title = lines[0] || '';
+      const body = lines.slice(1).join('\n').trim();
+      setCommitMessage(title);
+      if (body) {
+        setCommitDescription(body);
+      }
+    } catch (error) {
+      console.error('Failed to generate commit message:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [repository, stagedFiles.length, isGenerating, setCommitMessage, setCommitDescription]);
+
   const branchName = repository?.head_branch ?? 'main';
 
   return (
@@ -319,15 +343,29 @@ export function StagingSidebar() {
           Amend previous commit
         </label>
 
-        {/* Commit message */}
-        <input
-          type="text"
-          placeholder="Commit message (title)"
-          value={commitMessage}
-          onChange={(e) => setCommitMessage(e.target.value)}
-          onKeyDown={handleKeyDown}
-          className="w-full px-2 py-1.5 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
-        />
+        {/* Commit message with AI generate button */}
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="Commit message (title)"
+            value={commitMessage}
+            onChange={(e) => setCommitMessage(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="flex-1 px-2 py-1.5 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
+          />
+          <button
+            onClick={handleGenerateMessage}
+            disabled={stagedFiles.length === 0 || isGenerating}
+            className="px-2 py-1.5 bg-accent-purple text-white rounded text-sm hover:bg-accent-purple/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
+            title="Generate commit message with AI"
+          >
+            {isGenerating ? (
+              <CircleNotch size={16} weight="bold" className="animate-spin" />
+            ) : (
+              <Sparkle size={16} weight="bold" />
+            )}
+          </button>
+        </div>
 
         {/* Description */}
         <textarea

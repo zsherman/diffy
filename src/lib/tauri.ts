@@ -96,3 +96,8 @@ export async function gitPush(repoPath: string): Promise<string> {
 export async function createCommit(repoPath: string, message: string): Promise<string> {
   return invoke<string>('create_commit', { repoPath, message });
 }
+
+// AI
+export async function generateCommitMessage(repoPath: string): Promise<string> {
+  return invoke<string>('generate_commit_message', { repoPath });
+}

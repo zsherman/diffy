@@ -1,4 +1,5 @@
 use crate::git::{self, BranchInfo, CommitGraph, CommitInfo, FileDiff, RepositoryInfo, StatusInfo, UnifiedDiff};
+use std::process::Command;
 
 type Result<T> = std::result::Result<T, String>;
 
@@ -112,4 +113,44 @@ pub async fn git_pull(repo_path: String) -> Result<String> {
 #[tauri::command]
 pub async fn git_push(repo_path: String) -> Result<String> {
     git::git_push(&repo_path).map_err(map_err)
+}
+
+#[tauri::command]
+pub async fn generate_commit_message(repo_path: String) -> Result<String> {
+    // Get the staged diff
+    let repo = git::open_repo(&repo_path).map_err(map_err)?;
+    let diff = git::get_working_diff(&repo, true).map_err(map_err)?;
+
+    if diff.patch.is_empty() {
+        return Err("No staged changes to generate a commit message for".to_string());
+    }
+
+    // Truncate diff if too long (Claude has context limits)
+    let max_diff_len = 8000;
+    let truncated_diff = if diff.patch.len() > max_diff_len {
+        format!("{}...\n[diff truncated]", &diff.patch[..max_diff_len])
+    } else {
+        diff.patch.clone()
+    };
+
+    let prompt = format!(
+        "Generate a concise git commit message (max 72 chars for title) for these changes. \
+        Use conventional commit format (feat:, fix:, refactor:, etc) if appropriate. \
+        Only output the commit message, nothing else:\n\n{}",
+        truncated_diff
+    );
+
+    // Call claude CLI with -p flag for non-interactive mode
+    let output = Command::new("claude")
+        .args(["-p", &prompt])
+        .output()
+        .map_err(|e| format!("Failed to run claude: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Claude failed: {}", stderr));
+    }
+
+    let message = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    Ok(message)
 }
