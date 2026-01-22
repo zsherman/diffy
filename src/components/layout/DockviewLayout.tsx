@@ -112,7 +112,7 @@ export function setApplyingLayoutPreset(value: boolean) {
 }
 
 export function DockviewLayout() {
-  const { showBranchesPanel, showFilesPanel, showDiffPanel, showStagingSidebar, showAIReviewPanel, setShowBranchesPanel, setShowFilesPanel, setShowDiffPanel, setShowStagingSidebar, setShowAIReviewPanel } = useUIStore();
+  const { theme, showBranchesPanel, showFilesPanel, showDiffPanel, showStagingSidebar, showAIReviewPanel, setShowBranchesPanel, setShowFilesPanel, setShowDiffPanel, setShowStagingSidebar, setShowAIReviewPanel } = useUIStore();
   const apiRef = useRef<DockviewApi | null>(null);
   const isInitializedRef = useRef(false);
 
@@ -307,7 +307,7 @@ export function DockviewLayout() {
     <DockviewReact
       components={components}
       onReady={onReady}
-      className="dockview-theme-dark"
+      className={theme === 'pierre-light' ? 'dockview-theme-light' : 'dockview-theme-dark'}
       rightHeaderActionsComponent={DockviewHeaderActions}
     />
   );

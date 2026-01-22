@@ -15,7 +15,12 @@ export function getDockviewApi(): DockviewApi | null {
   return dockviewApiRef;
 }
 
+type Theme = 'pierre-dark' | 'pierre-light';
+
 interface UIContext {
+  // Theme
+  theme: Theme;
+
   // Panel focus
   activePanel: PanelId;
 
@@ -61,8 +66,20 @@ interface UIContext {
   aiReviewError: string | null;
 }
 
+// Get initial theme from localStorage
+function getInitialTheme(): Theme {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('diffy-theme');
+    if (saved === 'pierre-dark' || saved === 'pierre-light') {
+      return saved;
+    }
+  }
+  return 'pierre-dark';
+}
+
 export const uiStore = createStore({
   context: {
+    theme: getInitialTheme(),
     activePanel: 'branches',
     viewMode: 'working',
     selectedBranch: null,
@@ -91,6 +108,13 @@ export const uiStore = createStore({
     aiReviewError: null,
   } as UIContext,
   on: {
+    setTheme: (ctx, event: { theme: Theme }) =>
+      produce(ctx, (draft) => {
+        draft.theme = event.theme;
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('diffy-theme', event.theme);
+        }
+      }),
     setActivePanel: (ctx, event: { panel: PanelId }) =>
       produce(ctx, (draft) => {
         draft.activePanel = event.panel;
@@ -216,6 +240,7 @@ export const uiStore = createStore({
 
 // Wrapper hook maintains same API - no component changes needed
 export function useUIStore() {
+  const theme = useSelector(uiStore, (s) => s.context.theme);
   const activePanel = useSelector(uiStore, (s) => s.context.activePanel);
   const viewMode = useSelector(uiStore, (s) => s.context.viewMode);
   const selectedBranch = useSelector(uiStore, (s) => s.context.selectedBranch);
@@ -245,6 +270,7 @@ export function useUIStore() {
 
   return {
     // State
+    theme,
     activePanel,
     viewMode,
     selectedBranch,
@@ -273,6 +299,8 @@ export function useUIStore() {
     aiReviewError,
 
     // Actions
+    setTheme: (theme: Theme) =>
+      uiStore.send({ type: 'setTheme', theme }),
     setActivePanel: (panel: PanelId) =>
       uiStore.send({ type: 'setActivePanel', panel }),
     setViewMode: (mode: ViewMode) =>

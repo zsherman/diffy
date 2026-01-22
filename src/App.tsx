@@ -29,8 +29,13 @@ function AppContent() {
   const { repository, error, setRepository, setError, setIsLoading } = useGitStore();
   const [recentRepos, setRecentRepos] = useState<RecentRepository[]>([]);
 
-  // Panel visibility is now managed within DockviewLayout
-  useUIStore();
+  // Get theme from UI store
+  const { theme } = useUIStore();
+
+  // Sync theme to document
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
 
   // Set up keyboard navigation
   useKeyboardNavigation();

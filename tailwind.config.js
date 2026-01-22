@@ -7,21 +7,21 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Dark theme colors
-        'bg-primary': '#1e1e2e',
-        'bg-secondary': '#181825',
-        'bg-tertiary': '#11111b',
-        'bg-hover': '#313244',
-        'bg-selected': '#45475a',
-        'text-primary': '#cdd6f4',
-        'text-secondary': '#a6adc8',
-        'text-muted': '#6c7086',
-        'border-primary': '#313244',
-        'accent-blue': '#89b4fa',
-        'accent-green': '#a6e3a1',
-        'accent-red': '#f38ba8',
-        'accent-yellow': '#f9e2af',
-        'accent-purple': '#cba6f7',
+        // Theme colors using CSS variables
+        'bg-primary': 'var(--bg-primary)',
+        'bg-secondary': 'var(--bg-secondary)',
+        'bg-tertiary': 'var(--bg-tertiary)',
+        'bg-hover': 'var(--bg-hover)',
+        'bg-selected': 'var(--bg-selected)',
+        'text-primary': 'var(--text-primary)',
+        'text-secondary': 'var(--text-secondary)',
+        'text-muted': 'var(--text-muted)',
+        'border-primary': 'var(--border-primary)',
+        'accent-blue': 'var(--accent-blue)',
+        'accent-green': 'var(--accent-green)',
+        'accent-red': 'var(--accent-red)',
+        'accent-yellow': 'var(--accent-yellow)',
+        'accent-purple': 'var(--accent-purple)',
       },
       fontFamily: {
         mono: ['JetBrains Mono', 'Fira Code', 'Consolas', 'monospace'],

@@ -1,17 +1,18 @@
 import { useState } from 'react';
 import { Dialog } from '@base-ui/react/dialog';
-import { X, Sliders, Minus, Plus } from '@phosphor-icons/react';
+import { X, Sliders, Minus, Plus, Sun, Moon } from '@phosphor-icons/react';
 import { useUIStore } from '../../stores/ui-store';
 
-type SettingsSection = 'diff';
+type SettingsSection = 'appearance' | 'diff';
 
 const sections: { id: SettingsSection; label: string }[] = [
+  { id: 'appearance', label: 'Appearance' },
   { id: 'diff', label: 'Diff' },
 ];
 
 export function SettingsDialog() {
-  const { showSettingsDialog, setShowSettingsDialog, diffFontSize, setDiffFontSize } = useUIStore();
-  const [activeSection, setActiveSection] = useState<SettingsSection>('diff');
+  const { showSettingsDialog, setShowSettingsDialog, theme, setTheme, diffFontSize, setDiffFontSize } = useUIStore();
+  const [activeSection, setActiveSection] = useState<SettingsSection>('appearance');
 
   const handleFontSizeChange = (delta: number) => {
     const newSize = Math.min(24, Math.max(10, diffFontSize + delta));
@@ -55,6 +56,48 @@ export function SettingsDialog() {
 
             {/* Right content */}
             <div className="flex-1 p-4 overflow-auto">
+              {activeSection === 'appearance' && (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-sm font-medium text-text-primary mb-4">Appearance</h3>
+
+                    {/* Theme */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="text-sm text-text-primary">Theme</label>
+                        <p className="text-xs text-text-muted mt-0.5">
+                          Choose between Pierre Dark and Pierre Light themes
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setTheme('pierre-dark')}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-colors ${
+                            theme === 'pierre-dark'
+                              ? 'bg-accent-blue/20 text-accent-blue'
+                              : 'bg-bg-hover text-text-muted hover:text-text-primary'
+                          }`}
+                        >
+                          <Moon size={14} weight="bold" />
+                          Dark
+                        </button>
+                        <button
+                          onClick={() => setTheme('pierre-light')}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-colors ${
+                            theme === 'pierre-light'
+                              ? 'bg-accent-blue/20 text-accent-blue'
+                              : 'bg-bg-hover text-text-muted hover:text-text-primary'
+                          }`}
+                        >
+                          <Sun size={14} weight="bold" />
+                          Light
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {activeSection === 'diff' && (
                 <div className="space-y-6">
                   <div>

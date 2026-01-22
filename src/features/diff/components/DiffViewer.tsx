@@ -40,12 +40,14 @@ const CollapsibleFileDiff = memo(function CollapsibleFileDiff({
   diffStyle,
   defaultCollapsed,
   fontSize,
+  themeType,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   fileDiff: any;
   diffStyle: 'split' | 'unified';
   defaultCollapsed?: boolean;
   fontSize: number;
+  themeType: 'light' | 'dark';
 }) {
   const lineCount = getDiffLineCount(fileDiff);
   const isLargeDiff = lineCount > LARGE_DIFF_THRESHOLD;
@@ -99,7 +101,7 @@ const CollapsibleFileDiff = memo(function CollapsibleFileDiff({
             fileDiff={fileDiff}
             options={{
               diffStyle,
-              themeType: 'dark',
+              themeType,
               disableFileHeader: true,
             }}
           />
@@ -116,12 +118,14 @@ function SingleFileDiff({
   filePath,
   diffViewMode,
   fontSize,
+  themeType,
 }: {
   repoPath: string;
   commitId: string;
   filePath: string;
   diffViewMode: 'split' | 'unified';
   fontSize: number;
+  themeType: 'light' | 'dark';
 }) {
   const { data: fileDiff, isLoading } = useQuery({
     queryKey: ['file-diff', repoPath, commitId, filePath],
@@ -162,7 +166,7 @@ function SingleFileDiff({
         fileDiff={parsedFile}
         options={{
           diffStyle: diffViewMode === 'split' ? 'split' : 'unified',
-          themeType: 'dark',
+          themeType,
         }}
       />
     </div>
@@ -171,7 +175,8 @@ function SingleFileDiff({
 
 export function DiffViewer() {
   const { repository } = useGitStore();
-  const { selectedCommit, selectedFile, diffViewMode, diffFontSize } = useUIStore();
+  const { theme, selectedCommit, selectedFile, diffViewMode, diffFontSize } = useUIStore();
+  const themeType = theme === 'pierre-light' ? 'light' : 'dark';
 
   // Only fetch working diff when no commit is selected
   const { data: stagedDiff, isLoading: stagedLoading } = useQuery({
@@ -253,6 +258,7 @@ export function DiffViewer() {
             filePath={selectedFile}
             diffViewMode={diffViewMode}
             fontSize={diffFontSize}
+            themeType={themeType}
           />
         </div>
       );
@@ -288,6 +294,7 @@ export function DiffViewer() {
             fileDiff={fileDiff}
             diffStyle={diffViewMode === 'split' ? 'split' : 'unified'}
             fontSize={diffFontSize}
+            themeType={themeType}
           />
         ))}
       </VList>
@@ -324,6 +331,7 @@ export function DiffViewer() {
           fileDiff={fileDiff}
           diffStyle={diffViewMode === 'split' ? 'split' : 'unified'}
           fontSize={diffFontSize}
+          themeType={themeType}
         />
       ))}
     </VList>
