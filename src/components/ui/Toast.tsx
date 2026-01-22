@@ -63,6 +63,8 @@ function ToastList() {
   const { toasts } = Toast.useToastManager();
 
   return toasts.map((toast) => {
+    // Debug: log full toast object to find issue
+    console.log('[Toast Debug]', JSON.stringify(toast, null, 2));
     const data = toast.data as ToastData | undefined;
     const type = data?.type || 'info';
     const title = data?.title || 'Notification';
@@ -116,14 +118,26 @@ export const useToast = () => {
   const manager = Toast.useToastManager();
 
   return {
-    success: (title: string, description?: string) =>
-      manager.add({ title, description, type: 'success' } as ToastData),
-    error: (title: string, description?: string) =>
-      manager.add({ title, description, type: 'error' } as ToastData),
-    warning: (title: string, description?: string) =>
-      manager.add({ title, description, type: 'warning' } as ToastData),
-    info: (title: string, description?: string) =>
-      manager.add({ title, description, type: 'info' } as ToastData),
+    success: (title: string, description?: string) => {
+      const data = { title, description, type: 'success' as const };
+      console.log('[useToast.success] Adding toast:', data);
+      return manager.add(data);
+    },
+    error: (title: string, description?: string) => {
+      const data = { title, description, type: 'error' as const };
+      console.log('[useToast.error] Adding toast:', data);
+      return manager.add(data, { timeout: 10000 });
+    },
+    warning: (title: string, description?: string) => {
+      const data = { title, description, type: 'warning' as const };
+      console.log('[useToast.warning] Adding toast:', data);
+      return manager.add(data, { timeout: 7000 });
+    },
+    info: (title: string, description?: string) => {
+      const data = { title, description, type: 'info' as const };
+      console.log('[useToast.info] Adding toast:', data);
+      return manager.add(data);
+    },
     promise: manager.promise,
   };
 };
