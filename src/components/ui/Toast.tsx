@@ -65,7 +65,9 @@ function ToastList() {
   return toasts.map((toast) => {
     const data = toast.data as ToastData | undefined;
     const type = data?.type || 'info';
-    const showCopy = type === 'error' && data?.description;
+    const title = data?.title || 'Notification';
+    const description = data?.description;
+    const showCopy = type === 'error' && description;
 
     return (
       <Toast.Root
@@ -76,16 +78,16 @@ function ToastList() {
         <Toast.Content className="flex-1 min-w-0">
           <Toast.Title className={`flex items-center gap-2 font-medium text-sm ${titleColorMap[type]}`}>
             {iconMap[type]}
-            {data?.title}
+            <span className="text-text-primary">{title}</span>
           </Toast.Title>
-          {data?.description && (
-            <Toast.Description className="text-sm text-text-primary mt-2 leading-relaxed">
-              {data.description}
+          {description && (
+            <Toast.Description className="text-sm text-text-muted mt-2 leading-relaxed">
+              {description}
             </Toast.Description>
           )}
         </Toast.Content>
         <div className="flex items-center gap-1 shrink-0">
-          {showCopy && <CopyButton text={`${data.title}\n\n${data.description}`} />}
+          {showCopy && <CopyButton text={`${title}\n\n${description}`} />}
           <Toast.Close className="text-text-muted hover:text-text-primary p-1">
             <X size={14} />
           </Toast.Close>
