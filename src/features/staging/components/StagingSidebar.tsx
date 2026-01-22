@@ -127,6 +127,7 @@ export function StagingSidebar() {
   const {
     selectedFile,
     setSelectedFile,
+    setSelectedCommit,
     commitMessage,
     setCommitMessage,
     commitDescription,
@@ -166,6 +167,9 @@ export function StagingSidebar() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['status'] });
       queryClient.invalidateQueries({ queryKey: ['commits'] });
+      queryClient.invalidateQueries({ queryKey: ['working-diff-staged'] });
+      queryClient.invalidateQueries({ queryKey: ['working-diff-unstaged'] });
+      queryClient.invalidateQueries({ queryKey: ['branches'] });
       clearCommitForm();
       setIsCommitting(false);
     },
@@ -261,7 +265,10 @@ export function StagingSidebar() {
                 file={file}
                 isStaged={false}
                 isSelected={selectedFile === file.path}
-                onSelect={() => setSelectedFile(file.path)}
+                onSelect={() => {
+                  setSelectedCommit(null);
+                  setSelectedFile(file.path);
+                }}
                 onStage={() => handleStageFile(file.path)}
                 onUnstage={() => {}}
               />
@@ -287,7 +294,10 @@ export function StagingSidebar() {
                 file={file}
                 isStaged={true}
                 isSelected={selectedFile === file.path}
-                onSelect={() => setSelectedFile(file.path)}
+                onSelect={() => {
+                  setSelectedCommit(null);
+                  setSelectedFile(file.path);
+                }}
                 onStage={() => {}}
                 onUnstage={() => handleUnstageFile(file.path)}
               />

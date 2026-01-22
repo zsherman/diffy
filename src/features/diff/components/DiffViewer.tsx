@@ -1,11 +1,109 @@
-import { useMemo } from 'react';
+import { useMemo, memo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { VList } from 'virtua';
 import { parsePatchFiles } from '@pierre/diffs';
 import { FileDiff } from '@pierre/diffs/react';
+import { CaretRight, CaretDown, File, Warning } from '@phosphor-icons/react';
 import { getFileDiff, getWorkingDiff, getCommitDiff } from '../../../lib/tauri';
 import { useGitStore } from '../../../stores/git-store';
 import { useUIStore } from '../../../stores/ui-store';
 import { LoadingSpinner, SkeletonDiff } from '../../../components/ui';
+
+// Threshold for auto-collapsing large diffs
+const LARGE_DIFF_THRESHOLD = 500;
+
+// Calculate total lines in a diff
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getDiffLineCount(fileDiff: any): number {
+  if (!fileDiff?.hunks) return 0;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return fileDiff.hunks.reduce((total: number, hunk: any) => {
+    return total + (hunk.unifiedLineCount || 0);
+  }, 0);
+}
+
+// Calculate additions and deletions from hunks
+function getDiffStats(fileDiff: any): { additions: number; deletions: number } {
+  if (!fileDiff?.hunks) return { additions: 0, deletions: 0 };
+  let additions = 0;
+  let deletions = 0;
+  for (const hunk of fileDiff.hunks) {
+    additions += hunk.additionCount || 0;
+    deletions += hunk.deletionCount || 0;
+  }
+  return { additions, deletions };
+}
+
+// Collapsible file diff wrapper
+const CollapsibleFileDiff = memo(function CollapsibleFileDiff({
+  fileDiff,
+  diffStyle,
+  defaultCollapsed,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fileDiff: any;
+  diffStyle: 'split' | 'unified';
+  defaultCollapsed?: boolean;
+}) {
+  const lineCount = getDiffLineCount(fileDiff);
+  const isLargeDiff = lineCount > LARGE_DIFF_THRESHOLD;
+  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed ?? isLargeDiff);
+  const { additions, deletions } = getDiffStats(fileDiff);
+
+  // FileDiffMetadata uses 'name' and 'prevName', not 'newPath'/'oldPath'
+  const currentName = (fileDiff.name || '').replace(/^[ab]\//, '');
+  const previousName = (fileDiff.prevName || '').replace(/^[ab]\//, '');
+  const isRenamed = previousName && previousName !== currentName;
+  const displayName = currentName || previousName || 'Unknown file';
+
+  return (
+    <div className="border-b border-border-primary">
+      <button
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        className="w-full flex items-center gap-2 px-3 py-2 bg-bg-secondary hover:bg-bg-hover transition-colors text-left"
+      >
+        {isCollapsed ? (
+          <CaretRight size={14} weight="bold" className="text-text-muted shrink-0" />
+        ) : (
+          <CaretDown size={14} weight="bold" className="text-text-muted shrink-0" />
+        )}
+        <File size={14} weight="bold" className="text-accent-blue shrink-0" />
+        {isRenamed ? (
+          <span className="text-text-primary text-sm truncate">
+            {previousName} <span className="text-text-muted">→</span> {currentName}
+          </span>
+        ) : (
+          <span className="text-text-primary text-sm truncate">{displayName}</span>
+        )}
+        <div className="flex-1" />
+        {isLargeDiff && isCollapsed && (
+          <span className="flex items-center gap-1 text-xs text-accent-yellow mr-2">
+            <Warning size={12} weight="bold" />
+            Large diff
+          </span>
+        )}
+        <span className="flex items-center gap-2 text-xs shrink-0">
+          {deletions > 0 && (
+            <span className="text-accent-red">-{deletions}</span>
+          )}
+          {additions > 0 && (
+            <span className="text-accent-green">+{additions}</span>
+          )}
+        </span>
+      </button>
+      {!isCollapsed && (
+        <FileDiff
+          fileDiff={fileDiff}
+          options={{
+            diffStyle,
+            themeType: 'dark',
+            disableFileHeader: true,
+          }}
+        />
+      )}
+    </div>
+  );
+});
 
 // Single file diff component that loads its own data
 function SingleFileDiff({
@@ -174,18 +272,15 @@ export function DiffViewer() {
     }
 
     return (
-      <div className="h-full overflow-auto bg-bg-tertiary">
-        {commitParsedFiles.map((fileDiff, index) => (
-          <FileDiff
-            key={fileDiff.newPath || fileDiff.oldPath || index}
+      <VList className="h-full bg-bg-tertiary">
+        {commitParsedFiles.map((fileDiff: any, index) => (
+          <CollapsibleFileDiff
+            key={fileDiff.name || fileDiff.prevName || index}
             fileDiff={fileDiff}
-            options={{
-              diffStyle: diffViewMode === 'split' ? 'split' : 'unified',
-              themeType: 'dark',
-            }}
+            diffStyle={diffViewMode === 'split' ? 'split' : 'unified'}
           />
         ))}
-      </div>
+      </VList>
     );
   }
 
@@ -212,17 +307,14 @@ export function DiffViewer() {
   }
 
   return (
-    <div className="h-full overflow-auto bg-bg-tertiary">
-      {workingFilesToShow.map((fileDiff, index) => (
-        <FileDiff
-          key={fileDiff.newPath || fileDiff.oldPath || index}
+    <VList className="h-full bg-bg-tertiary">
+      {workingFilesToShow.map((fileDiff: any, index) => (
+        <CollapsibleFileDiff
+          key={fileDiff.name || fileDiff.prevName || index}
           fileDiff={fileDiff}
-          options={{
-            diffStyle: diffViewMode === 'split' ? 'split' : 'unified',
-            themeType: 'dark',
-          }}
+          diffStyle={diffViewMode === 'split' ? 'split' : 'unified'}
         />
       ))}
-    </div>
+    </VList>
   );
 }

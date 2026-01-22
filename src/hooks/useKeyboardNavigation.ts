@@ -25,6 +25,8 @@ export function useKeyboardNavigation(config: KeyboardConfig = {}) {
     diffViewMode,
     setDiffViewMode,
     toggleStagingSidebar,
+    selectedFile,
+    setSelectedFile,
   } = useUIStore();
 
   const handleKeyDown = useCallback(
@@ -54,7 +56,7 @@ export function useKeyboardNavigation(config: KeyboardConfig = {}) {
         return;
       }
 
-      // Close overlays on Escape
+      // Close overlays on Escape, or clear selected file
       if (e.key === 'Escape') {
         if (showHelpOverlay) {
           setShowHelpOverlay(false);
@@ -62,6 +64,11 @@ export function useKeyboardNavigation(config: KeyboardConfig = {}) {
         }
         if (showCommandPalette) {
           setShowCommandPalette(false);
+          return;
+        }
+        // Clear selected file to show all diffs
+        if (selectedFile) {
+          setSelectedFile(null);
           return;
         }
       }
@@ -184,6 +191,8 @@ export function useKeyboardNavigation(config: KeyboardConfig = {}) {
       diffViewMode,
       setDiffViewMode,
       toggleStagingSidebar,
+      selectedFile,
+      setSelectedFile,
       config,
     ]
   );
