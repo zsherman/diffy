@@ -13,6 +13,7 @@ import {
   DiffPanel,
   StagingPanel,
   AIReviewPanel,
+  WorktreesPanel,
 } from './panels';
 import { DockviewHeaderActions } from './DockviewHeaderActions';
 
@@ -35,6 +36,7 @@ const components = {
   diff: DiffPanel,
   staging: StagingPanel,
   'ai-review': AIReviewPanel,
+  worktrees: WorktreesPanel,
 };
 
 function createDefaultLayout(api: DockviewApi) {
@@ -112,7 +114,7 @@ export function setApplyingLayoutPreset(value: boolean) {
 }
 
 export function DockviewLayout() {
-  const { theme, showBranchesPanel, showFilesPanel, showDiffPanel, showStagingSidebar, showAIReviewPanel, setShowBranchesPanel, setShowFilesPanel, setShowDiffPanel, setShowStagingSidebar, setShowAIReviewPanel } = useUIStore();
+  const { theme, showBranchesPanel, showFilesPanel, showDiffPanel, showStagingSidebar, showAIReviewPanel, showWorktreesPanel, setShowBranchesPanel, setShowFilesPanel, setShowDiffPanel, setShowStagingSidebar, setShowAIReviewPanel, setShowWorktreesPanel } = useUIStore();
   const apiRef = useRef<DockviewApi | null>(null);
   const isInitializedRef = useRef(false);
 
@@ -163,6 +165,8 @@ export function DockviewLayout() {
         setShowStagingSidebar(false);
       } else if (panelId === 'ai-review') {
         setShowAIReviewPanel(false);
+      } else if (panelId === 'worktrees') {
+        setShowWorktreesPanel(false);
       }
     });
 
@@ -172,7 +176,7 @@ export function DockviewLayout() {
       layoutDisposable.dispose();
       removeDisposable.dispose();
     };
-  }, [setShowBranchesPanel, setShowFilesPanel, setShowDiffPanel, setShowStagingSidebar, setShowAIReviewPanel]);
+  }, [setShowBranchesPanel, setShowFilesPanel, setShowDiffPanel, setShowStagingSidebar, setShowAIReviewPanel, setShowWorktreesPanel]);
 
   // Sync branches panel visibility with dockview
   useEffect(() => {
@@ -302,6 +306,43 @@ export function DockviewLayout() {
       api.removePanel(aiReviewPanel);
     }
   }, [showAIReviewPanel]);
+
+  // Sync worktrees panel visibility with dockview
+  useEffect(() => {
+    const api = apiRef.current;
+    if (!api || !isInitializedRef.current) return;
+
+    const worktreesPanel = api.getPanel('worktrees');
+    if (showWorktreesPanel && !worktreesPanel) {
+      // Add worktrees panel below the branches panel, or left of commits
+      const branchesPanel = api.getPanel('branches');
+      const commitsPanel = api.getPanel('commits');
+      if (branchesPanel) {
+        api.addPanel({
+          id: 'worktrees',
+          component: 'worktrees',
+          title: 'Worktrees',
+          position: { referencePanel: branchesPanel, direction: 'below' },
+        });
+      } else if (commitsPanel) {
+        api.addPanel({
+          id: 'worktrees',
+          component: 'worktrees',
+          title: 'Worktrees',
+          position: { referencePanel: commitsPanel, direction: 'left' },
+        });
+      } else {
+        api.addPanel({
+          id: 'worktrees',
+          component: 'worktrees',
+          title: 'Worktrees',
+          position: { direction: 'left' },
+        });
+      }
+    } else if (!showWorktreesPanel && worktreesPanel) {
+      api.removePanel(worktreesPanel);
+    }
+  }, [showWorktreesPanel]);
 
   return (
     <DockviewReact

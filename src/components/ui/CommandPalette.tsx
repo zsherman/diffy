@@ -18,11 +18,16 @@ import {
   GitCommit,
   Sun,
   Moon,
+  TreeStructure,
+  Plus,
+  BookBookmark,
+  Trash,
 } from '@phosphor-icons/react';
 import { useUIStore, getDockviewApi } from '../../stores/ui-store';
 import { useGitStore } from '../../stores/git-store';
 import { useToast } from './Toast';
 import { gitFetch, gitPull, gitPush } from '../../lib/tauri';
+import { getErrorMessage } from '../../lib/errors';
 import { applyLayout, layoutPresets } from '../../lib/layouts';
 
 export function CommandPalette() {
@@ -34,20 +39,26 @@ export function CommandPalette() {
     showDiffPanel,
     showStagingSidebar,
     showAIReviewPanel,
+    showWorktreesPanel,
     theme,
     diffViewMode,
     diffFontSize,
+    selectedSkillIds,
     toggleBranchesPanel,
     setShowFilesPanel,
     setShowDiffPanel,
     toggleStagingSidebar,
     setShowAIReviewPanel,
+    toggleWorktreesPanel,
+    setShowWorktreesPanel,
     setTheme,
     setDiffViewMode,
     setDiffFontSize,
     setShowSettingsDialog,
     setShowHelpOverlay,
     setActivePanel,
+    setShowSkillsDialog,
+    clearSelectedSkills,
   } = useUIStore();
 
   const { repository } = useGitStore();
@@ -57,15 +68,6 @@ export function CommandPalette() {
   const runCommand = (fn: () => void | Promise<void>) => {
     setShowCommandPalette(false);
     fn();
-  };
-
-  const getErrorMessage = (error: unknown): string => {
-    if (typeof error === 'string') return error;
-    if (error instanceof Error) return error.message;
-    if (error && typeof error === 'object' && 'message' in error) {
-      return String((error as { message: unknown }).message);
-    }
-    return JSON.stringify(error);
   };
 
   const handleFetch = async () => {
@@ -211,6 +213,17 @@ export function CommandPalette() {
                 {showAIReviewPanel ? 'Hide' : 'Show'}
               </span>
             </Command.Item>
+
+            <Command.Item
+              onSelect={() => runCommand(toggleWorktreesPanel)}
+              className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+            >
+              <TreeStructure size={16} className="text-text-muted" />
+              <span className="flex-1">Toggle Worktrees Panel</span>
+              <span className="text-xs text-text-muted">
+                {showWorktreesPanel ? 'Hide' : 'Show'}
+              </span>
+            </Command.Item>
           </Command.Group>
 
           {/* Navigation Group */}
@@ -297,6 +310,20 @@ export function CommandPalette() {
                 5
               </kbd>
             </Command.Item>
+
+            <Command.Item
+              onSelect={() =>
+                runCommand(() => {
+                  setShowWorktreesPanel(true);
+                  setActivePanel('worktrees');
+                  focusPanel('worktrees');
+                })
+              }
+              className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+            >
+              <TreeStructure size={16} className="text-text-muted" />
+              <span className="flex-1">Go to Worktrees</span>
+            </Command.Item>
           </Command.Group>
 
           {/* Git Group - only show when repo is open */}
@@ -327,6 +354,20 @@ export function CommandPalette() {
               >
                 <ArrowUp size={16} className="text-text-muted" />
                 <span className="flex-1">Push to Remote</span>
+              </Command.Item>
+
+              <Command.Item
+                onSelect={() =>
+                  runCommand(() => {
+                    setShowWorktreesPanel(true);
+                    setActivePanel('worktrees');
+                    focusPanel('worktrees');
+                  })
+                }
+                className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+              >
+                <Plus size={16} className="text-text-muted" />
+                <span className="flex-1">Create New Worktree</span>
               </Command.Item>
             </Command.Group>
           )}
@@ -423,6 +464,33 @@ export function CommandPalette() {
                 <span className="text-xs text-text-muted">{preset.description}</span>
               </Command.Item>
             ))}
+          </Command.Group>
+
+          {/* Skills Group */}
+          <Command.Group
+            heading="Skills"
+            className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
+          >
+            <Command.Item
+              onSelect={() => runCommand(() => setShowSkillsDialog(true))}
+              className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+            >
+              <BookBookmark size={16} className="text-text-muted" />
+              <span className="flex-1">Manage Skills</span>
+            </Command.Item>
+
+            {selectedSkillIds.length > 0 && (
+              <Command.Item
+                onSelect={() => runCommand(clearSelectedSkills)}
+                className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+              >
+                <Trash size={16} className="text-text-muted" />
+                <span className="flex-1">Clear Selected Skills</span>
+                <span className="text-xs text-text-muted">
+                  {selectedSkillIds.length} selected
+                </span>
+              </Command.Item>
+            )}
           </Command.Group>
 
           {/* General Group */}

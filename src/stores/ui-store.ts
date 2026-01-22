@@ -64,6 +64,15 @@ interface UIContext {
   aiReview: AIReviewData | null;
   aiReviewLoading: boolean;
   aiReviewError: string | null;
+
+  // Worktrees panel
+  showWorktreesPanel: boolean;
+  selectedWorktree: string | null;
+  worktreeFilter: string;
+
+  // Skills
+  selectedSkillIds: string[];
+  showSkillsDialog: boolean;
 }
 
 // Get initial theme from localStorage
@@ -75,6 +84,24 @@ function getInitialTheme(): Theme {
     }
   }
   return 'pierre-dark';
+}
+
+// Get initial selected skills from localStorage
+function getInitialSelectedSkills(): string[] {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('diffy-selected-skills');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    }
+  }
+  return [];
 }
 
 export const uiStore = createStore({
@@ -106,6 +133,11 @@ export const uiStore = createStore({
     aiReview: null,
     aiReviewLoading: false,
     aiReviewError: null,
+    showWorktreesPanel: false,
+    selectedWorktree: null,
+    worktreeFilter: '',
+    selectedSkillIds: getInitialSelectedSkills(),
+    showSkillsDialog: false,
   } as UIContext,
   on: {
     setTheme: (ctx, event: { theme: Theme }) =>
@@ -235,6 +267,52 @@ export const uiStore = createStore({
         draft.aiReview = null;
         draft.aiReviewError = null;
       }),
+    setShowWorktreesPanel: (ctx, event: { show: boolean }) =>
+      produce(ctx, (draft) => {
+        draft.showWorktreesPanel = event.show;
+      }),
+    toggleWorktreesPanel: (ctx) =>
+      produce(ctx, (draft) => {
+        draft.showWorktreesPanel = !draft.showWorktreesPanel;
+      }),
+    setSelectedWorktree: (ctx, event: { worktree: string | null }) =>
+      produce(ctx, (draft) => {
+        draft.selectedWorktree = event.worktree;
+      }),
+    setWorktreeFilter: (ctx, event: { filter: string }) =>
+      produce(ctx, (draft) => {
+        draft.worktreeFilter = event.filter;
+      }),
+    setSelectedSkillIds: (ctx, event: { skillIds: string[] }) =>
+      produce(ctx, (draft) => {
+        draft.selectedSkillIds = event.skillIds;
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('diffy-selected-skills', JSON.stringify(event.skillIds));
+        }
+      }),
+    toggleSkillSelection: (ctx, event: { skillId: string }) =>
+      produce(ctx, (draft) => {
+        const index = draft.selectedSkillIds.indexOf(event.skillId);
+        if (index >= 0) {
+          draft.selectedSkillIds.splice(index, 1);
+        } else {
+          draft.selectedSkillIds.push(event.skillId);
+        }
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('diffy-selected-skills', JSON.stringify(draft.selectedSkillIds));
+        }
+      }),
+    setShowSkillsDialog: (ctx, event: { show: boolean }) =>
+      produce(ctx, (draft) => {
+        draft.showSkillsDialog = event.show;
+      }),
+    clearSelectedSkills: (ctx) =>
+      produce(ctx, (draft) => {
+        draft.selectedSkillIds = [];
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('diffy-selected-skills', JSON.stringify([]));
+        }
+      }),
   },
 });
 
@@ -267,6 +345,11 @@ export function useUIStore() {
   const aiReview = useSelector(uiStore, (s) => s.context.aiReview);
   const aiReviewLoading = useSelector(uiStore, (s) => s.context.aiReviewLoading);
   const aiReviewError = useSelector(uiStore, (s) => s.context.aiReviewError);
+  const showWorktreesPanel = useSelector(uiStore, (s) => s.context.showWorktreesPanel);
+  const selectedWorktree = useSelector(uiStore, (s) => s.context.selectedWorktree);
+  const worktreeFilter = useSelector(uiStore, (s) => s.context.worktreeFilter);
+  const selectedSkillIds = useSelector(uiStore, (s) => s.context.selectedSkillIds);
+  const showSkillsDialog = useSelector(uiStore, (s) => s.context.showSkillsDialog);
 
   return {
     // State
@@ -297,6 +380,11 @@ export function useUIStore() {
     aiReview,
     aiReviewLoading,
     aiReviewError,
+    showWorktreesPanel,
+    selectedWorktree,
+    worktreeFilter,
+    selectedSkillIds,
+    showSkillsDialog,
 
     // Actions
     setTheme: (theme: Theme) =>
@@ -357,5 +445,21 @@ export function useUIStore() {
       uiStore.send({ type: 'setAIReviewError', error }),
     clearAIReview: () =>
       uiStore.send({ type: 'clearAIReview' }),
+    setShowWorktreesPanel: (show: boolean) =>
+      uiStore.send({ type: 'setShowWorktreesPanel', show }),
+    toggleWorktreesPanel: () =>
+      uiStore.send({ type: 'toggleWorktreesPanel' }),
+    setSelectedWorktree: (worktree: string | null) =>
+      uiStore.send({ type: 'setSelectedWorktree', worktree }),
+    setWorktreeFilter: (filter: string) =>
+      uiStore.send({ type: 'setWorktreeFilter', filter }),
+    setSelectedSkillIds: (skillIds: string[]) =>
+      uiStore.send({ type: 'setSelectedSkillIds', skillIds }),
+    toggleSkillSelection: (skillId: string) =>
+      uiStore.send({ type: 'toggleSkillSelection', skillId }),
+    setShowSkillsDialog: (show: boolean) =>
+      uiStore.send({ type: 'setShowSkillsDialog', show }),
+    clearSelectedSkills: () =>
+      uiStore.send({ type: 'clearSelectedSkills' }),
   };
 }

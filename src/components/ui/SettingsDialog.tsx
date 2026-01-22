@@ -1,18 +1,30 @@
 import { useState } from 'react';
 import { Dialog } from '@base-ui/react/dialog';
-import { X, Sliders, Minus, Plus, Sun, Moon } from '@phosphor-icons/react';
+import { X, Sliders, Minus, Plus, Sun, Moon, BookBookmark, ArrowSquareOut } from '@phosphor-icons/react';
 import { useUIStore } from '../../stores/ui-store';
+import { useSkills } from '../../features/skills/hooks/useSkills';
 
-type SettingsSection = 'appearance' | 'diff';
+type SettingsSection = 'appearance' | 'diff' | 'skills';
 
 const sections: { id: SettingsSection; label: string }[] = [
   { id: 'appearance', label: 'Appearance' },
   { id: 'diff', label: 'Diff' },
+  { id: 'skills', label: 'Skills' },
 ];
 
 export function SettingsDialog() {
-  const { showSettingsDialog, setShowSettingsDialog, theme, setTheme, diffFontSize, setDiffFontSize } = useUIStore();
+  const {
+    showSettingsDialog,
+    setShowSettingsDialog,
+    theme,
+    setTheme,
+    diffFontSize,
+    setDiffFontSize,
+    selectedSkillIds,
+    setShowSkillsDialog,
+  } = useUIStore();
   const [activeSection, setActiveSection] = useState<SettingsSection>('appearance');
+  const { data: skills = [] } = useSkills();
 
   const handleFontSizeChange = (delta: number) => {
     const newSize = Math.min(24, Math.max(10, diffFontSize + delta));
@@ -130,6 +142,53 @@ export function SettingsDialog() {
                           <Plus size={14} weight="bold" className="text-text-muted" />
                         </button>
                       </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeSection === 'skills' && (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-sm font-medium text-text-primary mb-4">Skills</h3>
+
+                    {/* Skills summary */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <label className="text-sm text-text-primary">Installed Skills</label>
+                          <p className="text-xs text-text-muted mt-0.5">
+                            Skills provide domain-specific guidelines for AI code reviews
+                          </p>
+                        </div>
+                        <span className="text-sm text-text-muted bg-bg-tertiary px-2 py-1 rounded">
+                          {skills.length} installed
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <label className="text-sm text-text-primary">Active Skills</label>
+                          <p className="text-xs text-text-muted mt-0.5">
+                            Currently selected for AI reviews
+                          </p>
+                        </div>
+                        <span className="text-sm text-text-muted bg-bg-tertiary px-2 py-1 rounded">
+                          {selectedSkillIds.length} selected
+                        </span>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          setShowSettingsDialog(false);
+                          setShowSkillsDialog(true);
+                        }}
+                        className="flex items-center gap-2 px-3 py-2 bg-bg-hover hover:bg-bg-tertiary rounded text-sm text-text-primary transition-colors"
+                      >
+                        <BookBookmark size={16} weight="bold" />
+                        Manage Skills
+                        <ArrowSquareOut size={14} className="text-text-muted ml-auto" />
+                      </button>
                     </div>
                   </div>
                 </div>

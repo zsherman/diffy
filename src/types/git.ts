@@ -76,7 +76,7 @@ export interface FileDiff {
   patch: string;
 }
 
-export type PanelId = 'branches' | 'commits' | 'files' | 'diff' | 'staging' | 'ai-review';
+export type PanelId = 'branches' | 'commits' | 'files' | 'diff' | 'staging' | 'ai-review' | 'worktrees';
 
 export type ViewMode = 'working' | 'commit';
 
@@ -98,4 +98,23 @@ export interface AIReviewData {
   potentialBugs: AIReviewBug[];
   fileComments: AIReviewFileComment[];
   generatedAt: number;
+}
+
+export interface WorktreeInfo {
+  name: string;
+  path: string;
+  head_branch: string | null;
+  head_commit: string | null;
+  is_main: boolean;
+  is_locked: boolean;
+  lock_reason: string | null;
+  is_prunable: boolean;
+  is_dirty: boolean;
+}
+
+export interface WorktreeCreateOptions {
+  name: string;
+  path: string;
+  branch?: string;
+  newBranch?: string;
 }

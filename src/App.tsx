@@ -5,6 +5,7 @@ import { FolderOpen, ClockCounterClockwise, X } from '@phosphor-icons/react';
 import { DockviewLayout } from './components/layout';
 import { StatusBar, HelpOverlay, SettingsDialog, CommandPalette, ToastProvider } from './components/ui';
 import { RepoSelector } from './features/repository/components';
+import { SkillsDialog } from './features/skills';
 import { openRepository, discoverRepository } from './lib/tauri';
 import { useGitStore } from './stores/git-store';
 import { useUIStore } from './stores/ui-store';
@@ -153,10 +154,17 @@ function AppContent() {
                 </div>
                 <div className="space-y-1">
                   {recentRepos.map((repo) => (
-                    <button
+                    <div
                       key={repo.path}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => handleOpenRecent(repo.path)}
-                      className="w-full group flex items-center gap-3 px-3 py-2 rounded-md bg-bg-secondary hover:bg-bg-hover transition-colors text-left"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          handleOpenRecent(repo.path);
+                        }
+                      }}
+                      className="w-full group flex items-center gap-3 px-3 py-2 rounded-md bg-bg-secondary hover:bg-bg-hover transition-colors text-left cursor-pointer"
                     >
                       <FolderOpen size={18} className="text-text-muted flex-shrink-0" />
                       <div className="flex-1 min-w-0">
@@ -174,7 +182,7 @@ function AppContent() {
                       >
                         <X size={14} className="text-text-muted" />
                       </button>
-                    </button>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -191,6 +199,9 @@ function AppContent() {
 
       {/* Settings dialog */}
       <SettingsDialog />
+
+      {/* Skills dialog */}
+      <SkillsDialog />
 
       {/* Command palette */}
       <CommandPalette />

@@ -29,6 +29,19 @@ pub fn run() {
             commands::generate_commit_message,
             commands::generate_ai_review,
             commands::fix_ai_review_issues,
+            commands::list_worktrees,
+            commands::create_worktree,
+            commands::remove_worktree,
+            commands::lock_worktree,
+            commands::unlock_worktree,
+            // Skills commands
+            commands::get_skills_dir,
+            commands::list_skills,
+            commands::install_skill_from_url,
+            commands::delete_skill,
+            commands::get_skill_content,
+            commands::get_skill_raw,
+            commands::update_skill,
         ])
         .setup(|_app| {
             #[cfg(debug_assertions)]

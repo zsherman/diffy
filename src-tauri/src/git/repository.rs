@@ -487,3 +487,223 @@ pub fn git_push(repo_path: &str) -> Result<String, GitError> {
         Err(git2::Error::from_str(&format!("git push failed: {}", stderr)).into())
     }
 }
+
+// Worktree types and functions
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct WorktreeInfo {
+    pub name: String,
+    pub path: String,
+    pub head_branch: Option<String>,
+    pub head_commit: Option<String>,
+    pub is_main: bool,
+    pub is_locked: bool,
+    pub lock_reason: Option<String>,
+    pub is_prunable: bool,
+    pub is_dirty: bool,
+}
+
+pub fn list_worktrees(repo: &Repository) -> Result<Vec<WorktreeInfo>, GitError> {
+    let mut worktrees = Vec::new();
+
+    // Get the main worktree info first
+    let main_workdir = repo.workdir().map(|p| p.to_string_lossy().to_string());
+
+    if let Some(workdir) = &main_workdir {
+        let head_info = get_worktree_head_info(repo);
+        let is_dirty = check_worktree_dirty(repo);
+
+        worktrees.push(WorktreeInfo {
+            name: "main".to_string(),
+            path: workdir.clone(),
+            head_branch: head_info.0,
+            head_commit: head_info.1,
+            is_main: true,
+            is_locked: false,
+            lock_reason: None,
+            is_prunable: false,
+            is_dirty,
+        });
+    }
+
+    // Get linked worktrees
+    let worktree_names = repo.worktrees()?;
+    for name in worktree_names.iter() {
+        if let Some(name) = name {
+            if let Ok(worktree) = repo.find_worktree(name) {
+                let wt_path = worktree.path().to_string_lossy().to_string();
+
+                // Try to get head info for this worktree
+                let (head_branch, head_commit, is_dirty) = if let Ok(wt_repo) = Repository::open(&wt_path) {
+                    let head_info = get_worktree_head_info(&wt_repo);
+                    let dirty = check_worktree_dirty(&wt_repo);
+                    (head_info.0, head_info.1, dirty)
+                } else {
+                    (None, None, false)
+                };
+
+                // Check lock status using git2's is_locked() which returns Result<WorktreeLockStatus>
+                let (is_locked, lock_reason) = match worktree.is_locked() {
+                    Ok(git2::WorktreeLockStatus::Locked(reason)) => {
+                        (true, reason)
+                    }
+                    Ok(git2::WorktreeLockStatus::Unlocked) => (false, None),
+                    Err(_) => (false, None),
+                };
+
+                worktrees.push(WorktreeInfo {
+                    name: name.to_string(),
+                    path: wt_path,
+                    head_branch,
+                    head_commit,
+                    is_main: false,
+                    is_locked,
+                    lock_reason,
+                    is_prunable: worktree.validate().is_err(),
+                    is_dirty,
+                });
+            }
+        }
+    }
+
+    Ok(worktrees)
+}
+
+fn get_worktree_head_info(repo: &Repository) -> (Option<String>, Option<String>) {
+    let head = repo.head().ok();
+    let branch = head.as_ref().and_then(|h| {
+        if h.is_branch() {
+            h.shorthand().map(|s| s.to_string())
+        } else {
+            None
+        }
+    });
+    let commit = head.and_then(|h| h.peel_to_commit().ok()).map(|c| c.id().to_string()[..7].to_string());
+    (branch, commit)
+}
+
+fn check_worktree_dirty(repo: &Repository) -> bool {
+    let mut opts = StatusOptions::new();
+    opts.include_untracked(true);
+    if let Ok(statuses) = repo.statuses(Some(&mut opts)) {
+        !statuses.is_empty()
+    } else {
+        false
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct WorktreeCreateOptions {
+    pub name: String,
+    pub path: String,
+    pub branch: Option<String>,
+    pub new_branch: Option<String>,
+}
+
+pub fn create_worktree(repo_path: &str, options: WorktreeCreateOptions) -> Result<WorktreeInfo, GitError> {
+    let mut args = vec!["worktree", "add"];
+
+    // If creating a new branch
+    if let Some(ref new_branch) = options.new_branch {
+        args.push("-b");
+        args.push(new_branch);
+    }
+
+    args.push(&options.path);
+
+    // If using existing branch
+    if let Some(ref branch) = options.branch {
+        args.push(branch);
+    }
+
+    let output = git_command()
+        .args(&args)
+        .current_dir(repo_path)
+        .output()
+        .map_err(|e| git2::Error::from_str(&format!("Failed to run git worktree add: {}", e)))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(git2::Error::from_str(&format!("git worktree add failed: {}", stderr)).into());
+    }
+
+    // Open the new worktree to get its info
+    let wt_repo = Repository::open(&options.path)
+        .map_err(|e| git2::Error::from_str(&format!("Failed to open new worktree: {}", e)))?;
+
+    let head_info = get_worktree_head_info(&wt_repo);
+    let is_dirty = check_worktree_dirty(&wt_repo);
+
+    Ok(WorktreeInfo {
+        name: options.name,
+        path: options.path,
+        head_branch: head_info.0,
+        head_commit: head_info.1,
+        is_main: false,
+        is_locked: false,
+        lock_reason: None,
+        is_prunable: false,
+        is_dirty,
+    })
+}
+
+pub fn remove_worktree(repo_path: &str, worktree_name: &str, force: bool) -> Result<(), GitError> {
+    let mut args = vec!["worktree", "remove"];
+
+    if force {
+        args.push("--force");
+    }
+
+    args.push(worktree_name);
+
+    let output = git_command()
+        .args(&args)
+        .current_dir(repo_path)
+        .output()
+        .map_err(|e| git2::Error::from_str(&format!("Failed to run git worktree remove: {}", e)))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(git2::Error::from_str(&format!("git worktree remove failed: {}", stderr)).into());
+    }
+
+    Ok(())
+}
+
+pub fn lock_worktree(repo_path: &str, worktree_name: &str, reason: Option<&str>) -> Result<(), GitError> {
+    let mut args = vec!["worktree", "lock"];
+
+    if let Some(reason) = reason {
+        args.push("--reason");
+        args.push(reason);
+    }
+
+    args.push(worktree_name);
+
+    let output = git_command()
+        .args(&args)
+        .current_dir(repo_path)
+        .output()
+        .map_err(|e| git2::Error::from_str(&format!("Failed to run git worktree lock: {}", e)))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(git2::Error::from_str(&format!("git worktree lock failed: {}", stderr)).into());
+    }
+
+    Ok(())
+}
+
+pub fn unlock_worktree(repo_path: &str, worktree_name: &str) -> Result<(), GitError> {
+    let output = git_command()
+        .args(["worktree", "unlock", worktree_name])
+        .current_dir(repo_path)
+        .output()
+        .map_err(|e| git2::Error::from_str(&format!("Failed to run git worktree unlock: {}", e)))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(git2::Error::from_str(&format!("git worktree unlock failed: {}", stderr)).into());
+    }
+
+    Ok(())
+}

@@ -4,3 +4,4 @@ export { FilesPanel } from './FilesPanel';
 export { DiffPanel } from './DiffPanel';
 export { StagingPanel } from './StagingPanel';
 export { AIReviewPanel } from './AIReviewPanel';
+export { WorktreesPanel } from './WorktreesPanel';

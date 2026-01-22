@@ -11,12 +11,15 @@ import {
   Check,
   CheckCircle,
   XCircle,
+  Copy,
 } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { generateAIReview, fixAIReviewIssues, type IssueToFix } from '../../../lib/tauri';
+import { getErrorMessage } from '../../../lib/errors';
 import { useGitStore } from '../../../stores/git-store';
 import { useUIStore } from '../../../stores/ui-store';
-import { LoadingDots } from '../../../components/ui';
+import { LoadingSpinner } from '../../../components/ui';
+import { SkillSelector } from '../../skills';
 import type { AIReviewBug, AIReviewFileComment } from '../../../types/git';
 
 // Animated loading messages for fix operation
@@ -223,6 +226,75 @@ const FileCommentItem = memo(function FileCommentItem({
   );
 });
 
+const FixResultNotification = memo(function FixResultNotification({
+  fixResult,
+  onDismiss,
+}: {
+  fixResult: { success: boolean; message: string };
+  onDismiss: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    const text = `Fix ${fixResult.success ? 'Succeeded' : 'Failed'}\n\n${fixResult.message}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  }, [fixResult]);
+
+  return (
+    <div
+      className={`rounded-lg p-4 ${
+        fixResult.success
+          ? 'bg-accent-green/10 border border-accent-green'
+          : 'bg-accent-red/10 border border-accent-red'
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        {fixResult.success ? (
+          <CheckCircle size={20} weight="fill" className="text-accent-green shrink-0 mt-0.5" />
+        ) : (
+          <Warning size={20} weight="fill" className="text-accent-red shrink-0 mt-0.5" />
+        )}
+        <div className="flex-1 min-w-0">
+          <h4 className={`text-sm font-medium ${fixResult.success ? 'text-accent-green' : 'text-accent-red'}`}>
+            {fixResult.success ? 'Fixes Applied Successfully' : 'Fix Failed'}
+          </h4>
+          <p className="text-sm text-text-primary mt-2 leading-relaxed">
+            {fixResult.message}
+          </p>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          {!fixResult.success && (
+            <button
+              onClick={handleCopy}
+              className="p-1.5 rounded hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors"
+              title="Copy error message"
+            >
+              {copied ? (
+                <CheckCircle size={14} weight="fill" className="text-accent-green" />
+              ) : (
+                <Copy size={14} />
+              )}
+            </button>
+          )}
+          <button
+            onClick={onDismiss}
+            className="p-1.5 rounded hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors"
+            title="Dismiss"
+          >
+            <XCircle size={14} weight="bold" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 export function AIReviewContent() {
   const { repository } = useGitStore();
   const {
@@ -234,6 +306,7 @@ export function AIReviewContent() {
     setAIReview,
     setAIReviewLoading,
     setAIReviewError,
+    selectedSkillIds,
   } = useUIStore();
   const queryClient = useQueryClient();
 
@@ -281,12 +354,11 @@ export function AIReviewContent() {
 
     try {
       const commitId = viewMode === 'commit' ? selectedCommit ?? undefined : undefined;
-      const review = await generateAIReview(repository.path, commitId);
+      const skillIds = selectedSkillIds.length > 0 ? selectedSkillIds : undefined;
+      const review = await generateAIReview(repository.path, commitId, skillIds);
       setAIReview(review);
     } catch (error) {
-      setAIReviewError(
-        error instanceof Error ? error.message : 'Failed to generate review'
-      );
+      setAIReviewError(getErrorMessage(error));
     } finally {
       setAIReviewLoading(false);
     }
@@ -294,6 +366,7 @@ export function AIReviewContent() {
     repository,
     viewMode,
     selectedCommit,
+    selectedSkillIds,
     aiReviewLoading,
     setAIReview,
     setAIReviewLoading,
@@ -349,7 +422,7 @@ export function AIReviewContent() {
     } catch (error) {
       setFixResult({
         success: false,
-        message: error instanceof Error ? error.message : 'Failed to fix issues',
+        message: getErrorMessage(error),
       });
     } finally {
       setIsFixing(false);
@@ -371,6 +444,12 @@ export function AIReviewContent() {
             : 'your working changes'}
           .
         </p>
+
+        {/* Skill Selection */}
+        <div className="w-full max-w-xs mb-4">
+          <SkillSelector />
+        </div>
+
         <button
           onClick={handleGenerateReview}
           disabled={!repository}
@@ -387,8 +466,8 @@ export function AIReviewContent() {
   if (aiReviewLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-        <div className="mb-4 scale-150">
-          <LoadingDots />
+        <div className="mb-4">
+          <LoadingSpinner size="lg" />
         </div>
         <h3 className="text-lg font-medium text-text-primary mb-2">
           Analyzing Code...
@@ -503,35 +582,10 @@ export function AIReviewContent() {
 
         {/* Fix result notification */}
         {fixResult && (
-          <div
-            className={`rounded-lg p-4 ${
-              fixResult.success
-                ? 'bg-accent-green/10 border border-accent-green/30'
-                : 'bg-accent-red/10 border border-accent-red/30'
-            }`}
-          >
-            <div className="flex items-start gap-3">
-              {fixResult.success ? (
-                <CheckCircle size={20} weight="fill" className="text-accent-green shrink-0 mt-0.5" />
-              ) : (
-                <XCircle size={20} weight="fill" className="text-accent-red shrink-0 mt-0.5" />
-              )}
-              <div className="flex-1 min-w-0">
-                <h4 className={`text-sm font-medium ${fixResult.success ? 'text-accent-green' : 'text-accent-red'}`}>
-                  {fixResult.success ? 'Fixes Applied Successfully' : 'Fix Failed'}
-                </h4>
-                <p className="text-sm text-text-muted mt-1">
-                  {fixResult.message}
-                </p>
-              </div>
-              <button
-                onClick={() => setFixResult(null)}
-                className="text-text-muted hover:text-text-primary p-1"
-              >
-                <XCircle size={16} weight="bold" />
-              </button>
-            </div>
-          </div>
+          <FixResultNotification
+            fixResult={fixResult}
+            onDismiss={() => setFixResult(null)}
+          />
         )}
       </div>
 
@@ -541,7 +595,7 @@ export function AIReviewContent() {
           {/* Loading indicator with animated message */}
           {isFixing && (
             <div className="flex items-center gap-3 p-3 bg-accent-purple/10 border border-accent-purple/30 rounded-lg">
-              <LoadingDots />
+              <LoadingSpinner size="sm" />
               <div className="flex-1">
                 <p className="text-sm font-medium text-accent-purple">Claude is working...</p>
                 <p className="text-xs text-text-muted animate-pulse">{fixLoadingMessage}</p>
@@ -556,7 +610,7 @@ export function AIReviewContent() {
           >
             {isFixing ? (
               <>
-                <LoadingDots />
+                <LoadingSpinner size="sm" />
                 <span className="ml-1">Fixing {totalSelected} Issue{totalSelected !== 1 ? 's' : ''}...</span>
               </>
             ) : (

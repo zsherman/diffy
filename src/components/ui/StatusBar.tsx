@@ -5,6 +5,7 @@ import { useGitStore } from '../../stores/git-store';
 import { useUIStore } from '../../stores/ui-store';
 import { useToast } from './Toast';
 import { gitFetch, gitPull, gitPush } from '../../lib/tauri';
+import { getErrorMessage } from '../../lib/errors';
 import { useQueryClient } from '@tanstack/react-query';
 import { BranchSwitcher } from './BranchSwitcher';
 import { LayoutSwitcher } from './LayoutSwitcher';
@@ -18,15 +19,6 @@ export function StatusBar() {
   const [isFetching, setIsFetching] = useState(false);
   const [isPulling, setIsPulling] = useState(false);
   const [isPushing, setIsPushing] = useState(false);
-
-  const getErrorMessage = (error: unknown): string => {
-    if (typeof error === 'string') return error;
-    if (error instanceof Error) return error.message;
-    if (error && typeof error === 'object' && 'message' in error) {
-      return String((error as { message: unknown }).message);
-    }
-    return JSON.stringify(error);
-  };
 
   const hints: Record<string, string> = {
     branches: 'j/k:navigate | Enter:checkout | Tab:next panel',

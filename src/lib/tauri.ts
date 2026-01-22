@@ -8,7 +8,10 @@ import type {
   UnifiedDiff,
   FileDiff,
   AIReviewData,
+  WorktreeInfo,
+  WorktreeCreateOptions,
 } from '../types/git';
+import type { SkillMetadata } from '../types/skills';
 
 // Repository
 export async function openRepository(path: string): Promise<RepositoryInfo> {
@@ -110,13 +113,17 @@ export interface IssueToFix {
   filePath?: string;
 }
 
-export async function generateAIReview(repoPath: string, commitId?: string): Promise<AIReviewData> {
+export async function generateAIReview(
+  repoPath: string,
+  commitId?: string,
+  skillIds?: string[]
+): Promise<AIReviewData> {
   const result = await invoke<{
     overview: string;
     potential_bugs: Array<{ title: string; description: string; severity: string }>;
     file_comments: Array<{ file_path: string; severity: string; title: string; explanation: string }>;
     generated_at: number;
-  }>('generate_ai_review', { repoPath, commitId });
+  }>('generate_ai_review', { repoPath, commitId, skillIds });
 
   // Transform snake_case to camelCase
   return {
@@ -146,4 +153,109 @@ export async function fixAIReviewIssues(repoPath: string, issues: IssueToFix[]):
   }));
 
   return invoke<string>('fix_ai_review_issues', { repoPath, issues: transformedIssues });
+}
+
+// Worktrees
+export async function listWorktrees(repoPath: string): Promise<WorktreeInfo[]> {
+  return invoke<WorktreeInfo[]>('list_worktrees', { repoPath });
+}
+
+export async function createWorktree(
+  repoPath: string,
+  options: WorktreeCreateOptions
+): Promise<WorktreeInfo> {
+  return invoke<WorktreeInfo>('create_worktree', {
+    repoPath,
+    name: options.name,
+    path: options.path,
+    branch: options.branch,
+    newBranch: options.newBranch,
+  });
+}
+
+export async function removeWorktree(
+  repoPath: string,
+  worktreeName: string,
+  force: boolean = false
+): Promise<void> {
+  return invoke<void>('remove_worktree', { repoPath, worktreeName, force });
+}
+
+export async function lockWorktree(
+  repoPath: string,
+  worktreeName: string,
+  reason?: string
+): Promise<void> {
+  return invoke<void>('lock_worktree', { repoPath, worktreeName, reason });
+}
+
+export async function unlockWorktree(repoPath: string, worktreeName: string): Promise<void> {
+  return invoke<void>('unlock_worktree', { repoPath, worktreeName });
+}
+
+// Skills
+export async function getSkillsDir(): Promise<string> {
+  return invoke<string>('get_skills_dir');
+}
+
+export async function listSkills(): Promise<SkillMetadata[]> {
+  const result = await invoke<
+    Array<{ id: string; name: string; description: string; source_url?: string }>
+  >('list_skills');
+
+  // Transform snake_case to camelCase
+  return result.map((skill) => ({
+    id: skill.id,
+    name: skill.name,
+    description: skill.description,
+    sourceUrl: skill.source_url,
+  }));
+}
+
+export async function installSkillFromUrl(url: string): Promise<SkillMetadata> {
+  const result = await invoke<{
+    id: string;
+    name: string;
+    description: string;
+    source_url?: string;
+  }>('install_skill_from_url', { url });
+
+  return {
+    id: result.id,
+    name: result.name,
+    description: result.description,
+    sourceUrl: result.source_url,
+  };
+}
+
+export async function deleteSkill(skillId: string): Promise<void> {
+  return invoke<void>('delete_skill', { skillId });
+}
+
+export async function getSkillContent(skillId: string): Promise<string> {
+  return invoke<string>('get_skill_content', { skillId });
+}
+
+export async function getSkillRaw(skillId: string): Promise<string> {
+  return invoke<string>('get_skill_raw', { skillId });
+}
+
+export async function updateSkill(
+  skillId: string,
+  content: string,
+  newId?: string
+): Promise<SkillMetadata> {
+  const result = await invoke<{
+    id: string;
+    name: string;
+    description: string;
+    source_url?: string;
+  }>('update_skill', { skillId, content, newId });
+
+  return {
+    id: result.id,
+    name: result.name,
+    description: result.description,
+    sourceUrl: result.source_url,
+  };
 }
