@@ -1,4 +1,6 @@
 import type { DockviewApi } from 'dockview-react';
+import { setApplyingLayoutPreset } from '../components/layout/DockviewLayout';
+import { uiStore } from '../stores/ui-store';
 
 export interface LayoutPreset {
   id: string;
@@ -256,6 +258,17 @@ export const layoutPresets: LayoutPreset[] = [
 export function applyLayout(api: DockviewApi, layoutId: string) {
   const preset = layoutPresets.find((p) => p.id === layoutId);
   if (preset) {
-    preset.apply(api);
+    // Set flag to prevent removal handlers from interfering
+    setApplyingLayoutPreset(true);
+    try {
+      preset.apply(api);
+
+      // Sync store state based on which panels are in the layout
+      const hasAIReview = api.getPanel('ai-review') !== undefined;
+      uiStore.send({ type: 'setShowAIReviewPanel', show: hasAIReview });
+    } finally {
+      // Use setTimeout to ensure flag is cleared after React effects run
+      setTimeout(() => setApplyingLayoutPreset(false), 100);
+    }
   }
 }

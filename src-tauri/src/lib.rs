@@ -1,6 +1,7 @@
 pub mod commands;
 pub mod git;
 
+#[cfg(debug_assertions)]
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -29,10 +30,10 @@ pub fn run() {
             commands::generate_ai_review,
             commands::fix_ai_review_issues,
         ])
-        .setup(|app| {
+        .setup(|_app| {
             #[cfg(debug_assertions)]
             {
-                let window = app.get_webview_window("main").unwrap();
+                let window = _app.get_webview_window("main").unwrap();
                 window.open_devtools();
             }
             Ok(())

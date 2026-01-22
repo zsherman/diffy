@@ -104,6 +104,13 @@ function loadLayout(): SerializedDockview | null {
   return null;
 }
 
+// Flag to skip removal handlers during layout preset application
+let isApplyingLayoutPreset = false;
+
+export function setApplyingLayoutPreset(value: boolean) {
+  isApplyingLayoutPreset = value;
+}
+
 export function DockviewLayout() {
   const { showBranchesPanel, showFilesPanel, showDiffPanel, showStagingSidebar, showAIReviewPanel, setShowBranchesPanel, setShowFilesPanel, setShowDiffPanel, setShowStagingSidebar, setShowAIReviewPanel } = useUIStore();
   const apiRef = useRef<DockviewApi | null>(null);
@@ -141,8 +148,10 @@ export function DockviewLayout() {
       saveLayout(api);
     });
 
-    // Listen for panel close events
+    // Listen for panel close events (skip during layout preset application)
     const removeDisposable = api.onDidRemovePanel((event) => {
+      if (isApplyingLayoutPreset) return;
+
       const panelId = event.id;
       if (panelId === 'branches') {
         setShowBranchesPanel(false);

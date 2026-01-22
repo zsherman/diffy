@@ -1,7 +1,6 @@
-import { useState, useCallback, memo } from 'react';
+import { useState, useCallback, useEffect, memo } from 'react';
 import {
   Sparkle,
-  CircleNotch,
   CaretDown,
   CaretRight,
   Warning,
@@ -10,12 +9,44 @@ import {
   ArrowCounterClockwise,
   File,
   Check,
+  CheckCircle,
+  XCircle,
 } from '@phosphor-icons/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { generateAIReview, fixAIReviewIssues, type IssueToFix } from '../../../lib/tauri';
 import { useGitStore } from '../../../stores/git-store';
 import { useUIStore } from '../../../stores/ui-store';
+import { LoadingDots } from '../../../components/ui';
 import type { AIReviewBug, AIReviewFileComment } from '../../../types/git';
+
+// Animated loading messages for fix operation
+const FIX_LOADING_MESSAGES = [
+  'Reading source files...',
+  'Analyzing issues...',
+  'Claude is thinking...',
+  'Generating fixes...',
+  'Applying changes...',
+];
+
+// Hook for cycling through loading messages
+function useLoadingMessage(isLoading: boolean, messages: string[], intervalMs = 2500) {
+  const [messageIndex, setMessageIndex] = useState(0);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setMessageIndex(0);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setMessageIndex((prev) => (prev + 1) % messages.length);
+    }, intervalMs);
+
+    return () => clearInterval(interval);
+  }, [isLoading, messages.length, intervalMs]);
+
+  return messages[messageIndex];
+}
 
 const SEVERITY_COLORS: Record<string, string> = {
   low: 'bg-accent-blue/20 text-accent-blue',
@@ -210,9 +241,10 @@ export function AIReviewContent() {
   const [selectedBugs, setSelectedBugs] = useState<Set<number>>(new Set());
   const [selectedFileComments, setSelectedFileComments] = useState<Set<number>>(new Set());
   const [isFixing, setIsFixing] = useState(false);
-  const [fixResult, setFixResult] = useState<string | null>(null);
+  const [fixResult, setFixResult] = useState<{ success: boolean; message: string } | null>(null);
 
   const totalSelected = selectedBugs.size + selectedFileComments.size;
+  const fixLoadingMessage = useLoadingMessage(isFixing, FIX_LOADING_MESSAGES);
 
   const handleToggleBug = useCallback((index: number) => {
     setSelectedBugs((prev) => {
@@ -224,7 +256,6 @@ export function AIReviewContent() {
       }
       return next;
     });
-    setFixResult(null);
   }, []);
 
   const handleToggleFileComment = useCallback((index: number) => {
@@ -237,7 +268,6 @@ export function AIReviewContent() {
       }
       return next;
     });
-    setFixResult(null);
   }, []);
 
   const handleGenerateReview = useCallback(async () => {
@@ -306,7 +336,7 @@ export function AIReviewContent() {
       });
 
       const result = await fixAIReviewIssues(repository.path, issues);
-      setFixResult(result);
+      setFixResult({ success: true, message: result });
 
       // Clear selections after successful fix
       setSelectedBugs(new Set());
@@ -317,9 +347,10 @@ export function AIReviewContent() {
       queryClient.invalidateQueries({ queryKey: ['working-diff-unstaged'] });
       queryClient.invalidateQueries({ queryKey: ['status'] });
     } catch (error) {
-      setFixResult(
-        `Error: ${error instanceof Error ? error.message : 'Failed to fix issues'}`
-      );
+      setFixResult({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to fix issues',
+      });
     } finally {
       setIsFixing(false);
     }
@@ -356,11 +387,9 @@ export function AIReviewContent() {
   if (aiReviewLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-        <CircleNotch
-          size={48}
-          weight="bold"
-          className="text-accent-purple animate-spin mb-4"
-        />
+        <div className="mb-4 scale-150">
+          <LoadingDots />
+        </div>
         <h3 className="text-lg font-medium text-text-primary mb-2">
           Analyzing Code...
         </h3>
@@ -472,32 +501,63 @@ export function AIReviewContent() {
           </div>
         )}
 
-        {/* Fix result message */}
+        {/* Fix result notification */}
         {fixResult && (
           <div
-            className={`rounded-lg p-3 text-sm ${
-              fixResult.startsWith('Error')
-                ? 'bg-accent-red/10 text-accent-red'
-                : 'bg-accent-green/10 text-accent-green'
+            className={`rounded-lg p-4 ${
+              fixResult.success
+                ? 'bg-accent-green/10 border border-accent-green/30'
+                : 'bg-accent-red/10 border border-accent-red/30'
             }`}
           >
-            {fixResult}
+            <div className="flex items-start gap-3">
+              {fixResult.success ? (
+                <CheckCircle size={20} weight="fill" className="text-accent-green shrink-0 mt-0.5" />
+              ) : (
+                <XCircle size={20} weight="fill" className="text-accent-red shrink-0 mt-0.5" />
+              )}
+              <div className="flex-1 min-w-0">
+                <h4 className={`text-sm font-medium ${fixResult.success ? 'text-accent-green' : 'text-accent-red'}`}>
+                  {fixResult.success ? 'Fixes Applied Successfully' : 'Fix Failed'}
+                </h4>
+                <p className="text-sm text-text-muted mt-1">
+                  {fixResult.message}
+                </p>
+              </div>
+              <button
+                onClick={() => setFixResult(null)}
+                className="text-text-muted hover:text-text-primary p-1"
+              >
+                <XCircle size={16} weight="bold" />
+              </button>
+            </div>
           </div>
         )}
       </div>
 
       {/* Footer with Fix button */}
       {hasIssues && (
-        <div className="border-t border-border-primary p-4 bg-bg-tertiary">
+        <div className="border-t border-border-primary p-4 bg-bg-tertiary space-y-3">
+          {/* Loading indicator with animated message */}
+          {isFixing && (
+            <div className="flex items-center gap-3 p-3 bg-accent-purple/10 border border-accent-purple/30 rounded-lg">
+              <LoadingDots />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-accent-purple">Claude is working...</p>
+                <p className="text-xs text-text-muted animate-pulse">{fixLoadingMessage}</p>
+              </div>
+            </div>
+          )}
+
           <button
             onClick={handleFixIssues}
             disabled={totalSelected === 0 || isFixing}
-            className="w-full py-2 px-4 bg-accent-purple text-white rounded-lg font-medium text-sm hover:bg-accent-purple/90 disabled:bg-bg-secondary disabled:text-text-muted disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+            className="w-full py-2.5 px-4 bg-accent-purple text-white rounded-lg font-medium text-sm hover:bg-accent-purple/90 disabled:bg-bg-secondary disabled:text-text-muted disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
           >
             {isFixing ? (
               <>
-                <CircleNotch size={16} weight="bold" className="animate-spin" />
-                Fixing Issues...
+                <LoadingDots />
+                <span className="ml-1">Fixing {totalSelected} Issue{totalSelected !== 1 ? 's' : ''}...</span>
               </>
             ) : (
               <>
