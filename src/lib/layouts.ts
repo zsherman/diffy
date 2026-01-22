@@ -45,11 +45,11 @@ export const layoutPresets: LayoutPreset[] = [
         position: { referencePanel: filesPanel, direction: 'below' },
       });
 
-      // Set sizes: 35% commits, 65% files/diff
+      // Set sizes: 30% commits, 70% files/diff
       const groups = api.groups;
       if (groups.length >= 2) {
-        groups[0].api.setSize({ width: 380 });
-        groups[1].api.setSize({ width: 720 });
+        groups[0].api.setSize({ width: 330 });
+        groups[1].api.setSize({ width: 770 });
       }
     },
   },
@@ -80,19 +80,19 @@ export const layoutPresets: LayoutPreset[] = [
         position: { referencePanel: filesPanel, direction: 'right' },
       });
 
-      // Set sizes: 20% commits, 15% files, 65% diff
+      // Set sizes: 10% commits, 15% files, 75% diff
       const groups = api.groups;
       if (groups.length >= 3) {
-        groups[0].api.setSize({ width: 220 });
-        groups[1].api.setSize({ width: 180 });
-        groups[2].api.setSize({ width: 700 });
+        groups[0].api.setSize({ width: 110 });
+        groups[1].api.setSize({ width: 165 });
+        groups[2].api.setSize({ width: 825 });
       }
     },
   },
   {
     id: 'three-column',
     name: 'Three Column',
-    description: 'Equal columns for commits, files, and diff',
+    description: 'Commits and files on left, wide diff on right',
     apply: (api) => {
       clearLayout(api);
 
@@ -116,12 +116,12 @@ export const layoutPresets: LayoutPreset[] = [
         position: { referencePanel: filesPanel, direction: 'right' },
       });
 
-      // Equal widths
+      // Set sizes: 10% commits, 15% files, 75% diff
       const groups = api.groups;
       if (groups.length >= 3) {
-        groups[0].api.setSize({ width: 366 });
-        groups[1].api.setSize({ width: 366 });
-        groups[2].api.setSize({ width: 366 });
+        groups[0].api.setSize({ width: 110 });
+        groups[1].api.setSize({ width: 165 });
+        groups[2].api.setSize({ width: 825 });
       }
     },
   },
@@ -152,12 +152,12 @@ export const layoutPresets: LayoutPreset[] = [
         position: { referencePanel: filesPanel, direction: 'below' },
       });
 
-      // Set heights
+      // Set heights: ~21% commits, ~14% files, ~65% diff
       const groups = api.groups;
       if (groups.length >= 3) {
-        groups[0].api.setSize({ height: 200 });
-        groups[1].api.setSize({ height: 150 });
-        groups[2].api.setSize({ height: 350 });
+        groups[0].api.setSize({ height: 150 });
+        groups[1].api.setSize({ height: 100 });
+        groups[2].api.setSize({ height: 450 });
       }
     },
   },
@@ -181,11 +181,11 @@ export const layoutPresets: LayoutPreset[] = [
         position: { referencePanel: commitsPanel, direction: 'right' },
       });
 
-      // Set sizes: 30% commits, 70% diff
+      // Set sizes: 25% commits, 75% diff
       const groups = api.groups;
       if (groups.length >= 2) {
-        groups[0].api.setSize({ width: 330 });
-        groups[1].api.setSize({ width: 770 });
+        groups[0].api.setSize({ width: 275 });
+        groups[1].api.setSize({ width: 825 });
       }
     },
   },
@@ -244,11 +244,11 @@ export const layoutPresets: LayoutPreset[] = [
         position: { referencePanel: diffPanel, direction: 'right' },
       });
 
-      // Set sizes: 20% files, 45% diff, 35% review
+      // Set sizes: 15% files, 50% diff, 35% review
       const groups = api.groups;
       if (groups.length >= 3) {
-        groups[0].api.setSize({ width: 220 });
-        groups[1].api.setSize({ width: 495 });
+        groups[0].api.setSize({ width: 165 });
+        groups[1].api.setSize({ width: 550 });
         groups[2].api.setSize({ width: 385 });
       }
     },

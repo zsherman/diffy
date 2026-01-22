@@ -40,14 +40,14 @@ const components = {
 };
 
 function createDefaultLayout(api: DockviewApi) {
-  // Create left group with commits panel (40% width)
+  // Create left group with commits panel (30% width)
   const commitsPanel = api.addPanel({
     id: 'commits',
     component: 'commits',
     title: 'Commits',
   });
 
-  // Create right group with files panel at top (60% width, 35% height)
+  // Create right group with files panel at top (70% width, 35% height)
   const filesPanel = api.addPanel({
     id: 'files',
     component: 'files',
@@ -63,11 +63,11 @@ function createDefaultLayout(api: DockviewApi) {
     position: { referencePanel: filesPanel, direction: 'below' },
   });
 
-  // Set initial sizes: [commits 40%] | [files/diff 60%]
+  // Set initial sizes: [commits 30%] | [files/diff 70%]
   const groups = api.groups;
   if (groups.length >= 2) {
-    groups[0].api.setSize({ width: 450 }); // commits ~40%
-    groups[1].api.setSize({ width: 650 }); // files/diff ~60%
+    groups[0].api.setSize({ width: 330 }); // commits ~30%
+    groups[1].api.setSize({ width: 770 }); // files/diff ~70%
   }
 }
 
