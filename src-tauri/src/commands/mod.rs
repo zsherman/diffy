@@ -1,7 +1,32 @@
 use crate::git::{self, BranchInfo, CommitGraph, CommitInfo, FileDiff, RepositoryInfo, StatusInfo, UnifiedDiff};
 use std::process::Command;
+use std::path::PathBuf;
 
 type Result<T> = std::result::Result<T, String>;
+
+/// Find the claude CLI binary by checking common installation paths
+fn find_claude_binary() -> Result<PathBuf> {
+    let home = std::env::var("HOME").unwrap_or_default();
+
+    let candidates = [
+        format!("{}/.claude/local/claude", home),
+        format!("{}/.local/bin/claude", home),
+        format!("{}/.bun/bin/claude", home),
+        format!("{}/.npm-global/bin/claude", home),
+        "/usr/local/bin/claude".to_string(),
+        "/opt/homebrew/bin/claude".to_string(),
+    ];
+
+    for path in candidates {
+        let p = PathBuf::from(&path);
+        if p.exists() {
+            return Ok(p);
+        }
+    }
+
+    // Fall back to PATH lookup (works in dev mode)
+    Ok(PathBuf::from("claude"))
+}
 
 fn map_err<E: std::fmt::Display>(e: E) -> String {
     e.to_string()
@@ -141,10 +166,11 @@ pub async fn generate_commit_message(repo_path: String) -> Result<String> {
     );
 
     // Call claude CLI with -p flag for non-interactive mode
-    let output = Command::new("claude")
+    let claude_path = find_claude_binary()?;
+    let output = Command::new(&claude_path)
         .args(["-p", &prompt])
         .output()
-        .map_err(|e| format!("Failed to run claude: {}", e))?;
+        .map_err(|e| format!("Failed to run claude at {:?}: {}", claude_path, e))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -227,10 +253,11 @@ Diff to review:
     );
 
     // Call claude CLI
-    let output = Command::new("claude")
+    let claude_path = find_claude_binary()?;
+    let output = Command::new(&claude_path)
         .args(["-p", &prompt])
         .output()
-        .map_err(|e| format!("Failed to run claude: {}", e))?;
+        .map_err(|e| format!("Failed to run claude at {:?}: {}", claude_path, e))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -367,11 +394,12 @@ Include only files that need changes. Preserve all existing code that doesn't ne
     );
 
     // Call claude CLI
-    let output = Command::new("claude")
+    let claude_path = find_claude_binary()?;
+    let output = Command::new(&claude_path)
         .args(["-p", &prompt])
         .current_dir(&repo_path)
         .output()
-        .map_err(|e| format!("Failed to run claude: {}", e))?;
+        .map_err(|e| format!("Failed to run claude at {:?}: {}", claude_path, e))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);

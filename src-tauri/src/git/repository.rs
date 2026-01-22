@@ -399,8 +399,45 @@ pub fn checkout_branch(repo: &Repository, branch_name: &str) -> Result<(), GitEr
 // Remote operations - using git CLI for better credential handling
 use std::process::Command;
 
+/// Get the user's PATH from their login shell (for packaged app compatibility)
+fn get_user_path() -> String {
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+
+    // Run the user's shell in login mode to get their full PATH
+    if let Ok(output) = Command::new(&shell)
+        .args(["-l", "-c", "echo $PATH"])
+        .output()
+    {
+        if output.status.success() {
+            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !path.is_empty() {
+                return path;
+            }
+        }
+    }
+
+    // Fallback to common paths
+    let home = std::env::var("HOME").unwrap_or_default();
+    format!(
+        "/usr/local/bin:/opt/homebrew/bin:{}/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+        home
+    )
+}
+
+/// Create a git Command with proper environment for packaged app
+fn git_command() -> Command {
+    let mut cmd = Command::new("git");
+    cmd.env("PATH", get_user_path());
+    // Ensure git can find SSH keys and config
+    if let Ok(home) = std::env::var("HOME") {
+        cmd.env("HOME", &home);
+        cmd.env("SSH_AUTH_SOCK", std::env::var("SSH_AUTH_SOCK").unwrap_or_default());
+    }
+    cmd
+}
+
 pub fn git_fetch(repo_path: &str) -> Result<String, GitError> {
-    let output = Command::new("git")
+    let output = git_command()
         .args(["fetch", "--all", "--prune"])
         .current_dir(repo_path)
         .output()
@@ -417,7 +454,7 @@ pub fn git_fetch(repo_path: &str) -> Result<String, GitError> {
 }
 
 pub fn git_pull(repo_path: &str) -> Result<String, GitError> {
-    let output = Command::new("git")
+    let output = git_command()
         .args(["pull"])
         .current_dir(repo_path)
         .output()
@@ -434,7 +471,7 @@ pub fn git_pull(repo_path: &str) -> Result<String, GitError> {
 
 pub fn git_push(repo_path: &str) -> Result<String, GitError> {
     // Use -u origin HEAD to automatically set upstream for new branches
-    let output = Command::new("git")
+    let output = git_command()
         .args(["push", "-u", "origin", "HEAD"])
         .current_dir(repo_path)
         .output()
