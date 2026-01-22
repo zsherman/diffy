@@ -251,7 +251,7 @@ export function DiffViewer() {
     // Single file selected - show just that file's diff
     if (selectedFile) {
       return (
-        <div className="h-full overflow-auto bg-bg-tertiary">
+        <div className="h-full overflow-auto bg-bg-primary">
           <SingleFileDiff
             repoPath={repository.path}
             commitId={selectedCommit}
@@ -287,7 +287,7 @@ export function DiffViewer() {
     }
 
     return (
-      <VList className="h-full bg-bg-tertiary">
+      <VList className="h-full bg-bg-primary">
         {commitParsedFiles.map((fileDiff: any, index) => (
           <CollapsibleFileDiff
             key={fileDiff.name || fileDiff.prevName || index}
@@ -324,7 +324,7 @@ export function DiffViewer() {
   }
 
   return (
-    <VList className="h-full bg-bg-tertiary">
+    <VList className="h-full bg-bg-primary">
       {workingFilesToShow.map((fileDiff: any, index) => (
         <CollapsibleFileDiff
           key={fileDiff.name || fileDiff.prevName || index}

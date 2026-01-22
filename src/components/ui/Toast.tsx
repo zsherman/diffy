@@ -119,10 +119,9 @@ export const useToast = () => {
     success: (title: string, description?: string) =>
       manager.add({ title, description, type: 'success' } as ToastData),
     error: (title: string, description?: string) =>
-      // Errors get longer timeout so users can read and copy the message
-      manager.add({ title, description, type: 'error' } as ToastData, { timeout: 10000 }),
+      manager.add({ title, description, type: 'error' } as ToastData),
     warning: (title: string, description?: string) =>
-      manager.add({ title, description, type: 'warning' } as ToastData, { timeout: 7000 }),
+      manager.add({ title, description, type: 'warning' } as ToastData),
     info: (title: string, description?: string) =>
       manager.add({ title, description, type: 'info' } as ToastData),
     promise: manager.promise,

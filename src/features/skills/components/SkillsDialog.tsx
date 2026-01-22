@@ -354,10 +354,10 @@ export function SkillsDialog() {
                 </button>
               </div>
               {installError && (
-                <Field.Error className="text-xs text-accent-red flex items-start gap-1" forceShow>
+                <div className="text-xs text-accent-red flex items-start gap-1">
                   <Warning size={12} className="shrink-0 mt-0.5" />
                   <span>{installError}</span>
-                </Field.Error>
+                </div>
               )}
             </Field.Root>
 

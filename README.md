@@ -18,7 +18,20 @@ bun install
 ### Run in Development
 
 ```bash
-bun run tauri dev
+bun run dev        # Start Tauri app in dev mode
+bun run dev:web    # Start Vite dev server only (no Tauri)
+```
+
+### Available Scripts
+
+```bash
+bun run dev        # Start Tauri dev mode
+bun run dev:web    # Vite dev server only
+bun run build      # Build for production
+bun run typecheck  # Type-check with tsgo
+bun run lint       # Lint with oxlint
+bun run fix        # Auto-fix lint issues
+bun run preview    # Preview production build
 ```
 
 ## Building for Distribution
