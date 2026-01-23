@@ -3,12 +3,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { open } from '@tauri-apps/plugin-dialog';
 import { FolderOpen, ClockCounterClockwise, X, ChartBar } from '@phosphor-icons/react';
 import { DockviewLayout } from './components/layout';
-import { StatusBar, TopToolbar, HelpOverlay, SettingsDialog, CommandPalette, ToastProvider } from './components/ui';
+import { StatusBar, TopToolbar, HelpOverlay, SettingsDialog, CommandPalette, ToastProvider, TabBar } from './components/ui';
 import { RepoSelector } from './features/repository/components';
 import { SkillsDialog } from './features/skills';
 import { openRepository, discoverRepository } from './lib/tauri';
-import { useGitStore } from './stores/git-store';
-import { useUIStore } from './stores/ui-store';
+import { useTabsStore, useActiveTabView, useHasOpenTabs, useActiveRepository, getSavedTabPaths, createTabState } from './stores/tabs-store';
+import { useTheme } from './stores/ui-store';
 import { useKeyboardNavigation } from './hooks/useKeyboardNavigation';
 import { useRepoWatcher } from './hooks/useRepoWatcher';
 import {
@@ -22,17 +22,25 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 30, // 30 seconds
+      gcTime: 1000 * 60 * 10, // Keep unused data in cache for 10 minutes (helps with tab switching)
       refetchOnWindowFocus: false,
+      refetchOnMount: false, // Don't refetch on mount if data exists
     },
   },
 });
 
 function AppContent() {
-  const { repository, error, setRepository, setError, setIsLoading } = useGitStore();
+  // Use focused hooks to minimize subscriptions and re-renders
+  const hasOpenTabs = useHasOpenTabs();
+  const repository = useActiveRepository();
+  const { openTab, restoreTabs } = useTabsStore();
+  const { mainView } = useActiveTabView();
   const [recentRepos, setRecentRepos] = useState<RecentRepository[]>([]);
+  const [isRestoring, setIsRestoring] = useState(true);
 
-  // Get theme and mainView from UI store
-  const { theme, mainView } = useUIStore();
+
+  // Get theme from UI store (global setting) - use focused hook to avoid unnecessary subscriptions
+  const { theme } = useTheme();
 
   // Sync theme to document
   useEffect(() => {
@@ -42,13 +50,52 @@ function AppContent() {
   // Set up keyboard navigation
   useKeyboardNavigation();
 
-  // Set up file watcher for automatic refresh
+  // Set up file watcher for automatic refresh (watches active repository)
   useRepoWatcher(repository?.path ?? null);
 
   // Load recent repos on mount
   useEffect(() => {
     setRecentRepos(getRecentRepositories());
   }, []);
+
+  // Restore tabs from localStorage on mount
+  useEffect(() => {
+    const restoreTabsFromStorage = async () => {
+      const saved = getSavedTabPaths();
+      if (saved.paths.length === 0) {
+        setIsRestoring(false);
+        return;
+      }
+
+      const restoredTabs = [];
+      for (const path of saved.paths) {
+        try {
+          const repo = await openRepository(path);
+          restoredTabs.push(createTabState(repo));
+        } catch {
+          try {
+            const repo = await discoverRepository(path);
+            restoredTabs.push(createTabState(repo));
+          } catch {
+            // Repository no longer exists, skip it
+            console.warn(`Could not restore tab for ${path}`);
+          }
+        }
+      }
+
+      if (restoredTabs.length > 0) {
+        // Determine active tab - use saved active or first tab
+        let activeTabPath = saved.activeTabPath;
+        if (!activeTabPath || !restoredTabs.some((t) => t.repository.path === activeTabPath)) {
+          activeTabPath = restoredTabs[0].repository.path;
+        }
+        restoreTabs(restoredTabs, activeTabPath);
+      }
+      setIsRestoring(false);
+    };
+
+    restoreTabsFromStorage();
+  }, [restoreTabs]);
 
   // Save to recent repos when a repository is opened
   useEffect(() => {
@@ -67,49 +114,39 @@ function AppContent() {
       });
 
       if (selected && typeof selected === 'string') {
-        setIsLoading(true);
-        setError(null);
-
         try {
           const repo = await openRepository(selected);
-          setRepository(repo);
+          openTab(repo);
         } catch {
           try {
             const repo = await discoverRepository(selected);
-            setRepository(repo);
-          } catch (e) {
-            setError(`Not a git repository: ${selected}`);
+            openTab(repo);
+          } catch {
+            // Show error via empty state or toast
+            console.error(`Not a git repository: ${selected}`);
           }
         }
       }
     } catch (e) {
-      setError(String(e));
-    } finally {
-      setIsLoading(false);
+      console.error(String(e));
     }
-  }, [setRepository, setError, setIsLoading]);
+  }, [openTab]);
 
   const handleOpenRecent = useCallback(async (path: string) => {
-    setIsLoading(true);
-    setError(null);
-
     try {
       const repo = await openRepository(path);
-      setRepository(repo);
+      openTab(repo);
     } catch {
       try {
         const repo = await discoverRepository(path);
-        setRepository(repo);
-      } catch (e) {
-        setError(`Failed to open repository: ${path}`);
+        openTab(repo);
+      } catch {
         // Remove from recent if it no longer exists
         removeRecentRepository(path);
         setRecentRepos(getRecentRepositories());
       }
-    } finally {
-      setIsLoading(false);
     }
-  }, [setRepository, setError, setIsLoading]);
+  }, [openTab]);
 
   const handleRemoveRecent = useCallback((e: React.MouseEvent, path: string) => {
     e.stopPropagation();
@@ -117,20 +154,37 @@ function AppContent() {
     setRecentRepos(getRecentRepositories());
   }, []);
 
+  // Show loading state while restoring tabs
+  if (isRestoring) {
+    return (
+      <div className="flex flex-col h-screen w-screen overflow-hidden bg-bg-primary">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-text-muted text-sm">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // hasOpenTabs comes from useHasOpenTabs() hook above
+
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-bg-primary">
-      {/* Title bar / repo selector */}
-      <RepoSelector />
+      {/* Tab bar - always shown when there are tabs */}
+      {hasOpenTabs ? (
+        <TabBar />
+      ) : (
+        /* Empty title bar for window dragging when no tabs are open */
+        <div
+          data-tauri-drag-region
+          className="h-8 bg-bg-secondary border-b border-border-primary select-none"
+        />
+      )}
+
+      {/* Title bar / repo selector - shown when repository is selected */}
+      {repository && <RepoSelector />}
 
       {/* Top toolbar with branch switcher and git actions */}
-      <TopToolbar />
-
-      {/* Error display */}
-      {error && (
-        <div className="px-3 py-2 bg-accent-red/20 border-b border-accent-red text-accent-red text-sm">
-          {error}
-        </div>
-      )}
+      {repository && <TopToolbar />}
 
       {/* Main content */}
       {repository ? (

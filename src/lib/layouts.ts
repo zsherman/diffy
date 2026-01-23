@@ -1,6 +1,6 @@
-import type { DockviewApi } from 'dockview-react';
-import { setApplyingLayoutPreset } from '../components/layout/DockviewLayout';
-import { uiStore } from '../stores/ui-store';
+import type { DockviewApi } from "dockview-react";
+import { setApplyingLayoutPreset } from "../components/layout/DockviewLayout";
+import { tabsStore } from "../stores/tabs-store";
 
 export interface LayoutPreset {
   id: string;
@@ -19,32 +19,32 @@ function clearLayout(api: DockviewApi) {
 
 export const layoutPresets: LayoutPreset[] = [
   {
-    id: 'standard',
-    name: 'Standard',
-    description: 'Commits, files, and diff in three columns',
+    id: "standard",
+    name: "Standard",
+    description: "Commits, files, and diff in three columns",
     apply: (api) => {
       clearLayout(api);
 
       const commitsPanel = api.addPanel({
-        id: 'commits',
-        component: 'commits',
-        title: 'Commits',
+        id: "commits",
+        component: "commits",
+        title: "Commits",
         minimumWidth: 300,
       });
 
       const filesPanel = api.addPanel({
-        id: 'files',
-        component: 'files',
-        title: 'Files',
-        position: { referencePanel: commitsPanel, direction: 'right' },
+        id: "files",
+        component: "files",
+        title: "Files",
+        position: { referencePanel: commitsPanel, direction: "right" },
         minimumWidth: 300,
       });
 
       api.addPanel({
-        id: 'diff',
-        component: 'diff',
-        title: 'Diff',
-        position: { referencePanel: filesPanel, direction: 'right' },
+        id: "diff",
+        component: "diff",
+        title: "Diff",
+        position: { referencePanel: filesPanel, direction: "right" },
         minimumWidth: 300,
       });
 
@@ -58,30 +58,30 @@ export const layoutPresets: LayoutPreset[] = [
     },
   },
   {
-    id: 'wide-diff',
-    name: 'Wide Diff',
-    description: 'Maximize diff viewing area',
+    id: "wide-diff",
+    name: "Wide Diff",
+    description: "Maximize diff viewing area",
     apply: (api) => {
       clearLayout(api);
 
       const commitsPanel = api.addPanel({
-        id: 'commits',
-        component: 'commits',
-        title: 'Commits',
+        id: "commits",
+        component: "commits",
+        title: "Commits",
       });
 
       const filesPanel = api.addPanel({
-        id: 'files',
-        component: 'files',
-        title: 'Files',
-        position: { referencePanel: commitsPanel, direction: 'right' },
+        id: "files",
+        component: "files",
+        title: "Files",
+        position: { referencePanel: commitsPanel, direction: "right" },
       });
 
       api.addPanel({
-        id: 'diff',
-        component: 'diff',
-        title: 'Diff',
-        position: { referencePanel: filesPanel, direction: 'right' },
+        id: "diff",
+        component: "diff",
+        title: "Diff",
+        position: { referencePanel: filesPanel, direction: "right" },
       });
 
       // Set sizes: 10% commits, 15% files, 75% diff
@@ -94,30 +94,30 @@ export const layoutPresets: LayoutPreset[] = [
     },
   },
   {
-    id: 'three-column',
-    name: 'Three Column',
-    description: 'Commits and files on left, wide diff on right',
+    id: "three-column",
+    name: "Three Column",
+    description: "Commits and files on left, wide diff on right",
     apply: (api) => {
       clearLayout(api);
 
       const commitsPanel = api.addPanel({
-        id: 'commits',
-        component: 'commits',
-        title: 'Commits',
+        id: "commits",
+        component: "commits",
+        title: "Commits",
       });
 
       const filesPanel = api.addPanel({
-        id: 'files',
-        component: 'files',
-        title: 'Files',
-        position: { referencePanel: commitsPanel, direction: 'right' },
+        id: "files",
+        component: "files",
+        title: "Files",
+        position: { referencePanel: commitsPanel, direction: "right" },
       });
 
       api.addPanel({
-        id: 'diff',
-        component: 'diff',
-        title: 'Diff',
-        position: { referencePanel: filesPanel, direction: 'right' },
+        id: "diff",
+        component: "diff",
+        title: "Diff",
+        position: { referencePanel: filesPanel, direction: "right" },
       });
 
       // Set sizes: 10% commits, 15% files, 75% diff
@@ -130,30 +130,30 @@ export const layoutPresets: LayoutPreset[] = [
     },
   },
   {
-    id: 'horizontal',
-    name: 'Stacked',
-    description: 'All panels stacked vertically',
+    id: "horizontal",
+    name: "Stacked",
+    description: "All panels stacked vertically",
     apply: (api) => {
       clearLayout(api);
 
       const commitsPanel = api.addPanel({
-        id: 'commits',
-        component: 'commits',
-        title: 'Commits',
+        id: "commits",
+        component: "commits",
+        title: "Commits",
       });
 
       const filesPanel = api.addPanel({
-        id: 'files',
-        component: 'files',
-        title: 'Files',
-        position: { referencePanel: commitsPanel, direction: 'below' },
+        id: "files",
+        component: "files",
+        title: "Files",
+        position: { referencePanel: commitsPanel, direction: "below" },
       });
 
       api.addPanel({
-        id: 'diff',
-        component: 'diff',
-        title: 'Diff',
-        position: { referencePanel: filesPanel, direction: 'below' },
+        id: "diff",
+        component: "diff",
+        title: "Diff",
+        position: { referencePanel: filesPanel, direction: "below" },
       });
 
       // Set heights: ~21% commits, ~14% files, ~65% diff
@@ -166,23 +166,23 @@ export const layoutPresets: LayoutPreset[] = [
     },
   },
   {
-    id: 'focus',
-    name: 'Focus',
-    description: 'Just commits and diff, minimal UI',
+    id: "focus",
+    name: "Focus",
+    description: "Just commits and diff, minimal UI",
     apply: (api) => {
       clearLayout(api);
 
       const commitsPanel = api.addPanel({
-        id: 'commits',
-        component: 'commits',
-        title: 'Commits',
+        id: "commits",
+        component: "commits",
+        title: "Commits",
       });
 
       api.addPanel({
-        id: 'diff',
-        component: 'diff',
-        title: 'Diff',
-        position: { referencePanel: commitsPanel, direction: 'right' },
+        id: "diff",
+        component: "diff",
+        title: "Diff",
+        position: { referencePanel: commitsPanel, direction: "right" },
       });
 
       // Set sizes: 25% commits, 75% diff
@@ -194,23 +194,23 @@ export const layoutPresets: LayoutPreset[] = [
     },
   },
   {
-    id: 'review',
-    name: 'Review',
-    description: 'Files on left, large diff on right for code review',
+    id: "review",
+    name: "Review",
+    description: "Files on left, large diff on right for code review",
     apply: (api) => {
       clearLayout(api);
 
       const filesPanel = api.addPanel({
-        id: 'files',
-        component: 'files',
-        title: 'Files',
+        id: "files",
+        component: "files",
+        title: "Files",
       });
 
       api.addPanel({
-        id: 'diff',
-        component: 'diff',
-        title: 'Diff',
-        position: { referencePanel: filesPanel, direction: 'right' },
+        id: "diff",
+        component: "diff",
+        title: "Diff",
+        position: { referencePanel: filesPanel, direction: "right" },
       });
 
       // Set sizes: 25% files, 75% diff
@@ -222,30 +222,30 @@ export const layoutPresets: LayoutPreset[] = [
     },
   },
   {
-    id: 'ai-review',
-    name: 'AI Review',
-    description: 'Files on left, diff in center, AI Review on right',
+    id: "ai-review",
+    name: "AI Review",
+    description: "Files on left, diff in center, AI Review on right",
     apply: (api) => {
       clearLayout(api);
 
       const filesPanel = api.addPanel({
-        id: 'files',
-        component: 'files',
-        title: 'Files',
+        id: "files",
+        component: "files",
+        title: "Files",
       });
 
       const diffPanel = api.addPanel({
-        id: 'diff',
-        component: 'diff',
-        title: 'Diff',
-        position: { referencePanel: filesPanel, direction: 'right' },
+        id: "diff",
+        component: "diff",
+        title: "Diff",
+        position: { referencePanel: filesPanel, direction: "right" },
       });
 
       api.addPanel({
-        id: 'ai-review',
-        component: 'ai-review',
-        title: 'AI Review',
-        position: { referencePanel: diffPanel, direction: 'right' },
+        id: "ai-review",
+        component: "ai-review",
+        title: "AI Review",
+        position: { referencePanel: diffPanel, direction: "right" },
       });
 
       // Set sizes: 15% files, 50% diff, 35% review
@@ -258,30 +258,30 @@ export const layoutPresets: LayoutPreset[] = [
     },
   },
   {
-    id: 'graph-view',
-    name: 'Graph View',
-    description: 'Commit graph on left, files and diff on right',
+    id: "graph-view",
+    name: "Graph View",
+    description: "Commit graph on left, files and diff on right",
     apply: (api) => {
       clearLayout(api);
 
       const graphPanel = api.addPanel({
-        id: 'graph',
-        component: 'graph',
-        title: 'Graph',
+        id: "graph",
+        component: "graph",
+        title: "Graph",
       });
 
       const filesPanel = api.addPanel({
-        id: 'files',
-        component: 'files',
-        title: 'Files',
-        position: { referencePanel: graphPanel, direction: 'right' },
+        id: "files",
+        component: "files",
+        title: "Files",
+        position: { referencePanel: graphPanel, direction: "right" },
       });
 
       api.addPanel({
-        id: 'diff',
-        component: 'diff',
-        title: 'Diff',
-        position: { referencePanel: filesPanel, direction: 'below' },
+        id: "diff",
+        component: "diff",
+        title: "Diff",
+        position: { referencePanel: filesPanel, direction: "below" },
       });
 
       // Set sizes: 40% graph, 60% files/diff
@@ -293,40 +293,40 @@ export const layoutPresets: LayoutPreset[] = [
     },
   },
   {
-    id: 'merge-conflict',
-    name: 'Merge Conflicts',
-    description: 'Full-screen merge conflict resolution',
+    id: "merge-conflict",
+    name: "Merge Conflicts",
+    description: "Full-screen merge conflict resolution",
     apply: (api) => {
       clearLayout(api);
 
       api.addPanel({
-        id: 'merge-conflict',
-        component: 'merge-conflict',
-        title: 'Merge Conflicts',
+        id: "merge-conflict",
+        component: "merge-conflict",
+        title: "Merge Conflicts",
       });
 
       // Single panel takes full width - no need to set sizes
     },
   },
   {
-    id: 'changes',
-    name: 'Changes',
-    description: 'View and stage changes',
+    id: "changes",
+    name: "Changes",
+    description: "View and stage changes",
     apply: (api) => {
       clearLayout(api);
 
       const stagingPanel = api.addPanel({
-        id: 'staging',
-        component: 'staging',
-        title: 'Changes',
+        id: "staging",
+        component: "staging",
+        title: "Changes",
         minimumWidth: 250,
       });
 
       api.addPanel({
-        id: 'diff',
-        component: 'diff',
-        title: 'Diff',
-        position: { referencePanel: stagingPanel, direction: 'right' },
+        id: "diff",
+        component: "diff",
+        title: "Diff",
+        position: { referencePanel: stagingPanel, direction: "right" },
         minimumWidth: 300,
       });
 
@@ -348,15 +348,20 @@ export function applyLayout(api: DockviewApi, layoutId: string) {
     try {
       preset.apply(api);
 
-      // Sync store state based on which panels are in the layout
-      const hasAIReview = api.getPanel('ai-review') !== undefined;
-      const hasGraph = api.getPanel('graph') !== undefined;
-      const hasMergeConflict = api.getPanel('merge-conflict') !== undefined;
-      const hasStaging = api.getPanel('staging') !== undefined;
-      uiStore.send({ type: 'setShowAIReviewPanel', show: hasAIReview });
-      uiStore.send({ type: 'setShowGraphPanel', show: hasGraph });
-      uiStore.send({ type: 'setShowMergeConflictPanel', show: hasMergeConflict });
-      uiStore.send({ type: 'setShowStagingSidebar', show: hasStaging });
+      // Sync store state based on which panels are in the layout - batched in one action
+      tabsStore.send({
+        type: "syncPanels",
+        panels: {
+          showBranchesPanel: api.getPanel("branches") !== undefined,
+          showFilesPanel: api.getPanel("files") !== undefined,
+          showDiffPanel: api.getPanel("diff") !== undefined,
+          showAIReviewPanel: api.getPanel("ai-review") !== undefined,
+          showGraphPanel: api.getPanel("graph") !== undefined,
+          showMergeConflictPanel: api.getPanel("merge-conflict") !== undefined,
+          showStagingSidebar: api.getPanel("staging") !== undefined,
+          showWorktreesPanel: api.getPanel("worktrees") !== undefined,
+        },
+      });
     } finally {
       // Use setTimeout to ensure flag is cleared after React effects run
       setTimeout(() => setApplyingLayoutPreset(false), 100);

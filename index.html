@@ -8,6 +8,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- React Scan: Conditionally load BEFORE React if enabled in localStorage -->
+    <script>
+      (function() {
+        if (localStorage.getItem('diffy-react-scan') === 'true') {
+          var script = document.createElement('script');
+          script.crossOrigin = 'anonymous';
+          script.src = '//unpkg.com/react-scan/dist/auto.global.js';
+          document.head.appendChild(script);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

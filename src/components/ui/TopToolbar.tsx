@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Toolbar } from '@base-ui/react/toolbar';
 import { ArrowDown, ArrowUp, ArrowsClockwise, CloudArrowDown } from '@phosphor-icons/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useGitStore } from '../../stores/git-store';
+import { useTabsStore } from '../../stores/tabs-store';
 import { useToast } from './Toast';
 import { gitFetch, gitPull, gitPush, getAheadBehind } from '../../lib/tauri';
 import { getErrorMessage } from '../../lib/errors';
@@ -10,7 +10,7 @@ import { BranchSwitcher } from './BranchSwitcher';
 import { LayoutSwitcher } from './LayoutSwitcher';
 
 export function TopToolbar() {
-  const { repository } = useGitStore();
+  const { repository } = useTabsStore();
   const toast = useToast();
   const queryClient = useQueryClient();
 

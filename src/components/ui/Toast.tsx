@@ -171,16 +171,20 @@ export { Toast };
 export const useToast = () => {
   const manager = Toast.useToastManager();
 
+  // Helper to add toast with proper typing for custom data
+  const addToast = (options: ToastDataWithActionId & { timeout?: number }) =>
+    manager.add(options as Parameters<typeof manager.add>[0]);
+
   return {
     success: (title: string, description?: string) =>
-      manager.add({ title, description, type: 'success' as const }),
+      addToast({ title, description, type: 'success' }),
     error: (title: string, description?: string) =>
-      manager.add({ title, description, type: 'error' as const }, { timeout: 10000 }),
+      addToast({ title, description, type: 'error', timeout: 10000 }),
     warning: (title: string, description?: string) =>
-      manager.add({ title, description, type: 'warning' as const }, { timeout: 7000 }),
+      addToast({ title, description, type: 'warning', timeout: 7000 }),
     info: (title: string, description?: string) =>
-      manager.add({ title, description, type: 'info' as const }),
-    // New: toast with action button
+      addToast({ title, description, type: 'info' }),
+    // Toast with action button
     withAction: (
       title: string,
       description: string | undefined,
@@ -189,16 +193,14 @@ export const useToast = () => {
       timeout?: number
     ) => {
       const actionId = registerAction(action.onClick);
-      return manager.add(
-        {
-          title,
-          description,
-          type,
-          actionId,
-          actionLabel: action.label,
-        },
-        { timeout: timeout ?? 15000 } // Longer timeout for actionable toasts
-      );
+      return addToast({
+        title,
+        description,
+        type,
+        actionId,
+        actionLabel: action.label,
+        timeout: timeout ?? 15000, // Longer timeout for actionable toasts
+      });
     },
     promise: manager.promise,
   };

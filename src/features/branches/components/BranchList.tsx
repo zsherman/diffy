@@ -4,7 +4,7 @@ import { VList } from 'virtua';
 import type { VListHandle } from 'virtua';
 import { GitMerge } from '@phosphor-icons/react';
 import { listBranches, checkoutBranch, mergeBranch, getMergeStatus, parseFileConflicts } from '../../../lib/tauri';
-import { useGitStore } from '../../../stores/git-store';
+import { useTabsStore, useActiveTabState } from '../../../stores/tabs-store';
 import { useUIStore, getDockviewApi } from '../../../stores/ui-store';
 import { useMergeConflictStore } from '../../../stores/merge-conflict-store';
 import { LoadingSpinner, SkeletonList } from '../../../components/ui';
@@ -67,17 +67,15 @@ const BranchRow = memo(function BranchRow({
 });
 
 export function BranchList() {
-  const { repository } = useGitStore();
+  const { repository } = useTabsStore();
   const {
     branchFilter,
     setBranchFilter,
     selectedBranch,
     setSelectedBranch,
-    activePanel,
     setSelectedCommit,
-    setShowMergeConflictPanel,
-    panelFontSize,
-  } = useUIStore();
+  } = useActiveTabState();
+  const { activePanel, setShowMergeConflictPanel, panelFontSize } = useUIStore();
   const { enterMergeMode } = useMergeConflictStore();
   const queryClient = useQueryClient();
   const toast = useToast();

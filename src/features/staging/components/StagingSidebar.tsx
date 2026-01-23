@@ -30,7 +30,7 @@ import {
   normalizeError,
   getErrorMessage,
 } from '../../../lib/tauri';
-import { useGitStore } from '../../../stores/git-store';
+import { useTabsStore, useActiveTabState } from '../../../stores/tabs-store';
 import { useUIStore } from '../../../stores/ui-store';
 import type { FileStatus, StashEntry } from '../../../types/git';
 
@@ -228,7 +228,7 @@ const SectionHeader = memo(function SectionHeader({
 });
 
 export function StagingSidebar() {
-  const { repository } = useGitStore();
+  const { repository } = useTabsStore();
   const {
     selectedFile,
     setSelectedFile,
@@ -240,8 +240,8 @@ export function StagingSidebar() {
     amendPreviousCommit,
     setAmendPreviousCommit,
     clearCommitForm,
-    panelFontSize,
-  } = useUIStore();
+  } = useActiveTabState();
+  const { panelFontSize } = useUIStore();
   const queryClient = useQueryClient();
 
   const [unstagedExpanded, setUnstagedExpanded] = useState(true);

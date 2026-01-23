@@ -4,7 +4,7 @@ import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { X, FolderOpen, GitBranch } from '@phosphor-icons/react';
 import { createWorktree, listBranches } from '../../../lib/tauri';
-import { useGitStore } from '../../../stores/git-store';
+import { useTabsStore } from '../../../stores/tabs-store';
 import { useToast } from '../../../components/ui/Toast';
 
 interface CreateWorktreeDialogProps {
@@ -16,7 +16,7 @@ interface CreateWorktreeDialogProps {
 type BranchMode = 'existing' | 'new';
 
 export function CreateWorktreeDialog({ open, onOpenChange, onSuccess }: CreateWorktreeDialogProps) {
-  const { repository } = useGitStore();
+  const { repository } = useTabsStore();
   const toast = useToast();
 
   const [name, setName] = useState('');

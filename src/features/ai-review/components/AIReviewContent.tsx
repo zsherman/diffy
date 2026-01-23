@@ -16,7 +16,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { generateAIReview, fixAIReviewIssues, type IssueToFix } from '../../../lib/tauri';
 import { getErrorMessage } from '../../../lib/errors';
-import { useGitStore } from '../../../stores/git-store';
+import { useTabsStore, useActiveTabState } from '../../../stores/tabs-store';
 import { useUIStore } from '../../../stores/ui-store';
 import { LoadingSpinner } from '../../../components/ui';
 import { SkillSelector } from '../../skills';
@@ -296,7 +296,7 @@ const FixResultNotification = memo(function FixResultNotification({
 });
 
 export function AIReviewContent() {
-  const { repository } = useGitStore();
+  const { repository } = useTabsStore();
   const {
     selectedCommit,
     viewMode,
@@ -306,8 +306,8 @@ export function AIReviewContent() {
     setAIReview,
     setAIReviewLoading,
     setAIReviewError,
-    selectedSkillIds,
-  } = useUIStore();
+  } = useActiveTabState();
+  const { selectedSkillIds } = useUIStore();
   const queryClient = useQueryClient();
 
   // Selection state for bugs and file comments

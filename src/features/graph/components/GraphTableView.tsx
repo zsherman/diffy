@@ -3,7 +3,7 @@ import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { VList } from 'virtua';
 import type { VListHandle } from 'virtua';
 import { getCommitHistoryAllBranches, getCommitGraph, listBranches } from '../../../lib/tauri';
-import { useGitStore } from '../../../stores/git-store';
+import { useTabsStore, useActiveTabState } from '../../../stores/tabs-store';
 import { useUIStore } from '../../../stores/ui-store';
 import { LoadingSpinner, SkeletonCommits } from '../../../components/ui';
 import { useCommitRefs } from '../hooks';
@@ -19,14 +19,16 @@ const COLUMN_WIDTH = 16;
 const PAGE_SIZE = 100;
 
 export function GraphTableView() {
-  const { repository } = useGitStore();
+  const { repository } = useTabsStore();
   const {
     selectedCommit,
     setSelectedCommit,
     commitFilter,
     setCommitFilter,
-    activePanel,
     setSelectedFile,
+  } = useActiveTabState();
+  const {
+    activePanel,
     setShowFilesPanel,
     graphColumnWidths,
     setGraphColumnWidths,

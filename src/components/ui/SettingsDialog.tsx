@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import { Dialog } from '@base-ui/react/dialog';
-import { X, Sliders, Minus, Plus, Sun, Moon, BookBookmark, ArrowSquareOut } from '@phosphor-icons/react';
-import { useUIStore } from '../../stores/ui-store';
+import { X, Sliders, Minus, Plus, Sun, Moon, BookBookmark, ArrowSquareOut, Timer, MagnifyingGlass } from '@phosphor-icons/react';
+import { useUIStore, isReactScanEnabled, toggleReactScanAndReload } from '../../stores/ui-store';
 import { useSkills } from '../../features/skills/hooks/useSkills';
 
-type SettingsSection = 'appearance' | 'diff' | 'skills';
+type SettingsSection = 'appearance' | 'diff' | 'skills' | 'developer';
 
 const sections: { id: SettingsSection; label: string }[] = [
   { id: 'appearance', label: 'Appearance' },
   { id: 'diff', label: 'Diff' },
   { id: 'skills', label: 'Skills' },
+  { id: 'developer', label: 'Developer' },
 ];
 
 export function SettingsDialog() {
@@ -24,6 +25,8 @@ export function SettingsDialog() {
     setPanelFontSize,
     selectedSkillIds,
     setShowSkillsDialog,
+    perfTracingEnabled,
+    setPerfTracingEnabled,
   } = useUIStore();
   const [activeSection, setActiveSection] = useState<SettingsSection>('appearance');
   const { data: skills = [] } = useSkills();
@@ -224,6 +227,56 @@ export function SettingsDialog() {
                         <BookBookmark size={16} weight="bold" />
                         Manage Skills
                         <ArrowSquareOut size={14} className="text-text-muted ml-auto" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeSection === 'developer' && (
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-sm font-medium text-text-primary mb-4">Developer Settings</h3>
+
+                    {/* Performance Tracing */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <label className="text-sm text-text-primary">Performance Tracing</label>
+                        <p className="text-xs text-text-muted mt-0.5">
+                          Log timing info to console for debugging render performance
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setPerfTracingEnabled(!perfTracingEnabled)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-colors ${
+                          perfTracingEnabled
+                            ? 'bg-accent-blue/20 text-accent-blue'
+                            : 'bg-bg-hover text-text-muted hover:text-text-primary'
+                        }`}
+                      >
+                        <Timer size={14} weight="bold" />
+                        {perfTracingEnabled ? 'On' : 'Off'}
+                      </button>
+                    </div>
+
+                    {/* React Scan */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="text-sm text-text-primary">React Scan</label>
+                        <p className="text-xs text-text-muted mt-0.5">
+                          Highlight components that re-render (requires reload)
+                        </p>
+                      </div>
+                      <button
+                        onClick={toggleReactScanAndReload}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-colors ${
+                          isReactScanEnabled()
+                            ? 'bg-accent-blue/20 text-accent-blue'
+                            : 'bg-bg-hover text-text-muted hover:text-text-primary'
+                        }`}
+                      >
+                        <MagnifyingGlass size={14} weight="bold" />
+                        {isReactScanEnabled() ? 'On' : 'Off'}
                       </button>
                     </div>
                   </div>

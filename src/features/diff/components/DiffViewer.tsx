@@ -5,7 +5,7 @@ import { parsePatchFiles } from '@pierre/diffs';
 import { FileDiff } from '@pierre/diffs/react';
 import { CaretRight, CaretDown, File, Warning } from '@phosphor-icons/react';
 import { getFileDiff, getWorkingDiff, getCommitDiff } from '../../../lib/tauri';
-import { useGitStore } from '../../../stores/git-store';
+import { useTabsStore, useActiveTabState } from '../../../stores/tabs-store';
 import { useUIStore } from '../../../stores/ui-store';
 import { LoadingSpinner, SkeletonDiff } from '../../../components/ui';
 
@@ -174,8 +174,9 @@ function SingleFileDiff({
 }
 
 export function DiffViewer() {
-  const { repository } = useGitStore();
-  const { theme, selectedCommit, selectedFile, diffViewMode, diffFontSize } = useUIStore();
+  const { repository } = useTabsStore();
+  const { selectedCommit, selectedFile } = useActiveTabState();
+  const { theme, diffViewMode, diffFontSize } = useUIStore();
   const themeType = theme === 'pierre-light' ? 'light' : 'dark';
 
   // Only fetch working diff when no commit is selected

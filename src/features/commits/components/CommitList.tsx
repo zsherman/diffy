@@ -1,12 +1,11 @@
 import { useMemo, useState, useCallback, useEffect, memo, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useSuspenseQuery, useQuery } from '@tanstack/react-query';
 import { VList } from 'virtua';
 import type { VListHandle } from 'virtua';
 import { PencilSimple } from '@phosphor-icons/react';
 import { getCommitHistory, getCommitGraph } from '../../../lib/tauri';
-import { useGitStore } from '../../../stores/git-store';
+import { useTabsStore, useActiveTabState } from '../../../stores/tabs-store';
 import { useUIStore } from '../../../stores/ui-store';
-import { LoadingSpinner, SkeletonCommits } from '../../../components/ui';
 import { CommitGraphSVG } from './CommitGraph';
 import type { CommitInfo } from '../../../types/git';
 
@@ -83,27 +82,24 @@ const CommitRow = memo(function CommitRow({
 });
 
 export function CommitList() {
-  const { repository } = useGitStore();
+  const { repository } = useTabsStore();
   const {
     selectedBranch,
     selectedCommit,
     setSelectedCommit,
     commitFilter,
     setCommitFilter,
-    activePanel,
     setSelectedFile,
-    setShowFilesPanel,
-    panelFontSize,
-  } = useUIStore();
+  } = useActiveTabState();
+  const { activePanel, setShowFilesPanel, panelFontSize } = useUIStore();
   const listRef = useRef<VListHandle>(null);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [visibleRange, setVisibleRange] = useState({ start: 0, end: 20 });
 
-  // Fetch commits
-  const { data: commits = [], isLoading } = useQuery({
+  // Fetch commits - Suspense handles loading state
+  const { data: commits } = useSuspenseQuery({
     queryKey: ['commits', repository?.path, selectedBranch],
     queryFn: () => getCommitHistory(repository!.path, selectedBranch ?? undefined, 200),
-    enabled: !!repository?.path,
     staleTime: 30000,
   });
 
@@ -113,7 +109,7 @@ export function CommitList() {
     [commits]
   );
 
-  // Fetch graph data
+  // Fetch graph data (non-suspense, loads in background)
   const { data: graph } = useQuery({
     queryKey: ['graph', repository?.path, commitIdsKey],
     queryFn: () => getCommitGraph(repository!.path, commits.map((c) => c.id)),
@@ -182,19 +178,6 @@ export function CommitList() {
     const endIndex = handle.findItemIndex(handle.scrollOffset + handle.viewportSize);
     setVisibleRange({ start: startIndex, end: endIndex });
   }, []);
-
-  if (isLoading) {
-    return (
-      <div className="flex flex-col h-full">
-        <div className="flex items-center py-3 px-2">
-          <LoadingSpinner size="sm" message="Loading commits..." />
-        </div>
-        <div className="flex-1 px-2 overflow-hidden">
-          <SkeletonCommits rows={8} />
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col h-full">

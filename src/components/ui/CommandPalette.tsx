@@ -30,14 +30,17 @@ import {
   ArrowLeft,
   ArrowCounterClockwise,
   Warning,
+  Timer,
+  MagnifyingGlass,
 } from '@phosphor-icons/react';
-import { useUIStore, getDockviewApi } from '../../stores/ui-store';
-import { useGitStore } from '../../stores/git-store';
+import { useUIStore, getDockviewApi, isReactScanEnabled, toggleReactScanAndReload } from '../../stores/ui-store';
+import { useTabsStore } from '../../stores/tabs-store';
 import { useMergeConflictStore } from '../../stores/merge-conflict-store';
 import { useToast } from './Toast';
 import { gitFetch, gitPull, gitPush, openRepository, discoverRepository, getMergeStatus, parseFileConflicts, listBranches, mergeBranch } from '../../lib/tauri';
 import { getErrorMessage } from '../../lib/errors';
 import { applyLayout, layoutPresets } from '../../lib/layouts';
+import { clearAllSavedLayouts, LAYOUT_STORAGE_PREFIX, encodeRepoPath } from '../layout/DockviewLayout';
 import { getRecentRepositories, type RecentRepository } from '../../lib/recent-repos';
 
 export function CommandPalette() {
@@ -54,6 +57,7 @@ export function CommandPalette() {
     diffViewMode,
     diffFontSize,
     selectedSkillIds,
+    perfTracingEnabled,
     toggleBranchesPanel,
     setShowFilesPanel,
     setShowDiffPanel,
@@ -70,9 +74,10 @@ export function CommandPalette() {
     setActivePanel,
     setShowSkillsDialog,
     clearSelectedSkills,
+    setPerfTracingEnabled,
   } = useUIStore();
 
-  const { repository, setRepository, setIsLoading, setError } = useGitStore();
+  const { repository, openTab } = useTabsStore();
   const { enterMergeMode } = useMergeConflictStore();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -151,34 +156,28 @@ export function CommandPalette() {
     }
   };
 
+  const { closeTab } = useTabsStore();
+
   const handleCloseRepository = () => {
-    // Clear the saved layout so it starts fresh next time
-    localStorage.removeItem('diffy-dockview-layout');
-    // Clear the repository to go back to selection screen
-    setRepository(null);
+    if (!repository) return;
+    // Clear the saved layout for this specific repo so it starts fresh next time
+    const layoutKey = LAYOUT_STORAGE_PREFIX + encodeRepoPath(repository.path);
+    localStorage.removeItem(layoutKey);
+    // Close the current tab
+    closeTab(repository.path);
   };
 
   const handleSwitchRepository = async (repo: RecentRepository) => {
-    // Clear the saved layout so new repo starts fresh
-    localStorage.removeItem('diffy-dockview-layout');
-    setIsLoading(true);
-    setError(null);
-
     try {
       const opened = await openRepository(repo.path);
-      setRepository(opened);
-      // Invalidate all queries for the new repo
-      queryClient.invalidateQueries();
+      openTab(opened);
     } catch {
       try {
         const opened = await discoverRepository(repo.path);
-        setRepository(opened);
-        queryClient.invalidateQueries();
+        openTab(opened);
       } catch (e) {
         toast.error('Failed to open repository', getErrorMessage(e));
       }
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -733,7 +732,7 @@ export function CommandPalette() {
                 <Command.Item
                   onSelect={() =>
                     runCommand(() => {
-                      localStorage.removeItem('diffy-dockview-layout');
+                      clearAllSavedLayouts();
                       window.location.reload();
                     })
                   }
@@ -790,6 +789,36 @@ export function CommandPalette() {
                     </span>
                   </Command.Item>
                 )}
+              </Command.Group>
+
+              {/* Developer Group */}
+              <Command.Group
+                heading="Developer"
+                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
+              >
+                <Command.Item
+                  onSelect={() => runCommand(() => setPerfTracingEnabled(!perfTracingEnabled))}
+                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  keywords={['performance', 'debug', 'trace', 'log']}
+                >
+                  <Timer size={16} className="text-text-muted" />
+                  <span className="flex-1">Toggle Perf Tracing</span>
+                  <span className="text-xs text-text-muted">
+                    {perfTracingEnabled ? 'On' : 'Off'}
+                  </span>
+                </Command.Item>
+
+                <Command.Item
+                  onSelect={() => runCommand(toggleReactScanAndReload)}
+                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  keywords={['react', 'scan', 'render', 'debug', 'highlight']}
+                >
+                  <MagnifyingGlass size={16} className="text-text-muted" />
+                  <span className="flex-1">Toggle React Scan</span>
+                  <span className="text-xs text-text-muted">
+                    {isReactScanEnabled() ? 'On (reload)' : 'Off (reload)'}
+                  </span>
+                </Command.Item>
               </Command.Group>
 
               {/* General Group */}

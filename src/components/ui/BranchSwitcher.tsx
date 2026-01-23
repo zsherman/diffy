@@ -3,13 +3,13 @@ import { Combobox } from '@base-ui/react/combobox';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { GitBranch, CaretUpDown, Check, Plus } from '@phosphor-icons/react';
 import { listBranches, checkoutBranch, createBranch } from '../../lib/tauri';
-import { useGitStore } from '../../stores/git-store';
+import { useTabsStore } from '../../stores/tabs-store';
 import { useToast } from './Toast';
 import { getErrorMessage } from '../../lib/errors';
 import type { BranchInfo } from '../../types/git';
 
 export function BranchSwitcher() {
-  const { repository, setHeadBranch } = useGitStore();
+  const { repository, setHeadBranch } = useTabsStore();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [inputValue, setInputValue] = useState('');
@@ -29,7 +29,7 @@ export function BranchSwitcher() {
     onSuccess: (_, branchName) => {
       toast.success('Branch switched', `Switched to ${branchName}`);
       // Update the head branch in the store immediately
-      setHeadBranch(branchName);
+      if (repository) setHeadBranch(repository.path, branchName);
       // Invalidate all related queries
       queryClient.invalidateQueries({ queryKey: ['branches'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['commits'], refetchType: 'all' });
@@ -50,7 +50,7 @@ export function BranchSwitcher() {
     onSuccess: (_, branchName) => {
       toast.success('Branch created', `Created and switched to ${branchName}`);
       // Update the head branch in the store immediately
-      setHeadBranch(branchName);
+      if (repository) setHeadBranch(repository.path, branchName);
       // Invalidate all related queries
       queryClient.invalidateQueries({ queryKey: ['branches'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['commits'], refetchType: 'all' });

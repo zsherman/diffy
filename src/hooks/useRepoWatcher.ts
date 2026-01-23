@@ -25,35 +25,25 @@ export function useRepoWatcher(repoPath: string | null) {
 
     let mounted = true;
 
-    // Start watching the repository
-    const setup = async () => {
+    // Set up watcher completely in background - don't block render at all
+    (async () => {
       try {
-        // Set up event listener
         const unlisten = await listen<RepoChangedEvent>('repo_changed', (_event) => {
           if (!mounted) return;
-
-          // Invalidate queries that depend on the file system state
-          // Use a small delay to batch rapid changes
           setTimeout(() => {
             if (!mounted) return;
-            
             queryClient.invalidateQueries({ queryKey: ['status'] });
             queryClient.invalidateQueries({ queryKey: ['working-diff'] });
-            // Don't invalidate commits/branches on every file change
-            // as those are less likely to change from file edits
           }, 50);
         });
 
         unlistenRef.current = unlisten;
 
-        // Start the watcher
         await startWatching(repoPath);
       } catch (error) {
-        console.error('Failed to start file watcher:', error);
+        console.error('Failed to set up file watcher:', error);
       }
-    };
-
-    setup();
+    })();
 
     return () => {
       mounted = false;

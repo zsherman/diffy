@@ -1,8 +1,9 @@
-import { useEffect, useCallback } from 'react';
-import { useUIStore, getDockviewApi } from '../stores/ui-store';
-import type { PanelId } from '../types/git';
+import { useEffect, useCallback } from "react";
+import { useUIStore, getDockviewApi } from "../stores/ui-store";
+import { useActiveTabState } from "../stores/tabs-store";
+import type { PanelId } from "../types/git";
 
-const PANELS: PanelId[] = ['branches', 'commits', 'files', 'diff', 'staging'];
+const PANELS: PanelId[] = ["branches", "commits", "files", "diff", "staging"];
 
 interface KeyboardConfig {
   onNavigateUp?: () => void;
@@ -25,9 +26,8 @@ export function useKeyboardNavigation(config: KeyboardConfig = {}) {
     diffViewMode,
     setDiffViewMode,
     toggleStagingSidebar,
-    selectedFile,
-    setSelectedFile,
   } = useUIStore();
+  const { selectedFile, setSelectedFile } = useActiveTabState();
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -36,28 +36,28 @@ export function useKeyboardNavigation(config: KeyboardConfig = {}) {
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement
       ) {
-        if (e.key === 'Escape') {
+        if (e.key === "Escape") {
           (e.target as HTMLElement).blur();
         }
         return;
       }
 
       // Command palette (Cmd+K or Ctrl+K)
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         setShowCommandPalette(!showCommandPalette);
         return;
       }
 
       // Toggle staging sidebar (Cmd+Shift+S or Ctrl+Shift+S)
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 's') {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "s") {
         e.preventDefault();
         toggleStagingSidebar();
         return;
       }
 
       // Close overlays on Escape, or clear selected file
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         if (showHelpOverlay) {
           setShowHelpOverlay(false);
           return;
@@ -74,7 +74,7 @@ export function useKeyboardNavigation(config: KeyboardConfig = {}) {
       }
 
       // Help overlay
-      if (e.key === '?') {
+      if (e.key === "?") {
         e.preventDefault();
         setShowHelpOverlay(!showHelpOverlay);
         return;
@@ -98,7 +98,7 @@ export function useKeyboardNavigation(config: KeyboardConfig = {}) {
       };
 
       // Panel navigation with Tab, h/l, or arrow keys
-      if (e.key === 'Tab' || e.key === 'l' || e.key === 'ArrowRight') {
+      if (e.key === "Tab" || e.key === "l" || e.key === "ArrowRight") {
         e.preventDefault();
         const currentIndex = PANELS.indexOf(activePanel);
         const nextIndex = e.shiftKey
@@ -108,7 +108,7 @@ export function useKeyboardNavigation(config: KeyboardConfig = {}) {
         return;
       }
 
-      if ((e.key === 'h' || e.key === 'ArrowLeft') && !e.shiftKey) {
+      if ((e.key === "h" || e.key === "ArrowLeft") && !e.shiftKey) {
         e.preventDefault();
         const currentIndex = PANELS.indexOf(activePanel);
         const prevIndex = (currentIndex - 1 + PANELS.length) % PANELS.length;
@@ -117,62 +117,62 @@ export function useKeyboardNavigation(config: KeyboardConfig = {}) {
       }
 
       // Vim navigation
-      if (e.key === 'j' || e.key === 'ArrowDown') {
+      if (e.key === "j" || e.key === "ArrowDown") {
         e.preventDefault();
         config.onNavigateDown?.();
         return;
       }
 
-      if (e.key === 'k' || e.key === 'ArrowUp') {
+      if (e.key === "k" || e.key === "ArrowUp") {
         e.preventDefault();
         config.onNavigateUp?.();
         return;
       }
 
       // Select/enter
-      if (e.key === 'Enter') {
+      if (e.key === "Enter") {
         e.preventDefault();
         config.onSelect?.();
         return;
       }
 
       // Stage (space)
-      if (e.key === ' ') {
+      if (e.key === " ") {
         e.preventDefault();
         config.onStage?.();
         return;
       }
 
       // Unstage (u)
-      if (e.key === 'u') {
+      if (e.key === "u") {
         e.preventDefault();
         config.onUnstage?.();
         return;
       }
 
       // Discard (d)
-      if (e.key === 'd' && !e.ctrlKey && !e.metaKey) {
+      if (e.key === "d" && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
         config.onDiscard?.();
         return;
       }
 
       // Refresh (r)
-      if (e.key === 'r') {
+      if (e.key === "r") {
         e.preventDefault();
         config.onRefresh?.();
         return;
       }
 
       // Toggle diff view mode (v)
-      if (e.key === 'v') {
+      if (e.key === "v") {
         e.preventDefault();
-        setDiffViewMode(diffViewMode === 'split' ? 'unified' : 'split');
+        setDiffViewMode(diffViewMode === "split" ? "unified" : "split");
         return;
       }
 
       // Focus specific panels with number keys
-      if (e.key >= '1' && e.key <= '5') {
+      if (e.key >= "1" && e.key <= "5") {
         e.preventDefault();
         const index = parseInt(e.key) - 1;
         if (index < PANELS.length) {
@@ -194,12 +194,12 @@ export function useKeyboardNavigation(config: KeyboardConfig = {}) {
       selectedFile,
       setSelectedFile,
       config,
-    ]
+    ],
   );
 
   useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
   return {

@@ -4,7 +4,7 @@ import { VList } from 'virtua';
 import type { VListHandle } from 'virtua';
 import { Plus, Lock, LockOpen, Trash } from '@phosphor-icons/react';
 import { listWorktrees, removeWorktree, lockWorktree, unlockWorktree, openRepository } from '../../../lib/tauri';
-import { useGitStore } from '../../../stores/git-store';
+import { useTabsStore, useActiveTabState } from '../../../stores/tabs-store';
 import { useUIStore } from '../../../stores/ui-store';
 import { LoadingSpinner, SkeletonList } from '../../../components/ui';
 import { useToast } from '../../../components/ui/Toast';
@@ -13,14 +13,14 @@ import { WorktreeRow } from './WorktreeRow';
 import { CreateWorktreeDialog } from './CreateWorktreeDialog';
 
 export function WorktreeList() {
-  const { repository, setRepository } = useGitStore();
+  const { repository, openTab } = useTabsStore();
   const {
     worktreeFilter,
     setWorktreeFilter,
     selectedWorktree,
     setSelectedWorktree,
-    activePanel,
-  } = useUIStore();
+  } = useActiveTabState();
+  const { activePanel } = useUIStore();
   const queryClient = useQueryClient();
   const toast = useToast();
   const listRef = useRef<VListHandle>(null);
@@ -93,17 +93,15 @@ export function WorktreeList() {
   const handleWorktreeSwitch = useCallback(
     async (worktree: WorktreeInfo) => {
       try {
-        // Switch to the worktree by opening that repository
+        // Switch to the worktree by opening it as a new tab
         const repoInfo = await openRepository(worktree.path);
-        setRepository(repoInfo);
-        // Invalidate all queries to refresh data for the new repo
-        queryClient.invalidateQueries();
+        openTab(repoInfo);
         toast.success('Switched worktree', `Now viewing ${worktree.name}`);
       } catch (error) {
         toast.error('Failed to switch worktree', (error as Error).message);
       }
     },
-    [setRepository, queryClient, toast]
+    [openTab, toast]
   );
 
   const handleRemove = useCallback(

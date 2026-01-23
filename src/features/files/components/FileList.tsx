@@ -3,9 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { VList } from 'virtua';
 import type { VListHandle } from 'virtua';
 import { getStatus, getCommitDiff, stageFiles, unstageFiles, discardChanges } from '../../../lib/tauri';
-import { useGitStore } from '../../../stores/git-store';
+import { useTabsStore, useActiveTabState } from '../../../stores/tabs-store';
 import { useUIStore } from '../../../stores/ui-store';
-import { LoadingSpinner, SkeletonList } from '../../../components/ui';
 import type { FileStatus, DiffFile, CommitInfo } from '../../../types/git';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -119,17 +118,15 @@ const CommitHeader = memo(function CommitHeader({ commit, fontSize }: { commit: 
 });
 
 export function FileList() {
-  const { repository } = useGitStore();
+  const { repository } = useTabsStore();
   const {
     selectedCommit,
     selectedFile,
     setSelectedFile,
-    activePanel,
     setViewMode,
-    setShowDiffPanel,
     selectedBranch,
-    panelFontSize,
-  } = useUIStore();
+  } = useActiveTabState();
+  const { activePanel, setShowDiffPanel, panelFontSize } = useUIStore();
   const queryClient = useQueryClient();
   const listRef = useRef<VListHandle>(null);
   const [focusedIndex, setFocusedIndex] = useState(0);
@@ -312,22 +309,7 @@ export function FileList() {
     [setSelectedFile, setShowDiffPanel]
   );
 
-  const isLoading = statusLoading || diffLoading;
-
-  if (isLoading && flatList.length === 0) {
-    return (
-      <div className="flex flex-col h-full">
-        <div className="flex items-center py-3 px-2">
-          <LoadingSpinner size="sm" message="Loading files..." />
-        </div>
-        <div className="flex-1 px-2 overflow-hidden">
-          <SkeletonList rows={6} />
-        </div>
-      </div>
-    );
-  }
-
-  if (flatList.length === 0) {
+  if (flatList.length === 0 && !statusLoading && !diffLoading) {
     return (
       <div className="flex items-center justify-center h-full text-text-muted">
         No changes

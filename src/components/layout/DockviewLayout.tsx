@@ -1,11 +1,19 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, memo } from "react";
 import {
   DockviewReact,
   type DockviewReadyEvent,
   type DockviewApi,
   type SerializedDockview,
-} from 'dockview-react';
-import { useUIStore, setDockviewApi } from '../../stores/ui-store';
+  type IDisposable,
+} from "dockview-react";
+import { useTheme, setDockviewApi, isPerfTracingEnabled } from "../../stores/ui-store";
+import {
+  useActiveTabPath,
+  useActiveTabPanels,
+  tabsStore,
+  type PanelVisibility,
+} from "../../stores/tabs-store";
+import { layoutPresets } from "../../lib/layouts";
 import {
   BranchesPanel,
   CommitsPanel,
@@ -16,20 +24,27 @@ import {
   WorktreesPanel,
   GraphPanel,
   MergeConflictPanel,
-} from './panels';
-import { DockviewHeaderActions } from './DockviewHeaderActions';
-import { DockviewTab } from './DockviewTab';
+} from "./panels";
+import { DockviewHeaderActions } from "./DockviewHeaderActions";
+import { DockviewTab } from "./DockviewTab";
 
-const LAYOUT_STORAGE_KEY = 'diffy-dockview-layout';
+// Per-repo layout storage key prefix
+export const LAYOUT_STORAGE_PREFIX = "diffy-dockview-layout:";
 
-// Press Ctrl+Shift+L to reset layout to default
-if (typeof window !== 'undefined') {
-  window.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.shiftKey && e.key === 'L') {
-      localStorage.removeItem(LAYOUT_STORAGE_KEY);
-      window.location.reload();
-    }
-  });
+// Encode repo path for use as localStorage key
+export function encodeRepoPath(path: string): string {
+  return btoa(path).replace(
+    /[+/=]/g,
+    (c) => ({ "+": "-", "/": "_", "=": "" })[c] ?? c,
+  );
+}
+
+// Clear all saved layouts for all repos
+export function clearAllSavedLayouts() {
+  const keysToRemove = Object.keys(localStorage).filter((k) =>
+    k.startsWith(LAYOUT_STORAGE_PREFIX),
+  );
+  keysToRemove.forEach((k) => localStorage.removeItem(k));
 }
 
 const components = {
@@ -38,388 +53,767 @@ const components = {
   files: FilesPanel,
   diff: DiffPanel,
   staging: StagingPanel,
-  'ai-review': AIReviewPanel,
+  "ai-review": AIReviewPanel,
   worktrees: WorktreesPanel,
   graph: GraphPanel,
-  'merge-conflict': MergeConflictPanel,
+  "merge-conflict": MergeConflictPanel,
 };
+
+// Apply a layout preset by ID (without triggering store sync - that's handled separately)
+function applyLayoutPreset(api: DockviewApi, presetId: string) {
+  const preset = layoutPresets.find((p) => p.id === presetId);
+  if (preset) {
+    trace(`applyLayoutPreset(${presetId})`, () => {
+      preset.apply(api);
+    });
+  }
+}
 
 function createDefaultLayout(api: DockviewApi) {
   // Create three columns: commits | files | diff
   const commitsPanel = api.addPanel({
-    id: 'commits',
-    component: 'commits',
-    title: 'Commits',
+    id: "commits",
+    component: "commits",
+    title: "Commits",
     minimumWidth: 300,
   });
 
   const filesPanel = api.addPanel({
-    id: 'files',
-    component: 'files',
-    title: 'Files',
-    position: { referencePanel: commitsPanel, direction: 'right' },
+    id: "files",
+    component: "files",
+    title: "Files",
+    position: { referencePanel: commitsPanel, direction: "right" },
     minimumWidth: 300,
   });
 
   api.addPanel({
-    id: 'diff',
-    component: 'diff',
-    title: 'Diff',
-    position: { referencePanel: filesPanel, direction: 'right' },
+    id: "diff",
+    component: "diff",
+    title: "Diff",
+    position: { referencePanel: filesPanel, direction: "right" },
     minimumWidth: 300,
   });
 
   // Set initial sizes: 25% commits | 25% files | 50% diff
   const groups = api.groups;
   if (groups.length >= 3) {
-    groups[0].api.setSize({ width: 300 }); // commits ~25%
-    groups[1].api.setSize({ width: 300 }); // files ~25%
-    groups[2].api.setSize({ width: 600 }); // diff ~50%
+    groups[0].api.setSize({ width: 300 });
+    groups[1].api.setSize({ width: 300 });
+    groups[2].api.setSize({ width: 600 });
   }
 }
 
-function saveLayout(api: DockviewApi) {
-  try {
-    const layout = api.toJSON();
-    // Ensure locked is false for all groups when saving
-    if (layout.grid?.root) {
-      const unlockGroups = (node: unknown) => {
-        if (node && typeof node === 'object') {
-          const n = node as Record<string, unknown>;
-          if (n.type === 'branch' && Array.isArray(n.data)) {
-            n.data.forEach(unlockGroups);
-          } else if (n.type === 'leaf' && n.data && typeof n.data === 'object') {
-            (n.data as Record<string, unknown>).locked = false;
+// Save layout for a specific repo path
+function saveLayoutForRepo(api: DockviewApi, repoPath: string) {
+  trace("saveLayoutForRepo", () => {
+    try {
+      const layout = api.toJSON();
+      // Ensure locked is false for all groups when saving
+      if (layout.grid?.root) {
+        const unlockGroups = (node: unknown) => {
+          if (node && typeof node === "object") {
+            const n = node as Record<string, unknown>;
+            if (n.type === "branch" && Array.isArray(n.data)) {
+              n.data.forEach(unlockGroups);
+            } else if (
+              n.type === "leaf" &&
+              n.data &&
+              typeof n.data === "object"
+            ) {
+              (n.data as Record<string, unknown>).locked = false;
+            }
           }
-        }
-      };
-      unlockGroups(layout.grid.root);
+        };
+        unlockGroups(layout.grid.root);
+      }
+      const key = LAYOUT_STORAGE_PREFIX + encodeRepoPath(repoPath);
+      localStorage.setItem(key, JSON.stringify(layout));
+    } catch (e) {
+      console.warn("Failed to save layout:", e);
     }
-    localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(layout));
-  } catch (e) {
-    console.warn('Failed to save layout:', e);
-  }
+  });
 }
 
-function loadLayout(): SerializedDockview | null {
-  try {
-    const saved = localStorage.getItem(LAYOUT_STORAGE_KEY);
-    if (saved) {
-      return JSON.parse(saved) as SerializedDockview;
+// Load layout for a specific repo path
+function loadLayoutForRepo(repoPath: string): SerializedDockview | null {
+  let result: SerializedDockview | null = null;
+  trace("loadLayoutForRepo", () => {
+    try {
+      const key = LAYOUT_STORAGE_PREFIX + encodeRepoPath(repoPath);
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        result = JSON.parse(saved) as SerializedDockview;
+      }
+    } catch (e) {
+      console.warn("Failed to load layout:", e);
     }
-  } catch (e) {
-    console.warn('Failed to load layout:', e);
-  }
-  return null;
+  });
+  return result;
 }
 
-// Flag to skip removal handlers during layout preset application
-let isApplyingLayoutPreset = false;
+// Transaction counter to suppress panel removal syncing during layout application
+let layoutTransactionDepth = 0;
+
+// Performance tracing - uses runtime flag from ui-store
+let renderCount = 0;
+let effectCount = 0;
+
+function trace(label: string, fn: () => void): void {
+  if (!isPerfTracingEnabled()) {
+    fn();
+    return;
+  }
+  const start = performance.now();
+  fn();
+  const elapsed = performance.now() - start;
+  console.log(`[perf] ${label}: ${elapsed.toFixed(2)}ms`);
+}
+
+function _traceAsync<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  if (!isPerfTracingEnabled()) {
+    return fn();
+  }
+  const start = performance.now();
+  return fn().then((result) => {
+    const elapsed = performance.now() - start;
+    console.log(`[perf] ${label}: ${elapsed.toFixed(2)}ms`);
+    return result;
+  });
+}
+
+function traceStart(label: string): () => void {
+  if (!isPerfTracingEnabled()) return () => {};
+  const start = performance.now();
+  console.log(`[perf] ${label} started`);
+  return () => {
+    const elapsed = performance.now() - start;
+    console.log(`[perf] ${label} completed: ${elapsed.toFixed(2)}ms`);
+  };
+}
+
+// Use requestAnimationFrame to measure time until next paint
+function traceUntilPaint(label: string): void {
+  if (!isPerfTracingEnabled()) return;
+  const start = performance.now();
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const elapsed = performance.now() - start;
+      console.log(`[perf] ${label} -> paint: ${elapsed.toFixed(2)}ms`);
+    });
+  });
+}
 
 export function setApplyingLayoutPreset(value: boolean) {
-  isApplyingLayoutPreset = value;
+  if (value) {
+    layoutTransactionDepth++;
+  } else {
+    layoutTransactionDepth = Math.max(0, layoutTransactionDepth - 1);
+  }
 }
 
-export function DockviewLayout() {
-  const { theme, showBranchesPanel, showFilesPanel, showDiffPanel, showStagingSidebar, showAIReviewPanel, showWorktreesPanel, showGraphPanel, showMergeConflictPanel, setShowBranchesPanel, setShowFilesPanel, setShowDiffPanel, setShowStagingSidebar, setShowAIReviewPanel, setShowWorktreesPanel, setShowGraphPanel, setShowMergeConflictPanel } = useUIStore();
+function isInLayoutTransaction() {
+  return layoutTransactionDepth > 0;
+}
+
+// Sync panel visibility from dockview to store (batched)
+// Returns the panel state for updating lastReconcileRef
+function syncPanelsFromDockview(api: DockviewApi): PanelVisibility {
+  const panels: PanelVisibility = {
+    showBranchesPanel: api.getPanel("branches") !== undefined,
+    showFilesPanel: api.getPanel("files") !== undefined,
+    showDiffPanel: api.getPanel("diff") !== undefined,
+    showAIReviewPanel: api.getPanel("ai-review") !== undefined,
+    showGraphPanel: api.getPanel("graph") !== undefined,
+    showMergeConflictPanel: api.getPanel("merge-conflict") !== undefined,
+    showStagingSidebar: api.getPanel("staging") !== undefined,
+    showWorktreesPanel: api.getPanel("worktrees") !== undefined,
+  };
+  trace("syncPanelsFromDockview", () => {
+    tabsStore.send({ type: "syncPanels", panels });
+  });
+  return panels;
+}
+
+// Reconcile desired panel state with actual dockview panels
+function reconcilePanels(api: DockviewApi, desired: PanelVisibility) {
+  // Panel configs with their add positions
+  const panelConfigs: Array<{
+    id: string;
+    component: string;
+    title: string;
+    showKey: keyof PanelVisibility;
+    getPosition: () =>
+      | {
+          referencePanel?: ReturnType<DockviewApi["getPanel"]>;
+          direction: string;
+        }
+      | { direction: string };
+  }> = [
+    {
+      id: "branches",
+      component: "branches",
+      title: "Branches",
+      showKey: "showBranchesPanel",
+      getPosition: () => {
+        const commits = api.getPanel("commits");
+        return commits
+          ? { referencePanel: commits, direction: "left" }
+          : { direction: "left" };
+      },
+    },
+    {
+      id: "files",
+      component: "files",
+      title: "Files",
+      showKey: "showFilesPanel",
+      getPosition: () => {
+        const diff = api.getPanel("diff");
+        const commits = api.getPanel("commits");
+        if (diff) return { referencePanel: diff, direction: "above" };
+        if (commits) return { referencePanel: commits, direction: "right" };
+        return { direction: "right" };
+      },
+    },
+    {
+      id: "diff",
+      component: "diff",
+      title: "Diff",
+      showKey: "showDiffPanel",
+      getPosition: () => {
+        const files = api.getPanel("files");
+        const commits = api.getPanel("commits");
+        if (files) return { referencePanel: files, direction: "below" };
+        if (commits) return { referencePanel: commits, direction: "right" };
+        return { direction: "right" };
+      },
+    },
+    {
+      id: "staging",
+      component: "staging",
+      title: "Staging",
+      showKey: "showStagingSidebar",
+      getPosition: () => ({ direction: "right" }),
+    },
+    {
+      id: "ai-review",
+      component: "ai-review",
+      title: "AI Review",
+      showKey: "showAIReviewPanel",
+      getPosition: () => {
+        const diff = api.getPanel("diff");
+        return diff
+          ? { referencePanel: diff, direction: "right" }
+          : { direction: "right" };
+      },
+    },
+    {
+      id: "worktrees",
+      component: "worktrees",
+      title: "Worktrees",
+      showKey: "showWorktreesPanel",
+      getPosition: () => {
+        const branches = api.getPanel("branches");
+        const commits = api.getPanel("commits");
+        if (branches) return { referencePanel: branches, direction: "below" };
+        if (commits) return { referencePanel: commits, direction: "left" };
+        return { direction: "left" };
+      },
+    },
+    {
+      id: "graph",
+      component: "graph",
+      title: "Graph",
+      showKey: "showGraphPanel",
+      getPosition: () => {
+        const commits = api.getPanel("commits");
+        return commits
+          ? { referencePanel: commits, direction: "within" }
+          : { direction: "left" };
+      },
+    },
+    {
+      id: "merge-conflict",
+      component: "merge-conflict",
+      title: "Merge Conflicts",
+      showKey: "showMergeConflictPanel",
+      getPosition: () => {
+        const diff = api.getPanel("diff");
+        return diff
+          ? { referencePanel: diff, direction: "within" }
+          : { direction: "right" };
+      },
+    },
+  ];
+
+  // Reconcile each panel
+  trace("reconcilePanels", () => {
+    for (const config of panelConfigs) {
+      const exists = api.getPanel(config.id) !== undefined;
+      const shouldExist = desired[config.showKey];
+
+      if (shouldExist && !exists) {
+        // Add panel
+        trace(`  addPanel(${config.id})`, () => {
+          api.addPanel({
+            id: config.id,
+            component: config.component,
+            title: config.title,
+            position: config.getPosition() as Parameters<
+              DockviewApi["addPanel"]
+            >[0]["position"],
+          });
+        });
+      } else if (!shouldExist && exists) {
+        // Remove panel
+        trace(`  removePanel(${config.id})`, () => {
+          const panel = api.getPanel(config.id);
+          if (panel) {
+            api.removePanel(panel);
+          }
+        });
+      }
+    }
+  });
+}
+
+// Track previous values to detect what changed
+let prevTheme: string | null = null;
+let prevActiveTabPath: string | null = null;
+let prevPanels: string | null = null;
+
+export const DockviewLayout = memo(function DockviewLayout() {
+  // Use focused hooks to minimize subscriptions and re-renders
+  const { theme } = useTheme();
+  const activeTabPath = useActiveTabPath();
+  // Use focused hook for panel state only - avoids subscribing to unrelated state
+  const {
+    showBranchesPanel,
+    showFilesPanel,
+    showDiffPanel,
+    showStagingSidebar,
+    showAIReviewPanel,
+    showWorktreesPanel,
+    showGraphPanel,
+    showMergeConflictPanel,
+  } = useActiveTabPanels();
+
+  // Track renders with change detection
+  if (isPerfTracingEnabled()) {
+    renderCount++;
+    const panelsKey = `${showBranchesPanel}-${showFilesPanel}-${showDiffPanel}-${showStagingSidebar}-${showAIReviewPanel}-${showWorktreesPanel}-${showGraphPanel}-${showMergeConflictPanel}`;
+    const changes: string[] = [];
+    if (prevTheme !== theme) changes.push(`theme: ${prevTheme} -> ${theme}`);
+    if (prevActiveTabPath !== activeTabPath) changes.push(`path: ${prevActiveTabPath?.slice(-20)} -> ${activeTabPath?.slice(-20)}`);
+    if (prevPanels !== panelsKey) changes.push(`panels changed`);
+    
+    console.log(`[perf] DockviewLayout render #${renderCount}${changes.length ? ` (${changes.join(', ')})` : ' (no prop change - parent render?)'}`);
+    
+    prevTheme = theme;
+    prevActiveTabPath = activeTabPath;
+    prevPanels = panelsKey;
+  }
+
   const apiRef = useRef<DockviewApi | null>(null);
   const isInitializedRef = useRef(false);
+  const currentRepoPathRef = useRef<string | null>(null);
+  const lastReconcileRef = useRef<PanelVisibility | null>(null);
+  const pendingTabPathRef = useRef<string | null>(null); // Track pending tab switch during initialization
+
+  // Store disposables in refs so we can clean them up on unmount
+  const disposablesRef = useRef<IDisposable[]>([]);
+
+  // Global keyboard shortcut: Ctrl+Shift+L to reset layout
+  // Using useEffect to prevent duplicate listeners during HMR
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === "L") {
+        clearAllSavedLayouts();
+        window.location.reload();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  // Cleanup effect - runs on unmount to dispose listeners and clear API ref
+  useEffect(() => {
+    return () => {
+      if (isPerfTracingEnabled()) {
+        console.log("[perf] DockviewLayout unmounting, cleaning up");
+      }
+      // Dispose all Dockview event listeners
+      disposablesRef.current.forEach((d) => d.dispose());
+      disposablesRef.current = [];
+      // Clear the global API reference
+      setDockviewApi(null);
+      apiRef.current = null;
+      isInitializedRef.current = false;
+    };
+  }, []);
+
+  // Store panel visibility in ref for reconciliation comparison
+  const desiredPanels: PanelVisibility = {
+    showBranchesPanel,
+    showFilesPanel,
+    showDiffPanel,
+    showStagingSidebar,
+    showAIReviewPanel,
+    showWorktreesPanel,
+    showGraphPanel,
+    showMergeConflictPanel,
+  };
 
   const onReady = useCallback((event: DockviewReadyEvent) => {
     const api = event.api;
     apiRef.current = api;
     setDockviewApi(api);
 
-    // Try to load saved layout
-    const savedLayout = loadLayout();
-    if (savedLayout) {
-      try {
-        api.fromJSON(savedLayout);
-        // Unlock all groups after loading (in case they were saved as locked)
-        api.groups.forEach((g) => {
-          g.locked = false;
-        });
-      } catch (e) {
-        console.warn('Failed to restore layout, creating default:', e);
-        createDefaultLayout(api);
-      }
-    } else {
-      createDefaultLayout(api);
-    }
-
-    // Ensure all groups are unlocked for drag-and-drop
-    api.groups.forEach((g) => {
-      g.locked = false;
-    });
-
-    // Listen for layout changes to persist
+    // Listen for layout changes to persist for current repo
     const layoutDisposable = api.onDidLayoutChange(() => {
-      saveLayout(api);
-    });
-
-    // Listen for panel close events (skip during layout preset application)
-    const removeDisposable = api.onDidRemovePanel((event) => {
-      if (isApplyingLayoutPreset) return;
-
-      const panelId = event.id;
-      if (panelId === 'branches') {
-        setShowBranchesPanel(false);
-      } else if (panelId === 'files') {
-        setShowFilesPanel(false);
-      } else if (panelId === 'diff') {
-        setShowDiffPanel(false);
-      } else if (panelId === 'staging') {
-        setShowStagingSidebar(false);
-      } else if (panelId === 'ai-review') {
-        setShowAIReviewPanel(false);
-      } else if (panelId === 'worktrees') {
-        setShowWorktreesPanel(false);
-      } else if (panelId === 'graph') {
-        setShowGraphPanel(false);
-      } else if (panelId === 'merge-conflict') {
-        setShowMergeConflictPanel(false);
+      if (currentRepoPathRef.current && !isInLayoutTransaction()) {
+        saveLayoutForRepo(api, currentRepoPathRef.current);
       }
     });
+
+    // Listen for panel removal to sync state (skip during layout transactions)
+    const removeDisposable = api.onDidRemovePanel(() => {
+      if (!isInLayoutTransaction()) {
+        syncPanelsFromDockview(api);
+      }
+    });
+
+    // Listen for panel addition to sync state (skip during layout transactions)
+    const addDisposable = api.onDidAddPanel(() => {
+      if (!isInLayoutTransaction()) {
+        syncPanelsFromDockview(api);
+      }
+    });
+
+    // Store disposables in ref for cleanup on unmount
+    // (onReady return value is NOT consumed by DockviewReact)
+    disposablesRef.current = [layoutDisposable, removeDisposable, addDisposable];
 
     isInitializedRef.current = true;
 
-    return () => {
-      layoutDisposable.dispose();
-      removeDisposable.dispose();
-    };
-  }, [setShowBranchesPanel, setShowFilesPanel, setShowDiffPanel, setShowStagingSidebar, setShowAIReviewPanel, setShowWorktreesPanel, setShowGraphPanel, setShowMergeConflictPanel]);
+    // Check if there's a pending tab that needs layout loaded
+    // This handles the case where activeTabPath was set before dockview was ready
+    const pendingPath = pendingTabPathRef.current;
+    if (pendingPath) {
+      if (isPerfTracingEnabled())
+        console.log(
+          "[perf] onReady: Loading pending tab layout for",
+          pendingPath,
+        );
+      pendingTabPathRef.current = null;
+      currentRepoPathRef.current = pendingPath;
 
-  // Sync branches panel visibility with dockview
-  useEffect(() => {
-    const api = apiRef.current;
-    if (!api || !isInitializedRef.current) return;
-
-    const branchesPanel = api.getPanel('branches');
-    if (showBranchesPanel && !branchesPanel) {
-      // Add branches panel on the left side
-      const commitsPanel = api.getPanel('commits');
-      if (commitsPanel) {
-        api.addPanel({
-          id: 'branches',
-          component: 'branches',
-          title: 'Branches',
-          position: { referencePanel: commitsPanel, direction: 'left' },
+      const savedLayout = loadLayoutForRepo(pendingPath);
+      setApplyingLayoutPreset(true);
+      let syncedPanels: PanelVisibility;
+      try {
+        if (savedLayout) {
+          try {
+            trace("onReady api.fromJSON", () => api.fromJSON(savedLayout));
+            api.groups.forEach((g) => {
+              g.locked = false;
+            });
+            syncedPanels = syncPanelsFromDockview(api);
+          } catch (e) {
+            console.warn(
+              "Failed to restore layout in onReady, creating default:",
+              e,
+            );
+            createDefaultLayout(api);
+            syncedPanels = syncPanelsFromDockview(api);
+          }
+        } else {
+          createDefaultLayout(api);
+          syncedPanels = syncPanelsFromDockview(api);
+        }
+        api.groups.forEach((g) => {
+          g.locked = false;
         });
+        // Update lastReconcileRef to prevent reconcile effect from fighting
+        lastReconcileRef.current = syncedPanels;
+      } finally {
+        setTimeout(() => setApplyingLayoutPreset(false), 100);
       }
-    } else if (!showBranchesPanel && branchesPanel) {
-      api.removePanel(branchesPanel);
-    }
-  }, [showBranchesPanel]);
+    } else {
+      // No pending tab - this is a fresh mount (e.g., switching from Statistics view)
+      // Check the current active tab path and mainView to determine what to show
+      const ctx = tabsStore.getSnapshot().context;
+      if (ctx.activeTabPath) {
+        if (isPerfTracingEnabled())
+          console.log(
+            "[perf] onReady: Fresh mount, applying layout for mainView",
+          );
+        currentRepoPathRef.current = ctx.activeTabPath;
 
-  // Sync files panel visibility with dockview
-  useEffect(() => {
-    const api = apiRef.current;
-    if (!api || !isInitializedRef.current) return;
+        // Get mainView from the active tab
+        const activeTab = ctx.tabs.find(
+          (t) => t.repository.path === ctx.activeTabPath,
+        );
+        const mainView = activeTab?.mainView ?? "history";
 
-    const filesPanel = api.getPanel('files');
-    if (showFilesPanel && !filesPanel) {
-      // Add files panel back
-      const commitsPanel = api.getPanel('commits');
-      const diffPanel = api.getPanel('diff');
-      if (diffPanel) {
-        api.addPanel({
-          id: 'files',
-          component: 'files',
-          title: 'Files',
-          position: { referencePanel: diffPanel, direction: 'above' },
-        });
-      } else if (commitsPanel) {
-        api.addPanel({
-          id: 'files',
-          component: 'files',
-          title: 'Files',
-          position: { referencePanel: commitsPanel, direction: 'right' },
-        });
+        setApplyingLayoutPreset(true);
+        let syncedPanels: PanelVisibility;
+        try {
+          // First try to load saved layout
+          const savedLayout = loadLayoutForRepo(ctx.activeTabPath);
+          if (savedLayout) {
+            try {
+              trace("onReady (fresh) api.fromJSON", () =>
+                api.fromJSON(savedLayout),
+              );
+              api.groups.forEach((g) => {
+                g.locked = false;
+              });
+              syncedPanels = syncPanelsFromDockview(api);
+            } catch (e) {
+              console.warn(
+                "Failed to restore layout in onReady (fresh), creating default:",
+                e,
+              );
+              // Apply layout based on mainView
+              if (mainView === "changes") {
+                applyLayoutPreset(api, "changes");
+              } else {
+                applyLayoutPreset(api, "standard");
+              }
+              syncedPanels = syncPanelsFromDockview(api);
+            }
+          } else {
+            // No saved layout - apply based on mainView
+            if (mainView === "changes") {
+              applyLayoutPreset(api, "changes");
+            } else {
+              applyLayoutPreset(api, "standard");
+            }
+            syncedPanels = syncPanelsFromDockview(api);
+          }
+          api.groups.forEach((g) => {
+            g.locked = false;
+          });
+          // Update lastReconcileRef to prevent reconcile effect from fighting
+          lastReconcileRef.current = syncedPanels;
+        } finally {
+          setTimeout(() => setApplyingLayoutPreset(false), 100);
+        }
       }
-    } else if (!showFilesPanel && filesPanel) {
-      api.removePanel(filesPanel);
     }
-  }, [showFilesPanel]);
+  }, []);
 
+  // Handle tab switches - load/apply layout for the new repo
   useEffect(() => {
     const api = apiRef.current;
-    if (!api || !isInitializedRef.current) return;
 
-    const diffPanel = api.getPanel('diff');
-    if (showDiffPanel && !diffPanel) {
-      // Add diff panel back
-      const filesPanel = api.getPanel('files');
-      const commitsPanel = api.getPanel('commits');
-      if (filesPanel) {
-        api.addPanel({
-          id: 'diff',
-          component: 'diff',
-          title: 'Diff',
-          position: { referencePanel: filesPanel, direction: 'below' },
-        });
-      } else if (commitsPanel) {
-        api.addPanel({
-          id: 'diff',
-          component: 'diff',
-          title: 'Diff',
-          position: { referencePanel: commitsPanel, direction: 'right' },
-        });
+    // If API isn't ready yet, store the pending path for onReady to handle
+    if (!api || !isInitializedRef.current) {
+      if (activeTabPath && activeTabPath !== pendingTabPathRef.current) {
+        if (isPerfTracingEnabled())
+          console.log(
+            "[perf] Tab Switch Effect: API not ready, queuing",
+            activeTabPath,
+          );
+        pendingTabPathRef.current = activeTabPath;
       }
-    } else if (!showDiffPanel && diffPanel) {
-      api.removePanel(diffPanel);
+      return;
     }
-  }, [showDiffPanel]);
 
-  useEffect(() => {
-    const api = apiRef.current;
-    if (!api || !isInitializedRef.current) return;
+    // Check if repo actually changed
+    if (currentRepoPathRef.current === activeTabPath) return;
 
-    const stagingPanel = api.getPanel('staging');
-    if (showStagingSidebar && !stagingPanel) {
-      // Add staging panel as full-height column on the far right
-      // Using absolute position 'right' places it at the edge of the entire grid
-      api.addPanel({
-        id: 'staging',
-        component: 'staging',
-        title: 'Staging',
-        position: { direction: 'right' },
+    const endTrace = traceStart("Tab Switch Effect");
+    traceUntilPaint("Tab Switch");
+
+    // Save current layout before switching (if we had a repo)
+    if (currentRepoPathRef.current) {
+      saveLayoutForRepo(api, currentRepoPathRef.current);
+    }
+
+    // Update current repo reference
+    currentRepoPathRef.current = activeTabPath;
+
+    if (!activeTabPath) {
+      // No repo selected - just create default layout
+      setApplyingLayoutPreset(true);
+      let syncedPanels: PanelVisibility;
+      try {
+        // Clear all panels
+        trace("clearAllPanels", () => {
+          const panels = [...api.panels];
+          panels.forEach((panel) => api.removePanel(panel));
+        });
+        trace("createDefaultLayout", () => createDefaultLayout(api));
+        syncedPanels = syncPanelsFromDockview(api);
+        lastReconcileRef.current = syncedPanels;
+      } finally {
+        setTimeout(() => setApplyingLayoutPreset(false), 100);
+      }
+      endTrace();
+      return;
+    }
+
+    // Try to load saved layout for this repo
+    const savedLayout = loadLayoutForRepo(activeTabPath);
+
+    setApplyingLayoutPreset(true);
+    let syncedPanels: PanelVisibility;
+    try {
+      if (savedLayout) {
+        try {
+          trace("api.fromJSON", () => api.fromJSON(savedLayout));
+          // Unlock all groups after loading
+          api.groups.forEach((g) => {
+            g.locked = false;
+          });
+          // Sync store from the loaded layout
+          syncedPanels = syncPanelsFromDockview(api);
+        } catch (e) {
+          console.warn("Failed to restore layout, creating default:", e);
+          // Clear and create default
+          trace("clearAllPanels (fallback)", () => {
+            const panels = [...api.panels];
+            panels.forEach((panel) => api.removePanel(panel));
+          });
+          trace("createDefaultLayout (fallback)", () =>
+            createDefaultLayout(api),
+          );
+          syncedPanels = syncPanelsFromDockview(api);
+        }
+      } else {
+        // No saved layout - create default
+        trace("clearAllPanels (no saved)", () => {
+          const panels = [...api.panels];
+          panels.forEach((panel) => api.removePanel(panel));
+        });
+        trace("createDefaultLayout (no saved)", () => createDefaultLayout(api));
+        syncedPanels = syncPanelsFromDockview(api);
+      }
+
+      // Ensure all groups are unlocked
+      api.groups.forEach((g) => {
+        g.locked = false;
       });
-    } else if (!showStagingSidebar && stagingPanel) {
-      api.removePanel(stagingPanel);
-    }
-  }, [showStagingSidebar]);
 
+      // Update lastReconcileRef to prevent reconcile effect from fighting
+      lastReconcileRef.current = syncedPanels;
+    } finally {
+      setTimeout(() => setApplyingLayoutPreset(false), 100);
+    }
+    endTrace();
+  }, [activeTabPath]);
+
+  // Single reconciliation effect for panel visibility changes
   useEffect(() => {
     const api = apiRef.current;
-    if (!api || !isInitializedRef.current) return;
-
-    const aiReviewPanel = api.getPanel('ai-review');
-    if (showAIReviewPanel && !aiReviewPanel) {
-      // Add AI Review panel to the right of the diff panel
-      const diffPanel = api.getPanel('diff');
-      if (diffPanel) {
-        api.addPanel({
-          id: 'ai-review',
-          component: 'ai-review',
-          title: 'AI Review',
-          position: { referencePanel: diffPanel, direction: 'right' },
-        });
-      } else {
-        // Fallback: add to far right
-        api.addPanel({
-          id: 'ai-review',
-          component: 'ai-review',
-          title: 'AI Review',
-          position: { direction: 'right' },
-        });
-      }
-    } else if (!showAIReviewPanel && aiReviewPanel) {
-      api.removePanel(aiReviewPanel);
+    if (!api || !isInitializedRef.current || !activeTabPath) {
+      if (isPerfTracingEnabled())
+        console.log("[perf] Reconcile Effect skipped (not initialized)");
+      return;
     }
-  }, [showAIReviewPanel]);
 
-  // Sync worktrees panel visibility with dockview
-  useEffect(() => {
-    const api = apiRef.current;
-    if (!api || !isInitializedRef.current) return;
-
-    const worktreesPanel = api.getPanel('worktrees');
-    if (showWorktreesPanel && !worktreesPanel) {
-      // Add worktrees panel below the branches panel, or left of commits
-      const branchesPanel = api.getPanel('branches');
-      const commitsPanel = api.getPanel('commits');
-      if (branchesPanel) {
-        api.addPanel({
-          id: 'worktrees',
-          component: 'worktrees',
-          title: 'Worktrees',
-          position: { referencePanel: branchesPanel, direction: 'below' },
-        });
-      } else if (commitsPanel) {
-        api.addPanel({
-          id: 'worktrees',
-          component: 'worktrees',
-          title: 'Worktrees',
-          position: { referencePanel: commitsPanel, direction: 'left' },
-        });
-      } else {
-        api.addPanel({
-          id: 'worktrees',
-          component: 'worktrees',
-          title: 'Worktrees',
-          position: { direction: 'left' },
-        });
-      }
-    } else if (!showWorktreesPanel && worktreesPanel) {
-      api.removePanel(worktreesPanel);
+    // Skip during layout transactions to prevent feedback loops
+    if (isInLayoutTransaction()) {
+      if (isPerfTracingEnabled())
+        console.log("[perf] Reconcile Effect skipped (in transaction)");
+      return;
     }
-  }, [showWorktreesPanel]);
 
-  // Sync graph panel visibility with dockview
-  useEffect(() => {
-    const api = apiRef.current;
-    if (!api || !isInitializedRef.current) return;
-
-    const graphPanel = api.getPanel('graph');
-    if (showGraphPanel && !graphPanel) {
-      // Add graph panel in place of commits panel (or to the left)
-      const commitsPanel = api.getPanel('commits');
-      if (commitsPanel) {
-        api.addPanel({
-          id: 'graph',
-          component: 'graph',
-          title: 'Graph',
-          position: { referencePanel: commitsPanel, direction: 'within' },
-        });
-      } else {
-        api.addPanel({
-          id: 'graph',
-          component: 'graph',
-          title: 'Graph',
-          position: { direction: 'left' },
-        });
-      }
-    } else if (!showGraphPanel && graphPanel) {
-      api.removePanel(graphPanel);
+    // Skip if this is the same state (prevents double reconcile after tab switch)
+    const lastPanels = lastReconcileRef.current;
+    if (
+      lastPanels &&
+      lastPanels.showBranchesPanel === desiredPanels.showBranchesPanel &&
+      lastPanels.showFilesPanel === desiredPanels.showFilesPanel &&
+      lastPanels.showDiffPanel === desiredPanels.showDiffPanel &&
+      lastPanels.showStagingSidebar === desiredPanels.showStagingSidebar &&
+      lastPanels.showAIReviewPanel === desiredPanels.showAIReviewPanel &&
+      lastPanels.showWorktreesPanel === desiredPanels.showWorktreesPanel &&
+      lastPanels.showGraphPanel === desiredPanels.showGraphPanel &&
+      lastPanels.showMergeConflictPanel === desiredPanels.showMergeConflictPanel
+    ) {
+      if (isPerfTracingEnabled())
+        console.log("[perf] Reconcile Effect skipped (no change)");
+      return;
     }
-  }, [showGraphPanel]);
 
-  // Sync merge conflict panel visibility with dockview
-  useEffect(() => {
-    const api = apiRef.current;
-    if (!api || !isInitializedRef.current) return;
-
-    const mergeConflictPanel = api.getPanel('merge-conflict');
-    if (showMergeConflictPanel && !mergeConflictPanel) {
-      // Add merge conflict panel taking up most of the space (replace diff area)
-      const diffPanel = api.getPanel('diff');
-      if (diffPanel) {
-        api.addPanel({
-          id: 'merge-conflict',
-          component: 'merge-conflict',
-          title: 'Merge Conflicts',
-          position: { referencePanel: diffPanel, direction: 'within' },
-        });
-      } else {
-        api.addPanel({
-          id: 'merge-conflict',
-          component: 'merge-conflict',
-          title: 'Merge Conflicts',
-          position: { direction: 'right' },
-        });
-      }
-    } else if (!showMergeConflictPanel && mergeConflictPanel) {
-      api.removePanel(mergeConflictPanel);
+    // Log what changed
+    if (isPerfTracingEnabled() && lastPanels) {
+      const changes: string[] = [];
+      if (lastPanels.showBranchesPanel !== desiredPanels.showBranchesPanel)
+        changes.push(
+          `branches: ${lastPanels.showBranchesPanel} -> ${desiredPanels.showBranchesPanel}`,
+        );
+      if (lastPanels.showFilesPanel !== desiredPanels.showFilesPanel)
+        changes.push(
+          `files: ${lastPanels.showFilesPanel} -> ${desiredPanels.showFilesPanel}`,
+        );
+      if (lastPanels.showDiffPanel !== desiredPanels.showDiffPanel)
+        changes.push(
+          `diff: ${lastPanels.showDiffPanel} -> ${desiredPanels.showDiffPanel}`,
+        );
+      if (lastPanels.showStagingSidebar !== desiredPanels.showStagingSidebar)
+        changes.push(
+          `staging: ${lastPanels.showStagingSidebar} -> ${desiredPanels.showStagingSidebar}`,
+        );
+      if (lastPanels.showAIReviewPanel !== desiredPanels.showAIReviewPanel)
+        changes.push(
+          `aiReview: ${lastPanels.showAIReviewPanel} -> ${desiredPanels.showAIReviewPanel}`,
+        );
+      if (lastPanels.showWorktreesPanel !== desiredPanels.showWorktreesPanel)
+        changes.push(
+          `worktrees: ${lastPanels.showWorktreesPanel} -> ${desiredPanels.showWorktreesPanel}`,
+        );
+      if (lastPanels.showGraphPanel !== desiredPanels.showGraphPanel)
+        changes.push(
+          `graph: ${lastPanels.showGraphPanel} -> ${desiredPanels.showGraphPanel}`,
+        );
+      if (
+        lastPanels.showMergeConflictPanel !==
+        desiredPanels.showMergeConflictPanel
+      )
+        changes.push(
+          `mergeConflict: ${lastPanels.showMergeConflictPanel} -> ${desiredPanels.showMergeConflictPanel}`,
+        );
+      console.log("[perf] Panel changes:", changes.join(", ") || "(initial)");
     }
-  }, [showMergeConflictPanel]);
+
+    effectCount++;
+    if (isPerfTracingEnabled())
+      console.log(`[perf] Reconcile Effect #${effectCount} running`);
+    traceUntilPaint(`Reconcile Effect #${effectCount}`);
+    lastReconcileRef.current = { ...desiredPanels };
+
+    // Reconcile panels with desired state - no transaction wrapper here
+    // since we're already checking isInLayoutTransaction above
+    reconcilePanels(api, desiredPanels);
+  }, [
+    activeTabPath,
+    showBranchesPanel,
+    showFilesPanel,
+    showDiffPanel,
+    showStagingSidebar,
+    showAIReviewPanel,
+    showWorktreesPanel,
+    showGraphPanel,
+    showMergeConflictPanel,
+  ]);
 
   return (
     <DockviewReact
       components={components}
       onReady={onReady}
-      className={theme === 'pierre-light' ? 'dockview-theme-light' : 'dockview-theme-dark'}
+      className={
+        theme === "pierre-light"
+          ? "dockview-theme-light"
+          : "dockview-theme-dark"
+      }
       rightHeaderActionsComponent={DockviewHeaderActions}
       defaultTabComponent={DockviewTab}
+      // Only render panel content when the panel is visible (not just mounted)
+      // This significantly improves performance for heavy panels like diff, graph, etc.
+      defaultRenderer="onlyWhenVisible"
     />
   );
-}
+});

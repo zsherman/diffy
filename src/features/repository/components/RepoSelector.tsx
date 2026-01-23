@@ -1,12 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { open } from '@tauri-apps/plugin-dialog';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { ToggleGroup } from '@base-ui/react/toggle-group';
-import { Toggle } from '@base-ui/react/toggle';
-import { FolderOpen, Warning, ClockCounterClockwise, GitDiff, ChartBar } from '@phosphor-icons/react';
-import { openRepository, discoverRepository, getStatus, getMergeStatus, parseFileConflicts } from '../../../lib/tauri';
-import { useGitStore } from '../../../stores/git-store';
+import { Warning, ClockCounterClockwise, GitDiff, ChartBar } from '@phosphor-icons/react';
+import { getStatus, getMergeStatus, parseFileConflicts } from '../../../lib/tauri';
+import { useTabsStore, useActiveTabState } from '../../../stores/tabs-store';
 import { useUIStore, getDockviewApi } from '../../../stores/ui-store';
 import { useMergeConflictStore } from '../../../stores/merge-conflict-store';
 import { useToast } from '../../../components/ui/Toast';
@@ -15,8 +12,9 @@ import { applyLayout } from '../../../lib/layouts';
 type ViewMode = 'history' | 'changes' | 'statistics';
 
 export function RepoSelector() {
-  const { repository, setRepository, setError, isLoading, setIsLoading } = useGitStore();
-  const { showMergeConflictPanel, setShowMergeConflictPanel, mainView, setMainView, setSelectedCommit } = useUIStore();
+  const { repository } = useTabsStore();
+  const { mainView, setMainView, setSelectedCommit } = useActiveTabState();
+  const { showMergeConflictPanel, setShowMergeConflictPanel } = useUIStore();
   const { enterMergeMode, isActive: isMergeActive } = useMergeConflictStore();
   const toast = useToast();
   const hasShownMergeToast = useRef(false);
@@ -107,65 +105,46 @@ export function RepoSelector() {
     updateTitle();
   }, [repository]);
 
-  const handleSelectRepo = useCallback(async () => {
-    try {
-      const selected = await open({
-        directory: true,
-        multiple: false,
-        title: 'Select Git Repository',
-      });
+  // Determine current view based on actual panels in the layout
+  const api = getDockviewApi();
+  const currentView: ViewMode = (() => {
+    if (!api) return mainView;
+    const hasStaging = api.getPanel('staging') !== undefined;
+    const hasCommits = api.getPanel('commits') !== undefined;
+    if (hasStaging && !hasCommits) return 'changes';
+    if (hasCommits && !hasStaging) return 'history';
+    return mainView;
+  })();
 
-      if (selected && typeof selected === 'string') {
-        setIsLoading(true);
-        setError(null);
+  const handleViewChange = useCallback((view: ViewMode) => {
+    if (view === currentView) return;
 
-        try {
-          const repo = await openRepository(selected);
-          setRepository(repo);
-        } catch {
-          try {
-            const repo = await discoverRepository(selected);
-            setRepository(repo);
-          } catch (e) {
-            setError(`Not a git repository: ${selected}`);
-          }
-        }
-      }
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [setRepository, setError, setIsLoading]);
+    setMainView(view);
 
-  const handleViewChange = (newValue: string[]) => {
-    if (newValue.length > 0) {
-      const view = newValue[0] as ViewMode;
-      setMainView(view);
-
-      const api = getDockviewApi();
-      if (api) {
-        if (view === 'history') {
-          applyLayout(api, 'standard');
-        } else if (view === 'changes') {
-          setSelectedCommit(null);
-          applyLayout(api, 'changes');
-        }
+    const dockApi = getDockviewApi();
+    if (dockApi) {
+      if (view === 'history') {
+        applyLayout(dockApi, 'standard');
+      } else if (view === 'changes') {
+        setSelectedCommit(null);
+        applyLayout(dockApi, 'changes');
       }
     }
-  };
+  }, [setMainView, setSelectedCommit, currentView]);
 
   const toggleButtonClass =
     'flex items-center gap-1.5 px-3 py-1 text-text-muted transition-colors data-[pressed]:bg-bg-hover data-[pressed]:text-text-primary hover:text-text-primary text-xs';
 
+  if (!repository) return null;
+
   return (
     <div
       data-tauri-drag-region
-      className="relative flex items-center justify-center pl-[78px] pr-3 h-[38px] bg-bg-tertiary border-b border-border-primary select-none"
+      className="relative flex items-center justify-center px-3 h-[38px] bg-bg-tertiary border-b border-border-primary select-none"
     >
       {/* Merge conflict indicator - positioned left */}
       {hasConflicts && (
-        <div className="absolute left-[78px] flex items-center">
+        <div className="absolute left-3 flex items-center">
           <button
             onClick={async () => {
               if (!repository || !mergeStatus) return;
@@ -196,62 +175,40 @@ export function RepoSelector() {
         </div>
       )}
 
-      {/* Center - Toggle group with project selector and view modes */}
+      {/* Center - View mode buttons */}
       <div className="flex items-center border border-border-primary rounded bg-bg-secondary">
-        {/* Project selector button - styled like toggle but separate */}
         <button
-          onClick={handleSelectRepo}
-          disabled={isLoading}
-          className="flex items-center gap-1.5 px-3 py-1 text-text-muted hover:text-text-primary transition-colors text-xs rounded-l border-r border-border-primary"
+          onClick={() => handleViewChange('history')}
+          aria-label="History view"
+          aria-pressed={currentView === 'history'}
+          className={`${toggleButtonClass} rounded-l ${currentView === 'history' ? 'bg-bg-hover text-text-primary' : ''}`}
         >
-          <FolderOpen size={14} weight="bold" />
-          {isLoading ? (
-            <span>Loading...</span>
-          ) : repository ? (
-            <span className="font-medium">{repository.name}</span>
-          ) : (
-            <span>Open Repository</span>
+          <ClockCounterClockwise size={14} weight="bold" />
+          <span className="hidden sm:inline">History</span>
+        </button>
+        <button
+          onClick={() => handleViewChange('changes')}
+          aria-label="Changes view"
+          aria-pressed={currentView === 'changes'}
+          className={`${toggleButtonClass} ${currentView === 'changes' ? 'bg-bg-hover text-text-primary' : ''}`}
+        >
+          <GitDiff size={14} weight="bold" />
+          <span className="hidden sm:inline">Changes</span>
+          {uncommittedCount > 0 && (
+            <span className="px-1.5 py-0.5 bg-accent-blue text-white text-[10px] rounded-full leading-none">
+              {uncommittedCount}
+            </span>
           )}
         </button>
-
-        {/* View mode toggle group */}
-        {repository && (
-          <ToggleGroup
-            value={[mainView]}
-            onValueChange={handleViewChange}
-            className="flex items-center"
-          >
-            <Toggle
-              value="history"
-              aria-label="History view"
-              className={toggleButtonClass}
-            >
-              <ClockCounterClockwise size={14} weight="bold" />
-              <span className="hidden sm:inline">History</span>
-            </Toggle>
-            <Toggle
-              value="changes"
-              aria-label="Changes view"
-              className={toggleButtonClass}
-            >
-              <GitDiff size={14} weight="bold" />
-              <span className="hidden sm:inline">Changes</span>
-              {uncommittedCount > 0 && (
-                <span className="px-1.5 py-0.5 bg-accent-blue text-white text-[10px] rounded-full leading-none">
-                  {uncommittedCount}
-                </span>
-              )}
-            </Toggle>
-            <Toggle
-              value="statistics"
-              aria-label="Statistics view"
-              className={`${toggleButtonClass} rounded-r`}
-            >
-              <ChartBar size={14} weight="bold" />
-              <span className="hidden sm:inline">Statistics</span>
-            </Toggle>
-          </ToggleGroup>
-        )}
+        <button
+          onClick={() => handleViewChange('statistics')}
+          aria-label="Statistics view"
+          aria-pressed={currentView === 'statistics'}
+          className={`${toggleButtonClass} rounded-r ${currentView === 'statistics' ? 'bg-bg-hover text-text-primary' : ''}`}
+        >
+          <ChartBar size={14} weight="bold" />
+          <span className="hidden sm:inline">Statistics</span>
+        </button>
       </div>
     </div>
   );

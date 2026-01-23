@@ -6,7 +6,7 @@ import { ConflictPanel } from './ConflictPanel';
 import { SideDiffView } from './SideDiffView';
 import { AIResolveButton } from './AIResolveButton';
 import { useMergeConflictStore } from '../../../stores/merge-conflict-store';
-import { useGitStore } from '../../../stores/git-store';
+import { useTabsStore } from '../../../stores/tabs-store';
 import { useUIStore, getDockviewApi } from '../../../stores/ui-store';
 import { useToast } from '../../../components/ui/Toast';
 import { Button } from '../../../components/ui/Button';
@@ -40,7 +40,7 @@ export function MergeConflictView() {
     prevFile,
   } = useMergeConflictStore();
 
-  const { repository } = useGitStore();
+  const { repository } = useTabsStore();
   const { activePanel, setShowMergeConflictPanel } = useUIStore();
   const toast = useToast();
   const queryClient = useQueryClient();
