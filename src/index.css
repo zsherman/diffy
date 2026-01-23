@@ -61,9 +61,12 @@
   color: var(--text-primary);
 }
 
-.dockview-theme-dark .dv-tab.dv-tab-active,
+.dockview-theme-dark .dv-tab.dv-tab-active {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
 .dockview-theme-light .dv-tab.dv-tab-active {
-  background-color: var(--bg-selected);
+  background-color: rgba(0, 0, 0, 0.06);
   color: var(--text-primary);
 }
 
@@ -80,10 +83,13 @@
 }
 
 /* Tab header bar styling */
-.dockview-theme-dark .tabs-and-actions-container,
-.dockview-theme-light .tabs-and-actions-container {
+.dockview-theme-dark .dv-tabs-and-actions-container {
   background-color: var(--bg-tertiary) !important;
-  border-bottom: 1px solid var(--border-primary) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.4) !important;
+}
+.dockview-theme-light .dv-tabs-and-actions-container {
+  background-color: var(--bg-tertiary) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.15) !important;
 }
 
 /* Hide close button on all tabs */

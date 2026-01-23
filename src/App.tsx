@@ -1,7 +1,7 @@
 import { useCallback, useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { open } from '@tauri-apps/plugin-dialog';
-import { FolderOpen, ClockCounterClockwise, X } from '@phosphor-icons/react';
+import { FolderOpen, ClockCounterClockwise, X, ChartBar } from '@phosphor-icons/react';
 import { DockviewLayout } from './components/layout';
 import { StatusBar, TopToolbar, HelpOverlay, SettingsDialog, CommandPalette, ToastProvider } from './components/ui';
 import { RepoSelector } from './features/repository/components';
@@ -31,8 +31,8 @@ function AppContent() {
   const { repository, error, setRepository, setError, setIsLoading } = useGitStore();
   const [recentRepos, setRecentRepos] = useState<RecentRepository[]>([]);
 
-  // Get theme from UI store
-  const { theme } = useUIStore();
+  // Get theme and mainView from UI store
+  const { theme, mainView } = useUIStore();
 
   // Sync theme to document
   useEffect(() => {
@@ -134,9 +134,21 @@ function AppContent() {
 
       {/* Main content */}
       {repository ? (
-        <div className="flex-1 min-h-0">
-          <DockviewLayout />
-        </div>
+        mainView === 'statistics' ? (
+          <div className="flex-1 flex items-center justify-center bg-bg-primary">
+            <div className="text-center max-w-md w-full px-4">
+              <ChartBar size={64} weight="duotone" className="mx-auto text-text-muted mb-4" />
+              <p className="text-text-primary mb-1 font-medium">Statistics</p>
+              <p className="text-text-muted text-sm">
+                Coming soon
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex-1 min-h-0">
+            <DockviewLayout />
+          </div>
+        )
       ) : (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center max-w-md w-full px-4">

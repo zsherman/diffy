@@ -17,14 +17,13 @@ type ViewMode = 'history' | 'changes' | 'statistics';
 
 export function TopToolbar() {
   const { repository } = useGitStore();
-  const { setSelectedCommit } = useUIStore();
+  const { mainView, setMainView, setSelectedCommit } = useUIStore();
   const toast = useToast();
   const queryClient = useQueryClient();
 
   const [isFetching, setIsFetching] = useState(false);
   const [isPulling, setIsPulling] = useState(false);
   const [isPushing, setIsPushing] = useState(false);
-  const [activeView, setActiveView] = useState<ViewMode>('history');
 
   // Get status to show changes count
   const { data: status } = useQuery({
@@ -96,7 +95,7 @@ export function TopToolbar() {
   const handleViewChange = (newValue: string[]) => {
     if (newValue.length > 0) {
       const view = newValue[0] as ViewMode;
-      setActiveView(view);
+      setMainView(view);
 
       const api = getDockviewApi();
       if (api) {
@@ -108,7 +107,7 @@ export function TopToolbar() {
           setSelectedCommit(null);
           applyLayout(api, 'changes');
         }
-        // Statistics view - no layout change for now
+        // Statistics view - handled by App.tsx showing empty state
       }
     }
   };
@@ -167,7 +166,7 @@ export function TopToolbar() {
 
       {/* Center: View toggle group */}
       <ToggleGroup
-        value={[activeView]}
+        value={[mainView]}
         onValueChange={handleViewChange}
         className="flex items-center border border-border-primary rounded bg-bg-secondary"
       >
