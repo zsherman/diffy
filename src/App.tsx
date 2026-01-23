@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { open } from '@tauri-apps/plugin-dialog';
 import { FolderOpen, ClockCounterClockwise, X } from '@phosphor-icons/react';
 import { DockviewLayout } from './components/layout';
-import { StatusBar, HelpOverlay, SettingsDialog, CommandPalette, ToastProvider } from './components/ui';
+import { StatusBar, TopToolbar, HelpOverlay, SettingsDialog, CommandPalette, ToastProvider } from './components/ui';
 import { RepoSelector } from './features/repository/components';
 import { SkillsDialog } from './features/skills';
 import { openRepository, discoverRepository } from './lib/tauri';
@@ -121,6 +121,9 @@ function AppContent() {
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-bg-primary">
       {/* Title bar / repo selector */}
       <RepoSelector />
+
+      {/* Top toolbar with branch switcher and git actions */}
+      <TopToolbar />
 
       {/* Error display */}
       {error && (

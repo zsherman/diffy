@@ -18,6 +18,7 @@ import {
   MergeConflictPanel,
 } from './panels';
 import { DockviewHeaderActions } from './DockviewHeaderActions';
+import { DockviewTab } from './DockviewTab';
 
 const LAYOUT_STORAGE_KEY = 'diffy-dockview-layout';
 
@@ -49,6 +50,7 @@ function createDefaultLayout(api: DockviewApi) {
     id: 'commits',
     component: 'commits',
     title: 'Commits',
+    minimumWidth: 300,
   });
 
   const filesPanel = api.addPanel({
@@ -56,6 +58,7 @@ function createDefaultLayout(api: DockviewApi) {
     component: 'files',
     title: 'Files',
     position: { referencePanel: commitsPanel, direction: 'right' },
+    minimumWidth: 300,
   });
 
   api.addPanel({
@@ -63,14 +66,15 @@ function createDefaultLayout(api: DockviewApi) {
     component: 'diff',
     title: 'Diff',
     position: { referencePanel: filesPanel, direction: 'right' },
+    minimumWidth: 300,
   });
 
-  // Set initial sizes: 15% commits | 15% files | 70% diff
+  // Set initial sizes: 25% commits | 25% files | 50% diff
   const groups = api.groups;
   if (groups.length >= 3) {
-    groups[0].api.setSize({ width: 165 }); // commits ~15%
-    groups[1].api.setSize({ width: 165 }); // files ~15%
-    groups[2].api.setSize({ width: 770 }); // diff ~70%
+    groups[0].api.setSize({ width: 300 }); // commits ~25%
+    groups[1].api.setSize({ width: 300 }); // files ~25%
+    groups[2].api.setSize({ width: 600 }); // diff ~50%
   }
 }
 
@@ -415,6 +419,7 @@ export function DockviewLayout() {
       onReady={onReady}
       className={theme === 'pierre-light' ? 'dockview-theme-light' : 'dockview-theme-dark'}
       rightHeaderActionsComponent={DockviewHeaderActions}
+      defaultTabComponent={DockviewTab}
     />
   );
 }

@@ -52,6 +52,7 @@ const StagingFileRow = memo(function StagingFileRow({
   onSelect,
   onStage,
   onUnstage,
+  fontSize,
 }: {
   file: FileStatus;
   isStaged: boolean;
@@ -59,12 +60,14 @@ const StagingFileRow = memo(function StagingFileRow({
   onSelect: () => void;
   onStage: () => void;
   onUnstage: () => void;
+  fontSize: number;
 }) {
   return (
     <div
-      className={`flex items-center px-2 py-1 text-sm hover:bg-bg-hover group cursor-pointer ${
+      className={`flex items-center px-2 py-1 hover:bg-bg-hover group cursor-pointer ${
         isSelected ? 'bg-accent-blue/20' : ''
       }`}
+      style={{ fontSize: `${fontSize}px` }}
       onClick={onSelect}
     >
       <span className="w-5 flex items-center justify-center shrink-0">
@@ -137,6 +140,7 @@ export function StagingSidebar() {
     amendPreviousCommit,
     setAmendPreviousCommit,
     clearCommitForm,
+    panelFontSize,
   } = useUIStore();
   const queryClient = useQueryClient();
 
@@ -274,7 +278,7 @@ export function StagingSidebar() {
     <div className="w-full flex flex-col h-full bg-bg-secondary">
       {/* Header */}
       <div className="px-3 py-2 border-b border-border-primary">
-        <div className="text-sm font-medium text-text-primary">
+        <div className="font-medium text-text-primary" style={{ fontSize: `${panelFontSize}px` }}>
           {totalChanges} file change{totalChanges !== 1 ? 's' : ''} on{' '}
           <span className="text-accent-green">{branchName}</span>
         </div>
@@ -306,6 +310,7 @@ export function StagingSidebar() {
                 }}
                 onStage={() => handleStageFile(file.path)}
                 onUnstage={() => {}}
+                fontSize={panelFontSize}
               />
             ))}
           </div>
@@ -335,6 +340,7 @@ export function StagingSidebar() {
                 }}
                 onStage={() => {}}
                 onUnstage={() => handleUnstageFile(file.path)}
+                fontSize={panelFontSize}
               />
             ))}
           </div>
@@ -344,7 +350,7 @@ export function StagingSidebar() {
       {/* Commit form */}
       <div className="border-t border-border-primary p-3 space-y-2">
         {/* Amend checkbox */}
-        <label className="flex items-center gap-2 text-sm text-text-muted cursor-pointer">
+        <label className="flex items-center gap-2 text-text-muted cursor-pointer" style={{ fontSize: `${panelFontSize}px` }}>
           <input
             type="checkbox"
             checked={amendPreviousCommit}
@@ -362,12 +368,13 @@ export function StagingSidebar() {
             value={commitMessage}
             onChange={(e) => setCommitMessage(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="flex-1 px-2 py-1.5 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
+            className="flex-1 px-2 py-1.5 bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
+            style={{ fontSize: `${panelFontSize}px` }}
           />
           <button
             onClick={handleGenerateMessage}
             disabled={stagedFiles.length === 0 || isGenerating}
-            className="px-2 py-1.5 bg-accent-purple text-white rounded text-sm hover:bg-accent-purple/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
+            className="px-2 py-1.5 bg-accent-purple text-white rounded text-xs hover:bg-accent-purple/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
             title="Generate commit message with AI"
           >
             {isGenerating ? (
@@ -385,7 +392,8 @@ export function StagingSidebar() {
           onChange={(e) => setCommitDescription(e.target.value)}
           onKeyDown={handleKeyDown}
           rows={3}
-          className="w-full px-2 py-1.5 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none resize-none"
+          className="w-full px-2 py-1.5 bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none resize-none"
+          style={{ fontSize: `${panelFontSize}px` }}
         />
 
         {/* Commit button */}
@@ -394,7 +402,8 @@ export function StagingSidebar() {
           disabled={
             !commitMessage.trim() || stagedFiles.length === 0 || isCommitting
           }
-          className="w-full py-2 px-4 bg-accent-green text-white rounded font-medium text-sm hover:bg-accent-green/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
+          className="w-full py-2 px-4 bg-accent-green text-white rounded font-medium hover:bg-accent-green/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
+          style={{ fontSize: `${panelFontSize}px` }}
         >
           {isCommitting
             ? 'Committing...'

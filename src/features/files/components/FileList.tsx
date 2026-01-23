@@ -49,20 +49,23 @@ const FileRow = memo(function FileRow({
   isSelected,
   isFocused,
   onClick,
+  fontSize,
 }: {
   file: FileStatus | DiffFile;
   isSelected: boolean;
   isFocused: boolean;
   onClick: (e: React.MouseEvent) => void;
+  fontSize: number;
 }) {
   const status = file.status;
   const statusColor = STATUS_COLORS[status] || 'text-text-primary';
 
   return (
     <div
-      className={`flex items-center px-2 py-1 cursor-pointer text-sm ${
+      className={`flex items-center px-2 py-1 cursor-pointer ${
         isFocused ? 'bg-bg-selected' : isSelected ? 'bg-bg-hover' : 'hover:bg-bg-hover'
       }`}
+      style={{ fontSize: `${fontSize}px` }}
       onClick={onClick}
     >
       <span
@@ -83,7 +86,7 @@ const FileRow = memo(function FileRow({
 });
 
 // Commit header component
-const CommitHeader = memo(function CommitHeader({ commit }: { commit: CommitInfo }) {
+const CommitHeader = memo(function CommitHeader({ commit, fontSize }: { commit: CommitInfo; fontSize: number }) {
   const date = new Date(commit.time * 1000);
   const formattedDate = date.toLocaleDateString(undefined, {
     year: 'numeric',
@@ -95,7 +98,7 @@ const CommitHeader = memo(function CommitHeader({ commit }: { commit: CommitInfo
 
   return (
     <div className="px-3 py-2 border-b border-border-primary bg-bg-tertiary">
-      <div className="text-sm text-text-primary font-medium mb-1">{commit.summary}</div>
+      <div className="text-text-primary font-medium mb-1" style={{ fontSize: `${fontSize}px` }}>{commit.summary}</div>
       {commit.message !== commit.summary && (
         <div className="text-xs text-text-muted whitespace-pre-wrap mb-2">
           {commit.message.slice(commit.summary.length).trim()}
@@ -125,6 +128,7 @@ export function FileList() {
     setViewMode,
     setShowDiffPanel,
     selectedBranch,
+    panelFontSize,
   } = useUIStore();
   const queryClient = useQueryClient();
   const listRef = useRef<VListHandle>(null);
@@ -333,7 +337,7 @@ export function FileList() {
 
   return (
     <div className="flex flex-col h-full">
-      {commitInfo && <CommitHeader commit={commitInfo} />}
+      {commitInfo && <CommitHeader commit={commitInfo} fontSize={panelFontSize} />}
       <VList ref={listRef} className="flex-1">
         {flatList.map((item, index) => {
           if (item.type === 'header') {
@@ -353,6 +357,7 @@ export function FileList() {
               isSelected={selectedFile === file.path}
               isFocused={index === focusedIndex}
               onClick={(e) => handleFileClick(e, file, index)}
+              fontSize={panelFontSize}
             />
           );
         })}

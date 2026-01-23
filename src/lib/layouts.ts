@@ -29,6 +29,7 @@ export const layoutPresets: LayoutPreset[] = [
         id: 'commits',
         component: 'commits',
         title: 'Commits',
+        minimumWidth: 300,
       });
 
       const filesPanel = api.addPanel({
@@ -36,6 +37,7 @@ export const layoutPresets: LayoutPreset[] = [
         component: 'files',
         title: 'Files',
         position: { referencePanel: commitsPanel, direction: 'right' },
+        minimumWidth: 300,
       });
 
       api.addPanel({
@@ -43,14 +45,15 @@ export const layoutPresets: LayoutPreset[] = [
         component: 'diff',
         title: 'Diff',
         position: { referencePanel: filesPanel, direction: 'right' },
+        minimumWidth: 300,
       });
 
-      // Set sizes: 15% commits, 15% files, 70% diff
+      // Set sizes: 25% commits, 25% files, 50% diff
       const groups = api.groups;
       if (groups.length >= 3) {
-        groups[0].api.setSize({ width: 165 });
-        groups[1].api.setSize({ width: 165 });
-        groups[2].api.setSize({ width: 770 });
+        groups[0].api.setSize({ width: 300 });
+        groups[1].api.setSize({ width: 300 });
+        groups[2].api.setSize({ width: 600 });
       }
     },
   },
@@ -305,6 +308,36 @@ export const layoutPresets: LayoutPreset[] = [
       // Single panel takes full width - no need to set sizes
     },
   },
+  {
+    id: 'changes',
+    name: 'Changes',
+    description: 'View and stage changes',
+    apply: (api) => {
+      clearLayout(api);
+
+      const stagingPanel = api.addPanel({
+        id: 'staging',
+        component: 'staging',
+        title: 'Changes',
+        minimumWidth: 250,
+      });
+
+      api.addPanel({
+        id: 'diff',
+        component: 'diff',
+        title: 'Diff',
+        position: { referencePanel: stagingPanel, direction: 'right' },
+        minimumWidth: 300,
+      });
+
+      // Set sizes: 30% staging, 70% diff
+      const groups = api.groups;
+      if (groups.length >= 2) {
+        groups[0].api.setSize({ width: 330 });
+        groups[1].api.setSize({ width: 770 });
+      }
+    },
+  },
 ];
 
 export function applyLayout(api: DockviewApi, layoutId: string) {
@@ -319,9 +352,11 @@ export function applyLayout(api: DockviewApi, layoutId: string) {
       const hasAIReview = api.getPanel('ai-review') !== undefined;
       const hasGraph = api.getPanel('graph') !== undefined;
       const hasMergeConflict = api.getPanel('merge-conflict') !== undefined;
+      const hasStaging = api.getPanel('staging') !== undefined;
       uiStore.send({ type: 'setShowAIReviewPanel', show: hasAIReview });
       uiStore.send({ type: 'setShowGraphPanel', show: hasGraph });
       uiStore.send({ type: 'setShowMergeConflictPanel', show: hasMergeConflict });
+      uiStore.send({ type: 'setShowStagingSidebar', show: hasStaging });
     } finally {
       // Use setTimeout to ensure flag is cleared after React effects run
       setTimeout(() => setApplyingLayoutPreset(false), 100);

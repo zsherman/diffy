@@ -32,11 +32,13 @@ const CommitRow = memo(function CommitRow({
   isSelected,
   isFocused,
   onClick,
+  fontSize,
 }: {
   commit: CommitInfo;
   isSelected: boolean;
   isFocused: boolean;
   onClick: () => void;
+  fontSize: number;
 }) {
   return (
     <div
@@ -48,14 +50,14 @@ const CommitRow = memo(function CommitRow({
       <div style={{ width: GRAPH_WIDTH, flexShrink: 0 }} />
       <div className="flex-1 min-w-0 px-2 py-1 overflow-hidden">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-accent-yellow font-mono text-xs shrink-0">
+          <span className="text-accent-yellow font-mono shrink-0" style={{ fontSize: `${fontSize}px` }}>
             {commit.shortId}
           </span>
-          <span className="text-text-primary text-sm truncate">
+          <span className="text-text-primary truncate" style={{ fontSize: `${fontSize}px` }}>
             {commit.summary}
           </span>
         </div>
-        <div className="flex items-center gap-1.5 text-xs text-text-muted whitespace-nowrap overflow-hidden">
+        <div className="flex items-center gap-1.5 text-text-muted whitespace-nowrap overflow-hidden" style={{ fontSize: `${Math.max(10, fontSize - 2)}px` }}>
           <span className="truncate max-w-[100px]">{commit.authorName}</span>
           <span className="shrink-0">•</span>
           <span className="shrink-0">{formatTimeAgo(commit.time)}</span>
@@ -91,6 +93,7 @@ export function CommitList() {
     activePanel,
     setSelectedFile,
     setShowFilesPanel,
+    panelFontSize,
   } = useUIStore();
   const listRef = useRef<VListHandle>(null);
   const [focusedIndex, setFocusedIndex] = useState(0);
@@ -202,7 +205,8 @@ export function CommitList() {
           placeholder="Filter commits..."
           value={commitFilter}
           onChange={(e) => setCommitFilter(e.target.value)}
-          className="w-full px-2 py-1 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
+          className="w-full px-2 py-1 bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
+          style={{ fontSize: `${panelFontSize}px` }}
         />
       </div>
 
@@ -231,6 +235,7 @@ export function CommitList() {
               isSelected={selectedCommit === commit.id}
               isFocused={index === focusedIndex}
               onClick={() => handleCommitClick(commit, index)}
+              fontSize={panelFontSize}
             />
           ))}
         </VList>

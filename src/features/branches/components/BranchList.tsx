@@ -34,19 +34,22 @@ const BranchRow = memo(function BranchRow({
   isFocused,
   onClick,
   onDoubleClick,
+  fontSize,
 }: {
   branch: BranchInfo;
   isSelected: boolean;
   isFocused: boolean;
   onClick: () => void;
   onDoubleClick: () => void;
+  fontSize: number;
 }) {
   const isHead = branch.isHead;
 
   return (
     <div
-      className={`flex items-center px-2 py-1 cursor-pointer text-sm ${isFocused ? 'bg-bg-selected' : isSelected ? 'bg-bg-hover' : 'hover:bg-bg-hover'
+      className={`flex items-center px-2 py-1 cursor-pointer ${isFocused ? 'bg-bg-selected' : isSelected ? 'bg-bg-hover' : 'hover:bg-bg-hover'
         }`}
+      style={{ fontSize: `${fontSize}px` }}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
     >
@@ -73,6 +76,7 @@ export function BranchList() {
     activePanel,
     setSelectedCommit,
     setShowMergeConflictPanel,
+    panelFontSize,
   } = useUIStore();
   const { enterMergeMode } = useMergeConflictStore();
   const queryClient = useQueryClient();
@@ -281,7 +285,8 @@ export function BranchList() {
           placeholder="Filter branches..."
           value={branchFilter}
           onChange={(e) => setBranchFilter(e.target.value)}
-          className="w-full px-2 py-1 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
+          className="w-full px-2 py-1 bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
+          style={{ fontSize: `${panelFontSize}px` }}
         />
         {canMerge && (
           <Button
@@ -318,6 +323,7 @@ export function BranchList() {
               isFocused={index === focusedIndex}
               onClick={() => handleBranchClick(branch, index)}
               onDoubleClick={() => handleBranchDoubleClick(branch)}
+              fontSize={panelFontSize}
             />
           );
         })}

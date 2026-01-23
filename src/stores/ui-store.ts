@@ -38,6 +38,7 @@ interface UIContext {
   showSettingsDialog: boolean;
   diffViewMode: 'split' | 'unified';
   diffFontSize: number;
+  panelFontSize: number;
 
   // Panel sizes (percentages)
   branchesPanelSize: number;
@@ -123,7 +124,8 @@ export const uiStore = createStore({
     showCommandPalette: false,
     showSettingsDialog: false,
     diffViewMode: 'unified',
-    diffFontSize: 13,
+    diffFontSize: 12,
+    panelFontSize: 13,
     branchesPanelSize: 15,
     commitsPanelSize: 35,
     filesPanelSize: 50,
@@ -198,6 +200,10 @@ export const uiStore = createStore({
     setDiffFontSize: (ctx, event: { size: number }) =>
       produce(ctx, (draft) => {
         draft.diffFontSize = event.size;
+      }),
+    setPanelFontSize: (ctx, event: { size: number }) =>
+      produce(ctx, (draft) => {
+        draft.panelFontSize = event.size;
       }),
     setPanelSizes: (
       ctx,
@@ -361,6 +367,7 @@ export function useUIStore() {
   const showSettingsDialog = useSelector(uiStore, (s) => s.context.showSettingsDialog);
   const diffViewMode = useSelector(uiStore, (s) => s.context.diffViewMode);
   const diffFontSize = useSelector(uiStore, (s) => s.context.diffFontSize);
+  const panelFontSize = useSelector(uiStore, (s) => s.context.panelFontSize);
   const branchesPanelSize = useSelector(uiStore, (s) => s.context.branchesPanelSize);
   const commitsPanelSize = useSelector(uiStore, (s) => s.context.commitsPanelSize);
   const filesPanelSize = useSelector(uiStore, (s) => s.context.filesPanelSize);
@@ -399,6 +406,7 @@ export function useUIStore() {
     showSettingsDialog,
     diffViewMode,
     diffFontSize,
+    panelFontSize,
     branchesPanelSize,
     commitsPanelSize,
     filesPanelSize,
@@ -447,6 +455,8 @@ export function useUIStore() {
       uiStore.send({ type: 'setDiffViewMode', mode }),
     setDiffFontSize: (size: number) =>
       uiStore.send({ type: 'setDiffFontSize', size }),
+    setPanelFontSize: (size: number) =>
+      uiStore.send({ type: 'setPanelFontSize', size }),
     setPanelSizes: (branches: number, commits: number, files: number) =>
       uiStore.send({ type: 'setPanelSizes', branches, commits, files }),
     setBranchFilter: (filter: string) =>

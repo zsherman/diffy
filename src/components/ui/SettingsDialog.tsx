@@ -20,15 +20,22 @@ export function SettingsDialog() {
     setTheme,
     diffFontSize,
     setDiffFontSize,
+    panelFontSize,
+    setPanelFontSize,
     selectedSkillIds,
     setShowSkillsDialog,
   } = useUIStore();
   const [activeSection, setActiveSection] = useState<SettingsSection>('appearance');
   const { data: skills = [] } = useSkills();
 
-  const handleFontSizeChange = (delta: number) => {
+  const handleDiffFontSizeChange = (delta: number) => {
     const newSize = Math.min(24, Math.max(10, diffFontSize + delta));
     setDiffFontSize(newSize);
+  };
+
+  const handlePanelFontSizeChange = (delta: number) => {
+    const newSize = Math.min(16, Math.max(10, panelFontSize + delta));
+    setPanelFontSize(newSize);
   };
 
   return (
@@ -74,7 +81,7 @@ export function SettingsDialog() {
                     <h3 className="text-sm font-medium text-text-primary mb-4">Appearance</h3>
 
                     {/* Theme */}
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between mb-4">
                       <div>
                         <label className="text-sm text-text-primary">Theme</label>
                         <p className="text-xs text-text-muted mt-0.5">
@@ -106,6 +113,35 @@ export function SettingsDialog() {
                         </button>
                       </div>
                     </div>
+
+                    {/* Panel Font Size */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="text-sm text-text-primary">Panel Font Size</label>
+                        <p className="text-xs text-text-muted mt-0.5">
+                          Adjust the text size in branch, commit, and file panels
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handlePanelFontSizeChange(-1)}
+                          disabled={panelFontSize <= 10}
+                          className="p-1.5 rounded bg-bg-hover hover:bg-bg-tertiary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Minus size={14} weight="bold" className="text-text-muted" />
+                        </button>
+                        <span className="w-12 text-center text-sm text-text-primary tabular-nums">
+                          {panelFontSize}px
+                        </span>
+                        <button
+                          onClick={() => handlePanelFontSizeChange(1)}
+                          disabled={panelFontSize >= 16}
+                          className="p-1.5 rounded bg-bg-hover hover:bg-bg-tertiary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Plus size={14} weight="bold" className="text-text-muted" />
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -125,7 +161,7 @@ export function SettingsDialog() {
                       </div>
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => handleFontSizeChange(-1)}
+                          onClick={() => handleDiffFontSizeChange(-1)}
                           disabled={diffFontSize <= 10}
                           className="p-1.5 rounded bg-bg-hover hover:bg-bg-tertiary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
@@ -135,7 +171,7 @@ export function SettingsDialog() {
                           {diffFontSize}px
                         </span>
                         <button
-                          onClick={() => handleFontSizeChange(1)}
+                          onClick={() => handleDiffFontSizeChange(1)}
                           disabled={diffFontSize >= 24}
                           className="p-1.5 rounded bg-bg-hover hover:bg-bg-tertiary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >

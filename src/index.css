@@ -8,12 +8,12 @@
 .dockview-theme-dark {
   --dv-background-color: var(--bg-secondary);
   --dv-paneview-header-border-color: var(--border-primary);
-  --dv-tabs-and-actions-container-background-color: var(--bg-secondary);
-  --dv-activegroup-visiblepanel-tab-background-color: var(--bg-tertiary);
-  --dv-activegroup-hiddenpanel-tab-background-color: var(--bg-secondary);
-  --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-primary);
-  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--bg-secondary);
-  --dv-tab-divider-color: var(--border-primary);
+  --dv-tabs-and-actions-container-background-color: var(--bg-tertiary);
+  --dv-activegroup-visiblepanel-tab-background-color: transparent;
+  --dv-activegroup-hiddenpanel-tab-background-color: transparent;
+  --dv-inactivegroup-visiblepanel-tab-background-color: transparent;
+  --dv-inactivegroup-hiddenpanel-tab-background-color: transparent;
+  --dv-tab-divider-color: transparent;
   --dv-activegroup-visiblepanel-tab-color: var(--text-primary);
   --dv-activegroup-hiddenpanel-tab-color: var(--text-muted);
   --dv-inactivegroup-visiblepanel-tab-color: var(--text-secondary);
@@ -27,12 +27,12 @@
 .dockview-theme-light {
   --dv-background-color: var(--bg-secondary);
   --dv-paneview-header-border-color: var(--border-primary);
-  --dv-tabs-and-actions-container-background-color: var(--bg-secondary);
-  --dv-activegroup-visiblepanel-tab-background-color: var(--bg-tertiary);
-  --dv-activegroup-hiddenpanel-tab-background-color: var(--bg-secondary);
-  --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-primary);
-  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--bg-secondary);
-  --dv-tab-divider-color: var(--border-primary);
+  --dv-tabs-and-actions-container-background-color: var(--bg-tertiary);
+  --dv-activegroup-visiblepanel-tab-background-color: transparent;
+  --dv-activegroup-hiddenpanel-tab-background-color: transparent;
+  --dv-inactivegroup-visiblepanel-tab-background-color: transparent;
+  --dv-inactivegroup-hiddenpanel-tab-background-color: transparent;
+  --dv-tab-divider-color: transparent;
   --dv-activegroup-visiblepanel-tab-color: var(--text-primary);
   --dv-activegroup-hiddenpanel-tab-color: var(--text-muted);
   --dv-inactivegroup-visiblepanel-tab-color: var(--text-secondary);
@@ -42,17 +42,34 @@
   --dv-drag-over-border-color: var(--accent-blue);
 }
 
+/* Custom tab styling - menu item style */
 .dockview-theme-dark .dv-tab,
 .dockview-theme-light .dv-tab {
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  cursor: grab;
+  border-radius: 4px;
+  margin: 2px 1px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  color: var(--text-muted);
+  text-transform: none;
+  font-weight: 500;
+  letter-spacing: normal;
+}
+
+.dockview-theme-dark .dv-tab:hover,
+.dockview-theme-light .dv-tab:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .dockview-theme-dark .dv-tab.dv-tab-active,
 .dockview-theme-light .dv-tab.dv-tab-active {
-  border-bottom: 2px solid var(--accent-blue);
+  background-color: var(--bg-selected);
+  color: var(--text-primary);
+}
+
+.dockview-theme-dark .dv-tab:active,
+.dockview-theme-light .dv-tab:active {
+  cursor: grabbing;
 }
 
 /* Ensure dockview has proper dimensions */
@@ -62,15 +79,11 @@
   width: 100%;
 }
 
-/* Tab styling - cursor is handled by dockview */
-.dockview-theme-dark .dv-tab,
-.dockview-theme-light .dv-tab {
-  cursor: grab;
-}
-
-.dockview-theme-dark .dv-tab:active,
-.dockview-theme-light .dv-tab:active {
-  cursor: grabbing;
+/* Tab header bar styling */
+.dockview-theme-dark .tabs-and-actions-container,
+.dockview-theme-light .tabs-and-actions-container {
+  background-color: var(--bg-tertiary) !important;
+  border-bottom: 1px solid var(--border-primary) !important;
 }
 
 /* Hide close button on all tabs */
