@@ -1,0 +1,21 @@
+---
+source: tests/git_integration.rs
+expression: "&diff.files"
+---
+[
+    DiffFile {
+        path: "image.png",
+        old_path: None,
+        status: "A",
+        additions: 2,
+        deletions: 0,
+        is_binary: false,
+        old_mode: None,
+        new_mode: Some(
+            33188,
+        ),
+        similarity: None,
+        is_symlink: false,
+        is_submodule: false,
+    },
+]

@@ -1,0 +1,27 @@
+---
+source: tests/git_integration.rs
+expression: "&diff.files"
+---
+[
+    DiffFile {
+        path: "renamed.txt",
+        old_path: Some(
+            "original.txt",
+        ),
+        status: "R",
+        additions: 0,
+        deletions: 0,
+        is_binary: false,
+        old_mode: Some(
+            33188,
+        ),
+        new_mode: Some(
+            33188,
+        ),
+        similarity: Some(
+            100,
+        ),
+        is_symlink: false,
+        is_submodule: false,
+    },
+]

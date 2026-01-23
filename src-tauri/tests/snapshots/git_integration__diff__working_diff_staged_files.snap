@@ -1,0 +1,38 @@
+---
+source: tests/git_integration.rs
+expression: "&diff.files"
+---
+[
+    DiffFile {
+        path: "added.txt",
+        old_path: None,
+        status: "A",
+        additions: 1,
+        deletions: 0,
+        is_binary: false,
+        old_mode: None,
+        new_mode: Some(
+            33188,
+        ),
+        similarity: None,
+        is_symlink: false,
+        is_submodule: false,
+    },
+    DiffFile {
+        path: "README.md",
+        old_path: None,
+        status: "M",
+        additions: 1,
+        deletions: 1,
+        is_binary: false,
+        old_mode: Some(
+            33188,
+        ),
+        new_mode: Some(
+            33188,
+        ),
+        similarity: None,
+        is_symlink: false,
+        is_submodule: false,
+    },
+]

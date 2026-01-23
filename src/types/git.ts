@@ -64,6 +64,19 @@ export interface DiffFile {
   status: string;
   additions: number;
   deletions: number;
+  // Extended metadata (additive fields for richer diff info)
+  /** Whether the file is binary */
+  isBinary?: boolean;
+  /** Old file mode (e.g., 0o100644 for regular file, 0o120000 for symlink) */
+  oldMode?: number;
+  /** New file mode */
+  newMode?: number;
+  /** Similarity score for renames/copies (0-100) */
+  similarity?: number;
+  /** Whether file is a symlink (derived from mode) */
+  isSymlink?: boolean;
+  /** Whether file is a submodule */
+  isSubmodule?: boolean;
 }
 
 export interface UnifiedDiff {

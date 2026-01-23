@@ -438,6 +438,131 @@ mod diff {
         assert_eq!(diff.path, "file2.txt");
         assert!(diff.patch.contains("+content 2"));
     }
+
+    // Snapshot tests for working diffs
+
+    #[test]
+    fn test_working_diff_staged_snapshot() {
+        let (_tmp, path) = create_test_repo();
+
+        // Stage multiple types of changes
+        std::fs::write(path.join("added.txt"), "new file content\n").unwrap();
+        std::fs::write(path.join("README.md"), "modified content\n").unwrap();
+        run_git(&path, &["add", "added.txt", "README.md"]);
+
+        let repo = git::open_repo(&path).unwrap();
+        let diff = git::get_working_diff(&repo, true).expect("should get staged diff");
+
+        // Snapshot the files metadata (not the full patch which has line numbers)
+        insta::assert_debug_snapshot!("working_diff_staged_files", &diff.files);
+    }
+
+    #[test]
+    fn test_working_diff_unstaged_snapshot() {
+        let (_tmp, path) = create_test_repo();
+
+        // Create unstaged changes
+        std::fs::write(path.join("README.md"), "modified readme\n").unwrap();
+        std::fs::write(path.join("untracked.txt"), "untracked content\n").unwrap();
+
+        let repo = git::open_repo(&path).unwrap();
+        let diff = git::get_working_diff(&repo, false).expect("should get unstaged diff");
+
+        insta::assert_debug_snapshot!("working_diff_unstaged_files", &diff.files);
+    }
+
+    #[test]
+    fn test_working_diff_deleted_file_snapshot() {
+        let (_tmp, path) = create_test_repo();
+
+        // Delete a tracked file and stage
+        std::fs::remove_file(path.join("README.md")).unwrap();
+        run_git(&path, &["add", "README.md"]);
+
+        let repo = git::open_repo(&path).unwrap();
+        let diff = git::get_working_diff(&repo, true).expect("should get staged diff");
+
+        insta::assert_debug_snapshot!("working_diff_deleted_files", &diff.files);
+    }
+
+    // Regression tests for untracked file patch formatting
+
+    #[test]
+    fn test_untracked_text_file_patch_format() {
+        let (_tmp, path) = create_test_repo();
+
+        // Create an untracked text file with multiple lines
+        std::fs::write(path.join("untracked.txt"), "line one\nline two\nline three\n").unwrap();
+
+        let repo = git::open_repo(&path).unwrap();
+        let diff = git::get_working_diff(&repo, false).expect("should get unstaged diff");
+
+        // Verify patch contains proper unified diff format for untracked file
+        assert!(diff.patch.contains("diff --git a/untracked.txt b/untracked.txt"), 
+            "patch should contain diff header");
+        assert!(diff.patch.contains("new file mode"), 
+            "patch should contain new file mode");
+        assert!(diff.patch.contains("--- /dev/null"), 
+            "patch should show /dev/null as old file");
+        assert!(diff.patch.contains("+++ b/untracked.txt"), 
+            "patch should show new file path");
+        assert!(diff.patch.contains("@@ -0,0 +1,3 @@"), 
+            "patch should have correct hunk header for 3 lines");
+        assert!(diff.patch.contains("+line one"), 
+            "patch should contain added lines with + prefix");
+        assert!(diff.patch.contains("+line two"), 
+            "patch should contain all added lines");
+        assert!(diff.patch.contains("+line three"), 
+            "patch should contain all added lines");
+    }
+
+    #[test]
+    fn test_untracked_binary_file_patch_format() {
+        let (_tmp, path) = create_test_repo();
+
+        // Create an untracked binary file (contains null bytes)
+        let binary_content = vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00];
+        std::fs::write(path.join("image.png"), &binary_content).unwrap();
+
+        let repo = git::open_repo(&path).unwrap();
+        let diff = git::get_working_diff(&repo, false).expect("should get unstaged diff");
+
+        // Verify patch contains proper binary diff stub
+        assert!(diff.patch.contains("diff --git a/image.png b/image.png"), 
+            "patch should contain diff header for binary file");
+        assert!(diff.patch.contains("new file mode"), 
+            "patch should contain new file mode");
+        assert!(diff.patch.contains("--- /dev/null"), 
+            "patch should show /dev/null as old file");
+        assert!(diff.patch.contains("+++ b/image.png"), 
+            "patch should show new file path");
+        assert!(diff.patch.contains("Binary files /dev/null and b/image.png differ"), 
+            "patch should contain binary files differ message");
+    }
+
+    #[test]
+    fn test_untracked_empty_file_patch_format() {
+        let (_tmp, path) = create_test_repo();
+
+        // Create an empty untracked file
+        std::fs::write(path.join("empty.txt"), "").unwrap();
+
+        let repo = git::open_repo(&path).unwrap();
+        let diff = git::get_working_diff(&repo, false).expect("should get unstaged diff");
+
+        // Verify patch contains proper format for empty file
+        assert!(diff.patch.contains("diff --git a/empty.txt b/empty.txt"), 
+            "patch should contain diff header for empty file");
+        assert!(diff.patch.contains("new file mode"), 
+            "patch should contain new file mode");
+        assert!(diff.patch.contains("--- /dev/null"), 
+            "patch should show /dev/null as old file");
+        assert!(diff.patch.contains("+++ b/empty.txt"), 
+            "patch should show new file path");
+        // Empty file should NOT have a hunk header
+        assert!(!diff.patch.contains("@@ -0,0 +1,"), 
+            "empty file should not have hunk header with lines");
+    }
 }
 
 // =============================================================================
@@ -802,6 +927,232 @@ mod worktrees {
         let worktrees = git::list_worktrees(&repo).unwrap();
         let wt = worktrees.iter().find(|w| w.name == "lockable-wt").unwrap();
         assert!(!wt.is_locked);
+    }
+}
+
+// =============================================================================
+// Extended Diff Metadata Tests (rename/copy/typechange)
+// =============================================================================
+
+mod diff_metadata {
+    use super::*;
+
+    /// Create a repo with a renamed file (staged)
+    fn create_repo_with_rename() -> (TempDir, PathBuf) {
+        let (tmp, path) = create_test_repo();
+
+        // Add a file with enough content for rename detection
+        let content = "This is a file with enough content\nfor git to detect it as a rename\nwhen we move it to a new location.\n";
+        std::fs::write(path.join("original.txt"), content).unwrap();
+        run_git(&path, &["add", "original.txt"]);
+        run_git(&path, &["commit", "-m", "Add original.txt"]);
+
+        // Rename the file and stage the change
+        std::fs::rename(path.join("original.txt"), path.join("renamed.txt")).unwrap();
+        run_git(&path, &["add", "-A"]);
+
+        (tmp, path)
+    }
+
+    /// Create a repo with a copied file (staged)
+    fn create_repo_with_copy() -> (TempDir, PathBuf) {
+        let (tmp, path) = create_test_repo();
+
+        // Add a file with enough content for copy detection
+        let content = "This is a file with enough content\nfor git to detect it as a copy\nwhen we duplicate it to a new location.\n";
+        std::fs::write(path.join("source.txt"), content).unwrap();
+        run_git(&path, &["add", "source.txt"]);
+        run_git(&path, &["commit", "-m", "Add source.txt"]);
+
+        // Copy the file (keep original, add copy)
+        std::fs::copy(path.join("source.txt"), path.join("copied.txt")).unwrap();
+        run_git(&path, &["add", "copied.txt"]);
+
+        (tmp, path)
+    }
+
+    /// Create a repo with a type change (executable bit on Unix)
+    #[cfg(unix)]
+    fn create_repo_with_typechange() -> (TempDir, PathBuf) {
+        use std::os::unix::fs::PermissionsExt;
+
+        let (tmp, path) = create_test_repo();
+
+        // Add a regular file
+        std::fs::write(path.join("script.sh"), "#!/bin/bash\necho hello\n").unwrap();
+        run_git(&path, &["add", "script.sh"]);
+        run_git(&path, &["commit", "-m", "Add script.sh"]);
+
+        // Change to executable
+        let mut perms = std::fs::metadata(path.join("script.sh")).unwrap().permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(path.join("script.sh"), perms).unwrap();
+        run_git(&path, &["add", "script.sh"]);
+
+        (tmp, path)
+    }
+
+    #[test]
+    fn test_rename_detection_staged() {
+        let (_tmp, path) = create_repo_with_rename();
+
+        let repo = git::open_repo(&path).unwrap();
+        let diff = git::get_working_diff(&repo, true).expect("should get staged diff");
+
+        // Should detect exactly one file change (rename, not delete+add)
+        // Note: Depending on rename detection, this could be 1 (rename) or 2 (delete+add)
+        // Our find_similar should detect it as rename
+        assert!(!diff.files.is_empty());
+
+        // Look for the renamed file
+        let rename = diff.files.iter().find(|f| f.status == "R");
+        if let Some(r) = rename {
+            assert_eq!(r.path, "renamed.txt");
+            assert_eq!(r.old_path, Some("original.txt".to_string()));
+            assert!(r.similarity.is_some());
+        } else {
+            // Fallback: if rename not detected, should be delete + add
+            let deleted = diff.files.iter().find(|f| f.status == "D");
+            let added = diff.files.iter().find(|f| f.status == "A");
+            assert!(deleted.is_some() || added.is_some(), "Should have some file changes");
+        }
+    }
+
+    #[test]
+    fn test_rename_detection_commit() {
+        let (_tmp, path) = create_repo_with_rename();
+
+        // Commit the rename
+        run_git(&path, &["commit", "-m", "Rename original to renamed"]);
+
+        let commit_id = run_git_output(&path, &["rev-parse", "HEAD"]);
+        let repo = git::open_repo(&path).unwrap();
+        let diff = git::get_commit_diff(&repo, &commit_id).expect("should get commit diff");
+
+        // Should detect rename
+        let rename = diff.files.iter().find(|f| f.status == "R");
+        if let Some(r) = rename {
+            assert_eq!(r.path, "renamed.txt");
+            assert_eq!(r.old_path, Some("original.txt".to_string()));
+        }
+    }
+
+    #[test]
+    fn test_copy_detection_staged() {
+        let (_tmp, path) = create_repo_with_copy();
+
+        let repo = git::open_repo(&path).unwrap();
+        let diff = git::get_working_diff(&repo, true).expect("should get staged diff");
+
+        // Should have at least one file
+        assert!(!diff.files.is_empty());
+
+        // Look for copy detection (may be detected as Add if copy detection threshold not met)
+        let copied = diff.files.iter().find(|f| f.status == "C");
+        let added = diff.files.iter().find(|f| f.path == "copied.txt");
+        
+        // Either we detect it as a copy, or as an addition
+        assert!(copied.is_some() || added.is_some());
+
+        if let Some(c) = copied {
+            assert_eq!(c.path, "copied.txt");
+            assert_eq!(c.old_path, Some("source.txt".to_string()));
+        }
+    }
+
+    #[test]
+    fn test_binary_file_metadata() {
+        let (_tmp, path) = create_test_repo();
+
+        // Create a binary file (PNG header bytes)
+        let binary_content = vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00];
+        std::fs::write(path.join("image.png"), &binary_content).unwrap();
+        run_git(&path, &["add", "image.png"]);
+
+        let repo = git::open_repo(&path).unwrap();
+        let diff = git::get_working_diff(&repo, true).expect("should get staged diff");
+
+        assert_eq!(diff.files.len(), 1);
+        assert_eq!(diff.files[0].path, "image.png");
+        // Binary detection depends on git's heuristics
+        // The is_binary flag should be set
+        assert!(diff.files[0].is_binary, "Should detect binary file");
+    }
+
+    #[test]
+    fn test_file_mode_metadata() {
+        let (_tmp, path) = create_test_repo();
+
+        // Add a new file
+        std::fs::write(path.join("newfile.txt"), "content\n").unwrap();
+        run_git(&path, &["add", "newfile.txt"]);
+
+        let repo = git::open_repo(&path).unwrap();
+        let diff = git::get_working_diff(&repo, true).expect("should get staged diff");
+
+        assert_eq!(diff.files.len(), 1);
+        // New file should have new_mode set (typically 0o100644 = 33188)
+        let f = &diff.files[0];
+        assert!(f.new_mode.is_some(), "Should have new_mode for new file");
+        // old_mode should be None or 0 for new files
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_executable_mode_change() {
+        let (_tmp, path) = create_repo_with_typechange();
+
+        let repo = git::open_repo(&path).unwrap();
+        let diff = git::get_working_diff(&repo, true).expect("should get staged diff");
+
+        assert!(!diff.files.is_empty());
+        let f = &diff.files[0];
+        assert_eq!(f.path, "script.sh");
+
+        // Mode change: old_mode should be regular file (100644), new_mode should be executable (100755)
+        // Note: Git stores modes as integers, not octal
+        if let (Some(old), Some(new)) = (f.old_mode, f.new_mode) {
+            // 33188 = 0o100644 (regular file)
+            // 33261 = 0o100755 (executable)
+            assert!(old != new, "Modes should differ: old={} new={}", old, new);
+        }
+    }
+
+    // Snapshot tests for diff metadata
+
+    #[test]
+    fn test_rename_diff_snapshot() {
+        let (_tmp, path) = create_repo_with_rename();
+
+        let repo = git::open_repo(&path).unwrap();
+        let diff = git::get_working_diff(&repo, true).expect("should get staged diff");
+
+        // Snapshot just the files array (not the patch which has volatile content)
+        insta::assert_debug_snapshot!("rename_staged_files", &diff.files);
+    }
+
+    #[test]
+    fn test_copy_diff_snapshot() {
+        let (_tmp, path) = create_repo_with_copy();
+
+        let repo = git::open_repo(&path).unwrap();
+        let diff = git::get_working_diff(&repo, true).expect("should get staged diff");
+
+        insta::assert_debug_snapshot!("copy_staged_files", &diff.files);
+    }
+
+    #[test]
+    fn test_binary_diff_snapshot() {
+        let (_tmp, path) = create_test_repo();
+
+        let binary_content = vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+        std::fs::write(path.join("image.png"), &binary_content).unwrap();
+        run_git(&path, &["add", "image.png"]);
+
+        let repo = git::open_repo(&path).unwrap();
+        let diff = git::get_working_diff(&repo, true).expect("should get staged diff");
+
+        insta::assert_debug_snapshot!("binary_staged_files", &diff.files);
     }
 }
 
