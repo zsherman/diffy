@@ -37,7 +37,7 @@ export interface RepoTabState {
   amendPreviousCommit: boolean;
 
   // View mode
-  mainView: "history" | "changes" | "statistics";
+  mainView: "history" | "changes" | "statistics" | "changelog";
   viewMode: ViewMode;
   selectedWorktree: string | null;
 
@@ -663,7 +663,7 @@ export function useActiveTabPanels() {
 
 // View state type for single selector
 type ViewState = {
-  mainView: "history" | "changes" | "statistics";
+  mainView: "history" | "changes" | "statistics" | "changelog";
   viewMode: ViewMode;
 };
 const DEFAULT_VIEW_STATE: ViewState = {
@@ -691,7 +691,7 @@ export function useActiveTabView() {
     [],
   );
   const setMainView = useCallback(
-    (view: "history" | "changes" | "statistics") =>
+    (view: "history" | "changes" | "statistics" | "changelog") =>
       updateActiveTab({ mainView: view }),
     [updateActiveTab],
   );

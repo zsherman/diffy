@@ -1,5 +1,5 @@
 use crate::error::{AppError, Result};
-use crate::git::{self, BranchInfo, CommitActivity, CommitGraph, CommitInfo, FileDiff, RepositoryInfo, StatusInfo, UnifiedDiff, WorktreeInfo, WorktreeCreateOptions, MergeStatus, FileConflictInfo, StashEntry, AheadBehind};
+use crate::git::{self, BranchInfo, CommitActivity, CommitGraph, CommitInfo, FileDiff, RepositoryInfo, StatusInfo, UnifiedDiff, WorktreeInfo, WorktreeCreateOptions, MergeStatus, FileConflictInfo, StashEntry, AheadBehind, ChangelogCommit};
 use std::process::Command;
 use std::path::PathBuf;
 use std::fs;
@@ -201,6 +201,22 @@ pub async fn get_commit_activity_all_branches(
     tokio::task::spawn_blocking(move || {
         let repo = git::open_repo(&repo_path)?;
         Ok(git::get_commit_activity_all_branches(&repo, since, until)?)
+    })
+    .await
+    .map_err(|e| AppError::io(format!("Task join error: {}", e)))?
+}
+
+#[tauri::command]
+#[instrument(skip_all, fields(since, until), err(Debug))]
+pub async fn get_changelog_commits_all_branches(
+    repo_path: String,
+    since: i64,
+    until: i64,
+) -> Result<Vec<ChangelogCommit>> {
+    // Run blocking git operation on dedicated thread pool
+    tokio::task::spawn_blocking(move || {
+        let repo = git::open_repo(&repo_path)?;
+        Ok(git::get_changelog_commits_all_branches(&repo, since, until)?)
     })
     .await
     .map_err(|e| AppError::io(format!("Task join error: {}", e)))?
@@ -528,6 +544,113 @@ Diff to review:
         file_comments,
         generated_at,
     })
+}
+
+#[tauri::command]
+#[instrument(skip_all, fields(since, until, contributor_email = ?contributor_email), err(Debug))]
+pub async fn generate_changelog_summary(
+    repo_path: String,
+    since: i64,
+    until: i64,
+    contributor_email: Option<String>,
+) -> Result<String> {
+    // Fetch commits in range
+    let repo = git::open_repo(&repo_path)?;
+    let all_commits = git::get_changelog_commits_all_branches(&repo, since, until)?;
+
+    // Filter by contributor if specified
+    let commits: Vec<_> = if let Some(ref email) = contributor_email {
+        all_commits.into_iter().filter(|c| c.author_email == *email).collect()
+    } else {
+        all_commits
+    };
+
+    if commits.is_empty() {
+        return Ok("No commits found in this time range.".to_string());
+    }
+
+    // Build contributor stats
+    let mut author_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for commit in &commits {
+        *author_counts.entry(commit.author_name.clone()).or_insert(0) += 1;
+    }
+    let mut top_authors: Vec<_> = author_counts.into_iter().collect();
+    top_authors.sort_by(|a, b| b.1.cmp(&a.1));
+    let top_authors_str: String = top_authors.iter()
+        .take(5)
+        .map(|(name, count)| format!("{} ({})", name, count))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    // Build commit summaries with truncation safeguards
+    // Cap at ~100 commits or 6000 chars to stay within reasonable prompt limits
+    let max_commits = 100;
+    let max_summary_chars = 6000;
+    let mut commit_lines = Vec::new();
+    let mut total_chars = 0;
+
+    for commit in commits.iter().take(max_commits) {
+        let line = format!("- {} ({})", commit.summary, commit.author_name);
+        total_chars += line.len();
+        if total_chars > max_summary_chars {
+            commit_lines.push(format!("... and {} more commits", commits.len() - commit_lines.len()));
+            break;
+        }
+        commit_lines.push(line);
+    }
+
+    let commits_section = commit_lines.join("\n");
+
+    // Format date range for context
+    let start_date = chrono::DateTime::from_timestamp(since, 0)
+        .map(|dt| dt.format("%Y-%m-%d").to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+    let end_date = chrono::DateTime::from_timestamp(until, 0)
+        .map(|dt| dt.format("%Y-%m-%d").to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+
+    let prompt = format!(
+        r#"Generate a concise changelog summary in Markdown format for a software project.
+
+Time period: {start_date} to {end_date}
+Total commits: {commit_count}
+Top contributors: {top_authors_str}
+
+Commit summaries:
+{commits_section}
+
+Instructions:
+- Write 2-4 bullet points summarizing the key changes, improvements, and fixes
+- Group related changes together (e.g., "Bug fixes", "New features", "Improvements")
+- Be concise but informative - this is for a weekly changelog
+- Use Markdown formatting with headers and bullet points
+- Do not include any preamble or explanation, just output the changelog content directly"#,
+        start_date = start_date,
+        end_date = end_date,
+        commit_count = commits.len(),
+        top_authors_str = top_authors_str,
+        commits_section = commits_section
+    );
+
+    // Call claude CLI
+    let claude_path = find_claude_binary()?;
+    let output = Command::new(&claude_path)
+        .args(["-p", &prompt])
+        .output()
+        .map_err(|e| AppError::ai(format!("Failed to run claude at {:?}: {}", claude_path, e)))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(AppError::ai(format!("Claude failed: {}", stderr)));
+    }
+
+    let summary = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+    if summary.is_empty() {
+        return Err(AppError::ai("Claude returned an empty response"));
+    }
+
+    Ok(summary)
 }
 
 #[derive(serde::Deserialize)]

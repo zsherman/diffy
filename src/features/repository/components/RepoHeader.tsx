@@ -11,6 +11,7 @@ import {
   ArrowUp,
   ArrowsClockwise,
   CloudArrowDown,
+  ListBullets,
 } from "@phosphor-icons/react";
 import {
   getStatus,
@@ -30,7 +31,7 @@ import { getErrorMessage } from "../../../lib/errors";
 import { BranchSwitcher } from "../../../components/ui/BranchSwitcher";
 import { LayoutSwitcher } from "../../../components/ui/LayoutSwitcher";
 
-type ViewMode = "history" | "changes" | "statistics";
+type ViewMode = "history" | "changes" | "statistics" | "changelog";
 
 export function RepoHeader() {
   const { repository } = useTabsStore();
@@ -150,6 +151,7 @@ export function RepoHeader() {
   const api = getDockviewApi();
   const currentView: ViewMode = (() => {
     if (mainView === "statistics") return "statistics";
+    if (mainView === "changelog") return "changelog";
     if (!api) return mainView;
     const hasStaging = api.getPanel("staging") !== undefined;
     const hasCommits = api.getPanel("commits") !== undefined;
@@ -160,7 +162,9 @@ export function RepoHeader() {
 
   const handleViewChange = useCallback(
     (view: ViewMode) => {
-      if (view === currentView && mainView !== "statistics") return;
+      // Allow switching when coming FROM overlay views (statistics or changelog)
+      const isOverlayView = mainView === "statistics" || mainView === "changelog";
+      if (view === currentView && !isOverlayView) return;
 
       setMainView(view);
 
@@ -366,10 +370,19 @@ export function RepoHeader() {
           onClick={() => handleViewChange("statistics")}
           aria-label="Statistics view"
           aria-pressed={currentView === "statistics"}
-          className={`${toggleButtonClass} rounded-r ${currentView === "statistics" ? "bg-bg-hover text-text-primary" : ""}`}
+          className={`${toggleButtonClass} ${currentView === "statistics" ? "bg-bg-hover text-text-primary" : ""}`}
         >
           <ChartBar size={14} weight="bold" />
           <span className="hidden sm:inline">Statistics</span>
+        </button>
+        <button
+          onClick={() => handleViewChange("changelog")}
+          aria-label="Changelog view"
+          aria-pressed={currentView === "changelog"}
+          className={`${toggleButtonClass} rounded-r ${currentView === "changelog" ? "bg-bg-hover text-text-primary" : ""}`}
+        >
+          <ListBullets size={14} weight="bold" />
+          <span className="hidden sm:inline">Changelog</span>
         </button>
       </div>
 

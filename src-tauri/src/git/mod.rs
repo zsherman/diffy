@@ -12,3 +12,4 @@ pub use merge::*;
 pub use repository::StashEntry;
 pub use repository::AheadBehind;
 pub use repository::CommitActivity;
+pub use repository::ChangelogCommit;

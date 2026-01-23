@@ -983,3 +983,88 @@ pub fn get_commit_activity_all_branches(
 
     Ok(activity)
 }
+
+// Changelog commit with richer data for changelog view
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ChangelogCommit {
+    pub id: String,
+    pub short_id: String,
+    pub time: i64,
+    pub author_name: String,
+    pub author_email: String,
+    pub summary: String,
+    pub message: String,
+}
+
+/// Get commits from all local branches within a time range with full metadata.
+/// Returns richer data than CommitActivity for changelog display.
+/// Uses TIME sorting for efficient early-stop when commits are older than `since`.
+pub fn get_changelog_commits_all_branches(
+    repo: &Repository,
+    since: i64,
+    until: i64,
+) -> Result<Vec<ChangelogCommit>, GitError> {
+    let mut revwalk = repo.revwalk()?;
+    // Use TIME sorting only (not TOPOLOGICAL) so we can early-stop
+    revwalk.set_sorting(git2::Sort::TIME)?;
+
+    // Push all local branch tips
+    let branches = repo.branches(Some(BranchType::Local))?;
+    let mut pushed_any = false;
+    for branch_result in branches {
+        let (branch, _) = branch_result?;
+        if let Some(target) = branch.get().target() {
+            let _ = revwalk.push(target);
+            pushed_any = true;
+        }
+    }
+
+    // Fall back to HEAD if no branch tips were found
+    if !pushed_any {
+        let _ = revwalk.push_head();
+    }
+
+    let mut commits = Vec::new();
+
+    for oid_result in revwalk {
+        let oid = match oid_result {
+            Ok(o) => o,
+            Err(_) => continue,
+        };
+
+        let commit = match repo.find_commit(oid) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        let time = commit.time().seconds();
+
+        // Early-stop: commits are time-sorted, so if we're past the range, we're done
+        if time < since {
+            break;
+        }
+
+        // Skip commits after the range
+        if time > until {
+            continue;
+        }
+
+        let id = oid.to_string();
+        let short_id = id[..7.min(id.len())].to_string();
+        let message = commit.message().unwrap_or("").to_string();
+        let summary = commit.summary().unwrap_or("").to_string();
+
+        commits.push(ChangelogCommit {
+            id,
+            short_id,
+            time,
+            author_name: commit.author().name().unwrap_or("Unknown").to_string(),
+            author_email: commit.author().email().unwrap_or("").to_string(),
+            summary,
+            message,
+        });
+    }
+
+    Ok(commits)
+}

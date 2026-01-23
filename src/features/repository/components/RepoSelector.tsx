@@ -6,6 +6,7 @@ import {
   ClockCounterClockwise,
   GitDiff,
   ChartBar,
+  ListBullets,
 } from "@phosphor-icons/react";
 import {
   getStatus,
@@ -18,7 +19,7 @@ import { useMergeConflictStore } from "../../../stores/merge-conflict-store";
 import { useToast } from "../../../components/ui/Toast";
 import { applyLayout } from "../../../lib/layouts";
 
-type ViewMode = "history" | "changes" | "statistics";
+type ViewMode = "history" | "changes" | "statistics" | "changelog";
 
 export function RepoSelector() {
   const { repository } = useTabsStore();
@@ -126,11 +127,12 @@ export function RepoSelector() {
   }, [repository]);
 
   // Determine current view - use mainView as source of truth
-  // When not on statistics, we can also check Dockview panel state for visual indicator accuracy
+  // When not on overlay views, we can also check Dockview panel state for visual indicator accuracy
   const api = getDockviewApi();
   const currentView: ViewMode = (() => {
-    // Always respect mainView for statistics
+    // Always respect mainView for overlay views
     if (mainView === "statistics") return "statistics";
+    if (mainView === "changelog") return "changelog";
     if (!api) return mainView;
     const hasStaging = api.getPanel("staging") !== undefined;
     const hasCommits = api.getPanel("commits") !== undefined;
@@ -141,8 +143,9 @@ export function RepoSelector() {
 
   const handleViewChange = useCallback(
     (view: ViewMode) => {
-      // Always allow switching when coming FROM statistics (mainView is the truth)
-      if (view === currentView && mainView !== "statistics") return;
+      // Always allow switching when coming FROM overlay views (mainView is the truth)
+      const isOverlayView = mainView === "statistics" || mainView === "changelog";
+      if (view === currentView && !isOverlayView) return;
 
       setMainView(view);
 
@@ -232,10 +235,19 @@ export function RepoSelector() {
           onClick={() => handleViewChange("statistics")}
           aria-label="Statistics view"
           aria-pressed={currentView === "statistics"}
-          className={`${toggleButtonClass} rounded-r ${currentView === "statistics" ? "bg-bg-hover text-text-primary" : ""}`}
+          className={`${toggleButtonClass} ${currentView === "statistics" ? "bg-bg-hover text-text-primary" : ""}`}
         >
           <ChartBar size={14} weight="bold" />
           <span className="hidden sm:inline">Statistics</span>
+        </button>
+        <button
+          onClick={() => handleViewChange("changelog")}
+          aria-label="Changelog view"
+          aria-pressed={currentView === "changelog"}
+          className={`${toggleButtonClass} rounded-r ${currentView === "changelog" ? "bg-bg-hover text-text-primary" : ""}`}
+        >
+          <ListBullets size={14} weight="bold" />
+          <span className="hidden sm:inline">Changelog</span>
         </button>
       </div>
     </div>

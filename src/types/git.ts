@@ -155,3 +155,13 @@ export interface CommitActivity {
   authorName: string;
   authorEmail: string;
 }
+
+export interface ChangelogCommit {
+  id: string;
+  shortId: string;
+  time: number;
+  authorName: string;
+  authorEmail: string;
+  summary: string;
+  message: string;
+}

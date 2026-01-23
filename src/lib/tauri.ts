@@ -5,6 +5,7 @@ import type {
   CommitInfo,
   CommitGraph,
   CommitActivity,
+  ChangelogCommit,
   StatusInfo,
   UnifiedDiff,
   FileDiff,
@@ -203,6 +204,32 @@ export async function getCommitActivityAllBranches(
     repoPath,
     since,
     until,
+  });
+}
+
+export async function getChangelogCommitsAllBranches(
+  repoPath: string,
+  since: number,
+  until: number,
+): Promise<ChangelogCommit[]> {
+  return tracedInvoke<ChangelogCommit[]>("get_changelog_commits_all_branches", {
+    repoPath,
+    since,
+    until,
+  });
+}
+
+export async function generateChangelogSummary(
+  repoPath: string,
+  since: number,
+  until: number,
+  contributorEmail?: string | null,
+): Promise<string> {
+  return invoke<string>("generate_changelog_summary", {
+    repoPath,
+    since,
+    until,
+    contributorEmail,
   });
 }
 

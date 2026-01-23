@@ -35,6 +35,7 @@ import {
   ClockCounterClockwise,
   GitDiff,
   ChartBar,
+  ListBullets,
 } from '@phosphor-icons/react';
 import { useUIStore, getDockviewApi, isReactScanEnabled, toggleReactScanAndReload } from '../../stores/ui-store';
 import { useTabsStore, useActiveTabView } from '../../stores/tabs-store';
@@ -553,6 +554,22 @@ export function CommandPalette() {
                     <span className="flex-1">Go to Statistics</span>
                     <span className="text-xs text-text-muted">
                       {mainView === 'statistics' ? 'Active' : ''}
+                    </span>
+                  </Command.Item>
+
+                  <Command.Item
+                    onSelect={() =>
+                      runCommand(() => {
+                        setMainView('changelog');
+                      })
+                    }
+                    className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                    keywords={['changelog', 'release', 'notes', 'weekly', 'summary']}
+                  >
+                    <ListBullets size={16} className="text-text-muted" />
+                    <span className="flex-1">Go to Changelog</span>
+                    <span className="text-xs text-text-muted">
+                      {mainView === 'changelog' ? 'Active' : ''}
                     </span>
                   </Command.Item>
                 </Command.Group>

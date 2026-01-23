@@ -19,6 +19,7 @@ import {
 import { RepoHeader } from "./features/repository/components";
 import { SkillsDialog } from "./features/skills";
 import { StatisticsView } from "./features/statistics";
+import { ChangelogView } from "./features/changelog";
 import { openRepository, discoverRepository } from "./lib/tauri";
 import {
   useTabActions,
@@ -62,8 +63,11 @@ function AppContent() {
   // Get theme from UI store (global setting) - use focused hook to avoid unnecessary subscriptions
   const { theme } = useTheme();
 
-  // Track previous mainView to detect transitions from statistics
+  // Track previous mainView to detect transitions from overlay views (statistics/changelog)
   const prevMainViewRef = useRef(mainView);
+  
+  // Helper to check if a view is an overlay view (rendered outside Dockview)
+  const isOverlayView = (view: string) => view === "statistics" || view === "changelog";
 
   // Sync theme to document
   useEffect(() => {
@@ -73,14 +77,14 @@ function AppContent() {
   // Ref to the Dockview container for layout recalculation
   const dockviewContainerRef = useRef<HTMLDivElement>(null);
 
-  // Force Dockview layout recalculation when returning from statistics view
+  // Force Dockview layout recalculation when returning from overlay views (statistics/changelog)
   // Dockview doesn't auto-resize correctly after being hidden with display:none
   useEffect(() => {
-    const wasStatistics = prevMainViewRef.current === "statistics";
-    const isNowVisible = mainView !== "statistics";
+    const wasOverlay = isOverlayView(prevMainViewRef.current);
+    const isNowVisible = !isOverlayView(mainView);
     prevMainViewRef.current = mainView;
 
-    if (wasStatistics && isNowVisible && dockviewContainerRef.current) {
+    if (wasOverlay && isNowVisible && dockviewContainerRef.current) {
       // Give React a moment to update display:none -> visible, then nudge Dockview
       requestAnimationFrame(() => {
         const api = getDockviewApi();
@@ -244,14 +248,15 @@ function AppContent() {
       {/* Main content */}
       {repository ? (
         <>
-          {/* Statistics view - rendered as overlay when active */}
+          {/* Overlay views - rendered outside Dockview when active */}
           {mainView === "statistics" && <StatisticsView />}
-          {/* DockviewLayout stays mounted but hidden when statistics is active */}
+          {mainView === "changelog" && <ChangelogView />}
+          {/* DockviewLayout stays mounted but hidden when overlay views are active */}
           {/* This avoids expensive remount when switching back to history/changes */}
           <div
             ref={dockviewContainerRef}
             className="flex-1 min-h-0"
-            style={{ display: mainView === "statistics" ? "none" : undefined }}
+            style={{ display: isOverlayView(mainView) ? "none" : undefined }}
           >
             <DockviewLayout />
           </div>
