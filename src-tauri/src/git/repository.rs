@@ -850,3 +850,47 @@ pub fn drop_stash(repo: &mut Repository, stash_index: usize) -> Result<(), GitEr
     repo.stash_drop(stash_index)?;
     Ok(())
 }
+
+// Ahead/behind tracking
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AheadBehind {
+    pub ahead: usize,
+    pub behind: usize,
+}
+
+/// Get the number of commits ahead and behind the upstream branch
+pub fn get_ahead_behind(repo: &Repository) -> Result<Option<AheadBehind>, GitError> {
+    let head = match repo.head() {
+        Ok(h) => h,
+        Err(_) => return Ok(None), // No HEAD (empty repo)
+    };
+
+    if !head.is_branch() {
+        return Ok(None); // Detached HEAD
+    }
+
+    let branch_name = match head.shorthand() {
+        Some(name) => name,
+        None => return Ok(None),
+    };
+
+    let local_branch = repo.find_branch(branch_name, git2::BranchType::Local)?;
+
+    let upstream = match local_branch.upstream() {
+        Ok(u) => u,
+        Err(_) => return Ok(None), // No upstream configured
+    };
+
+    let local_oid = head.target().ok_or_else(|| {
+        git2::Error::from_str("Local branch has no target")
+    })?;
+
+    let upstream_oid = upstream.get().target().ok_or_else(|| {
+        git2::Error::from_str("Upstream branch has no target")
+    })?;
+
+    let (ahead, behind) = repo.graph_ahead_behind(local_oid, upstream_oid)?;
+
+    Ok(Some(AheadBehind { ahead, behind }))
+}

@@ -27,3 +27,4 @@ src-tauri/target
 *.sw?
 
 inspiration/
+package-lock.json

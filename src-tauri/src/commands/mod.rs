@@ -1,5 +1,5 @@
 use crate::error::{AppError, Result};
-use crate::git::{self, BranchInfo, CommitGraph, CommitInfo, FileDiff, RepositoryInfo, StatusInfo, UnifiedDiff, WorktreeInfo, WorktreeCreateOptions, MergeStatus, FileConflictInfo, StashEntry};
+use crate::git::{self, BranchInfo, CommitGraph, CommitInfo, FileDiff, RepositoryInfo, StatusInfo, UnifiedDiff, WorktreeInfo, WorktreeCreateOptions, MergeStatus, FileConflictInfo, StashEntry, AheadBehind};
 use std::process::Command;
 use std::path::PathBuf;
 use std::fs;
@@ -1037,6 +1037,13 @@ pub async fn drop_stash(repo_path: String, stash_index: usize) -> Result<()> {
     let mut repo = git::open_repo(&repo_path)?;
     git::drop_stash(&mut repo, stash_index)?;
     Ok(())
+}
+
+#[tauri::command]
+#[instrument(skip_all, err(Debug))]
+pub async fn get_ahead_behind(repo_path: String) -> Result<Option<AheadBehind>> {
+    let repo = git::open_repo(&repo_path)?;
+    Ok(git::get_ahead_behind(&repo)?)
 }
 
 // Merge conflict commands
