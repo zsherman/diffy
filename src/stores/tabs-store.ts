@@ -41,6 +41,9 @@ export interface RepoTabState {
   viewMode: ViewMode;
   selectedWorktree: string | null;
 
+  // Statistics view (per-repo)
+  statisticsContributorEmail: string | null;
+
   // AI Review (per-repo)
   aiReview: AIReviewData | null;
   aiReviewLoading: boolean;
@@ -122,6 +125,7 @@ function createTabState(repository: RepositoryInfo): RepoTabState {
     mainView: "history",
     viewMode: "working",
     selectedWorktree: null,
+    statisticsContributorEmail: null,
     aiReview: null,
     aiReviewLoading: false,
     aiReviewError: null,
@@ -865,6 +869,30 @@ export function useActiveTabFilters() {
   };
 }
 
+// Hook for statistics view state (used by StatisticsView)
+export function useActiveTabStatistics() {
+  const statisticsContributorEmail = useSelector(
+    tabsStore,
+    (s) => selectActiveTab(s)?.statisticsContributorEmail ?? null,
+  );
+
+  const updateActiveTab = useCallback(
+    (updates: Partial<Omit<RepoTabState, "repository">>) =>
+      tabsStore.send({ type: "updateActiveTab", updates }),
+    [],
+  );
+  const setStatisticsContributorEmail = useCallback(
+    (email: string | null) =>
+      updateActiveTab({ statisticsContributorEmail: email }),
+    [updateActiveTab],
+  );
+
+  return {
+    statisticsContributorEmail,
+    setStatisticsContributorEmail,
+  };
+}
+
 // Hook for AI review state (used by AIReviewContent)
 export function useActiveTabAIReview() {
   const aiReview = useSelector(
@@ -930,6 +958,7 @@ export function useActiveTabState() {
   const selection = useActiveTabSelection();
   const commitForm = useActiveTabCommitForm();
   const filters = useActiveTabFilters();
+  const statistics = useActiveTabStatistics();
   const aiReview = useActiveTabAIReview();
 
   // Additional selectors not in focused hooks
@@ -975,6 +1004,10 @@ export function useActiveTabState() {
     viewMode: view.viewMode,
     setMainView: view.setMainView,
     setViewMode: view.setViewMode,
+
+    // Statistics state
+    statisticsContributorEmail: statistics.statisticsContributorEmail,
+    setStatisticsContributorEmail: statistics.setStatisticsContributorEmail,
 
     // AI review state
     aiReview: aiReview.aiReview,

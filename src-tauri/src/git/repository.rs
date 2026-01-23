@@ -380,13 +380,20 @@ pub fn stage_files(repo: &Repository, paths: &[String]) -> Result<(), GitError> 
     })?;
 
     for path in paths {
-        let full_path = workdir.join(path);
-        if full_path.exists() {
+        // Handle directory paths (may have trailing slash from recurse_untracked_dirs=false)
+        let clean_path = path.trim_end_matches('/');
+        let full_path = workdir.join(clean_path);
+
+        if full_path.is_dir() {
+            // For directories, use add_all with a glob pattern to add all files recursively
+            let pattern = format!("{}/*", clean_path);
+            index.add_all([&pattern], git2::IndexAddOption::DEFAULT, None)?;
+        } else if full_path.exists() {
             // File exists - add it (handles new and modified files)
-            index.add_path(Path::new(path))?;
+            index.add_path(Path::new(clean_path))?;
         } else {
             // File doesn't exist - remove it from index (handles deleted files)
-            index.remove_path(Path::new(path))?;
+            index.remove_path(Path::new(clean_path))?;
         }
     }
     index.write()?;
@@ -869,6 +876,15 @@ pub struct AheadBehind {
     pub behind: usize,
 }
 
+// Commit activity for contribution calendar (minimal data for performance)
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitActivity {
+    pub time: i64,
+    pub author_name: String,
+    pub author_email: String,
+}
+
 /// Get the number of commits ahead and behind the upstream branch
 pub fn get_ahead_behind(repo: &Repository) -> Result<Option<AheadBehind>, GitError> {
     let head = match repo.head() {
@@ -903,4 +919,67 @@ pub fn get_ahead_behind(repo: &Repository) -> Result<Option<AheadBehind>, GitErr
     let (ahead, behind) = repo.graph_ahead_behind(local_oid, upstream_oid)?;
 
     Ok(Some(AheadBehind { ahead, behind }))
+}
+
+/// Get commit activity from all local branches within a time range.
+/// Returns minimal data (time + author) for contribution calendar visualization.
+/// Uses TIME sorting for efficient early-stop when commits are older than `since`.
+pub fn get_commit_activity_all_branches(
+    repo: &Repository,
+    since: i64,
+    until: i64,
+) -> Result<Vec<CommitActivity>, GitError> {
+    let mut revwalk = repo.revwalk()?;
+    // Use TIME sorting only (not TOPOLOGICAL) so we can early-stop
+    revwalk.set_sorting(git2::Sort::TIME)?;
+
+    // Push all local branch tips
+    let branches = repo.branches(Some(BranchType::Local))?;
+    let mut pushed_any = false;
+    for branch_result in branches {
+        let (branch, _) = branch_result?;
+        if let Some(target) = branch.get().target() {
+            let _ = revwalk.push(target);
+            pushed_any = true;
+        }
+    }
+
+    // Fall back to HEAD if no branch tips were found
+    if !pushed_any {
+        let _ = revwalk.push_head();
+    }
+
+    let mut activity = Vec::new();
+
+    for oid_result in revwalk {
+        let oid = match oid_result {
+            Ok(o) => o,
+            Err(_) => continue,
+        };
+
+        let commit = match repo.find_commit(oid) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        let time = commit.time().seconds();
+
+        // Early-stop: commits are time-sorted, so if we're past the range, we're done
+        if time < since {
+            break;
+        }
+
+        // Skip commits after the range
+        if time > until {
+            continue;
+        }
+
+        activity.push(CommitActivity {
+            time,
+            author_name: commit.author().name().unwrap_or("Unknown").to_string(),
+            author_email: commit.author().email().unwrap_or("").to_string(),
+        });
+    }
+
+    Ok(activity)
 }

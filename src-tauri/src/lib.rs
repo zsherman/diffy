@@ -35,6 +35,7 @@ pub fn run() {
             commands::create_branch,
             commands::get_commit_history,
             commands::get_commit_history_all_branches,
+            commands::get_commit_activity_all_branches,
             commands::get_commit_graph,
             commands::get_commit_diff,
             commands::get_file_diff,

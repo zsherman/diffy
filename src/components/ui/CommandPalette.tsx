@@ -32,9 +32,12 @@ import {
   Warning,
   Timer,
   MagnifyingGlass,
+  ClockCounterClockwise,
+  GitDiff,
+  ChartBar,
 } from '@phosphor-icons/react';
 import { useUIStore, getDockviewApi, isReactScanEnabled, toggleReactScanAndReload } from '../../stores/ui-store';
-import { useTabsStore } from '../../stores/tabs-store';
+import { useTabsStore, useActiveTabView } from '../../stores/tabs-store';
 import { useMergeConflictStore } from '../../stores/merge-conflict-store';
 import { useToast } from './Toast';
 import { gitFetch, gitPull, gitPush, openRepository, discoverRepository, getMergeStatus, parseFileConflicts, listBranches, mergeBranch } from '../../lib/tauri';
@@ -78,6 +81,7 @@ export function CommandPalette() {
   } = useUIStore();
 
   const { repository, openTab } = useTabsStore();
+  const { mainView, setMainView } = useActiveTabView();
   const { enterMergeMode } = useMergeConflictStore();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -489,6 +493,70 @@ export function CommandPalette() {
                   </Command.Item>
                 )}
               </Command.Group>
+
+              {/* Views Group - Switch between main views */}
+              {repository && (
+                <Command.Group
+                  heading="Views"
+                  className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
+                >
+                  <Command.Item
+                    onSelect={() =>
+                      runCommand(() => {
+                        setMainView('history');
+                        const api = getDockviewApi();
+                        if (api) {
+                          applyLayout(api, 'standard');
+                        }
+                      })
+                    }
+                    className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                    keywords={['history', 'commits', 'log']}
+                  >
+                    <ClockCounterClockwise size={16} className="text-text-muted" />
+                    <span className="flex-1">Go to History</span>
+                    <span className="text-xs text-text-muted">
+                      {mainView === 'history' ? 'Active' : ''}
+                    </span>
+                  </Command.Item>
+
+                  <Command.Item
+                    onSelect={() =>
+                      runCommand(() => {
+                        setMainView('changes');
+                        const api = getDockviewApi();
+                        if (api) {
+                          applyLayout(api, 'changes');
+                        }
+                      })
+                    }
+                    className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                    keywords={['changes', 'working', 'staged', 'unstaged']}
+                  >
+                    <GitDiff size={16} className="text-text-muted" />
+                    <span className="flex-1">Go to Changes</span>
+                    <span className="text-xs text-text-muted">
+                      {mainView === 'changes' ? 'Active' : ''}
+                    </span>
+                  </Command.Item>
+
+                  <Command.Item
+                    onSelect={() =>
+                      runCommand(() => {
+                        setMainView('statistics');
+                      })
+                    }
+                    className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                    keywords={['statistics', 'stats', 'contributions', 'calendar', 'heatmap']}
+                  >
+                    <ChartBar size={16} className="text-text-muted" />
+                    <span className="flex-1">Go to Statistics</span>
+                    <span className="text-xs text-text-muted">
+                      {mainView === 'statistics' ? 'Active' : ''}
+                    </span>
+                  </Command.Item>
+                </Command.Group>
+              )}
 
               {/* Navigation Group */}
               <Command.Group

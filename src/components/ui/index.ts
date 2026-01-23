@@ -1,6 +1,5 @@
 export { Button } from "./Button";
 export { StatusBar } from "./StatusBar";
-export { TopToolbar } from "./TopToolbar";
 export { HelpOverlay } from "./HelpOverlay";
 export { SettingsDialog } from "./SettingsDialog";
 export { CommandPalette } from "./CommandPalette";

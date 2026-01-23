@@ -5,12 +5,10 @@ import {
   FolderOpen,
   ClockCounterClockwise,
   X,
-  ChartBar,
 } from "@phosphor-icons/react";
 import { DockviewLayout } from "./components/layout";
 import {
   StatusBar,
-  TopToolbar,
   HelpOverlay,
   SettingsDialog,
   CommandPalette,
@@ -18,8 +16,9 @@ import {
   TabBar,
   GlobalErrorBoundary,
 } from "./components/ui";
-import { RepoSelector } from "./features/repository/components";
+import { RepoHeader } from "./features/repository/components";
 import { SkillsDialog } from "./features/skills";
+import { StatisticsView } from "./features/statistics";
 import { openRepository, discoverRepository } from "./lib/tauri";
 import {
   useTabActions,
@@ -239,29 +238,14 @@ function AppContent() {
         />
       )}
 
-      {/* Title bar / repo selector - shown when repository is selected */}
-      {repository && <RepoSelector />}
-
-      {/* Top toolbar with branch switcher and git actions */}
-      {repository && <TopToolbar />}
+      {/* Repo header with branch, git actions, view toggle, and layout switcher */}
+      {repository && <RepoHeader />}
 
       {/* Main content */}
       {repository ? (
         <>
           {/* Statistics view - rendered as overlay when active */}
-          {mainView === "statistics" && (
-            <div className="flex-1 flex items-center justify-center bg-bg-primary">
-              <div className="text-center max-w-md w-full px-4">
-                <ChartBar
-                  size={64}
-                  weight="duotone"
-                  className="mx-auto text-text-muted mb-4"
-                />
-                <p className="text-text-primary mb-1 font-medium">Statistics</p>
-                <p className="text-text-muted text-sm">Coming soon</p>
-              </div>
-            </div>
-          )}
+          {mainView === "statistics" && <StatisticsView />}
           {/* DockviewLayout stays mounted but hidden when statistics is active */}
           {/* This avoids expensive remount when switching back to history/changes */}
           <div

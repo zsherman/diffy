@@ -1,5 +1,5 @@
 use crate::error::{AppError, Result};
-use crate::git::{self, BranchInfo, CommitGraph, CommitInfo, FileDiff, RepositoryInfo, StatusInfo, UnifiedDiff, WorktreeInfo, WorktreeCreateOptions, MergeStatus, FileConflictInfo, StashEntry, AheadBehind};
+use crate::git::{self, BranchInfo, CommitActivity, CommitGraph, CommitInfo, FileDiff, RepositoryInfo, StatusInfo, UnifiedDiff, WorktreeInfo, WorktreeCreateOptions, MergeStatus, FileConflictInfo, StashEntry, AheadBehind};
 use std::process::Command;
 use std::path::PathBuf;
 use std::fs;
@@ -185,6 +185,22 @@ pub async fn get_commit_history_all_branches(
     tokio::task::spawn_blocking(move || {
         let repo = git::open_repo(&repo_path)?;
         Ok(git::get_commits_all_branches(&repo, limit, offset)?)
+    })
+    .await
+    .map_err(|e| AppError::io(format!("Task join error: {}", e)))?
+}
+
+#[tauri::command]
+#[instrument(skip_all, fields(since, until), err(Debug))]
+pub async fn get_commit_activity_all_branches(
+    repo_path: String,
+    since: i64,
+    until: i64,
+) -> Result<Vec<CommitActivity>> {
+    // Run blocking git operation on dedicated thread pool
+    tokio::task::spawn_blocking(move || {
+        let repo = git::open_repo(&repo_path)?;
+        Ok(git::get_commit_activity_all_branches(&repo, since, until)?)
     })
     .await
     .map_err(|e| AppError::io(format!("Task join error: {}", e)))?

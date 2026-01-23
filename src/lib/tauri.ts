@@ -4,6 +4,7 @@ import type {
   BranchInfo,
   CommitInfo,
   CommitGraph,
+  CommitActivity,
   StatusInfo,
   UnifiedDiff,
   FileDiff,
@@ -190,6 +191,18 @@ export async function getCommitHistoryAllBranches(
     repoPath,
     limit,
     offset,
+  });
+}
+
+export async function getCommitActivityAllBranches(
+  repoPath: string,
+  since: number,
+  until: number,
+): Promise<CommitActivity[]> {
+  return tracedInvoke<CommitActivity[]>("get_commit_activity_all_branches", {
+    repoPath,
+    since,
+    until,
   });
 }
 

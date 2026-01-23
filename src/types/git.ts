@@ -149,3 +149,9 @@ export interface AheadBehind {
   ahead: number;
   behind: number;
 }
+
+export interface CommitActivity {
+  time: number;
+  authorName: string;
+  authorEmail: string;
+}

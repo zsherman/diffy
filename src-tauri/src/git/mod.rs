@@ -11,3 +11,4 @@ pub use merge::*;
 // Re-export stash types
 pub use repository::StashEntry;
 pub use repository::AheadBehind;
+pub use repository::CommitActivity;
