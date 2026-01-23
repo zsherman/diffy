@@ -15,6 +15,7 @@ import {
   AIReviewPanel,
   WorktreesPanel,
   GraphPanel,
+  MergeConflictPanel,
 } from './panels';
 import { DockviewHeaderActions } from './DockviewHeaderActions';
 
@@ -39,6 +40,7 @@ const components = {
   'ai-review': AIReviewPanel,
   worktrees: WorktreesPanel,
   graph: GraphPanel,
+  'merge-conflict': MergeConflictPanel,
 };
 
 function createDefaultLayout(api: DockviewApi) {
@@ -115,7 +117,7 @@ export function setApplyingLayoutPreset(value: boolean) {
 }
 
 export function DockviewLayout() {
-  const { theme, showBranchesPanel, showFilesPanel, showDiffPanel, showStagingSidebar, showAIReviewPanel, showWorktreesPanel, showGraphPanel, setShowBranchesPanel, setShowFilesPanel, setShowDiffPanel, setShowStagingSidebar, setShowAIReviewPanel, setShowWorktreesPanel, setShowGraphPanel } = useUIStore();
+  const { theme, showBranchesPanel, showFilesPanel, showDiffPanel, showStagingSidebar, showAIReviewPanel, showWorktreesPanel, showGraphPanel, showMergeConflictPanel, setShowBranchesPanel, setShowFilesPanel, setShowDiffPanel, setShowStagingSidebar, setShowAIReviewPanel, setShowWorktreesPanel, setShowGraphPanel, setShowMergeConflictPanel } = useUIStore();
   const apiRef = useRef<DockviewApi | null>(null);
   const isInitializedRef = useRef(false);
 
@@ -170,6 +172,8 @@ export function DockviewLayout() {
         setShowWorktreesPanel(false);
       } else if (panelId === 'graph') {
         setShowGraphPanel(false);
+      } else if (panelId === 'merge-conflict') {
+        setShowMergeConflictPanel(false);
       }
     });
 
@@ -179,7 +183,7 @@ export function DockviewLayout() {
       layoutDisposable.dispose();
       removeDisposable.dispose();
     };
-  }, [setShowBranchesPanel, setShowFilesPanel, setShowDiffPanel, setShowStagingSidebar, setShowAIReviewPanel, setShowWorktreesPanel, setShowGraphPanel]);
+  }, [setShowBranchesPanel, setShowFilesPanel, setShowDiffPanel, setShowStagingSidebar, setShowAIReviewPanel, setShowWorktreesPanel, setShowGraphPanel, setShowMergeConflictPanel]);
 
   // Sync branches panel visibility with dockview
   useEffect(() => {
@@ -375,6 +379,35 @@ export function DockviewLayout() {
       api.removePanel(graphPanel);
     }
   }, [showGraphPanel]);
+
+  // Sync merge conflict panel visibility with dockview
+  useEffect(() => {
+    const api = apiRef.current;
+    if (!api || !isInitializedRef.current) return;
+
+    const mergeConflictPanel = api.getPanel('merge-conflict');
+    if (showMergeConflictPanel && !mergeConflictPanel) {
+      // Add merge conflict panel taking up most of the space (replace diff area)
+      const diffPanel = api.getPanel('diff');
+      if (diffPanel) {
+        api.addPanel({
+          id: 'merge-conflict',
+          component: 'merge-conflict',
+          title: 'Merge Conflicts',
+          position: { referencePanel: diffPanel, direction: 'within' },
+        });
+      } else {
+        api.addPanel({
+          id: 'merge-conflict',
+          component: 'merge-conflict',
+          title: 'Merge Conflicts',
+          position: { direction: 'right' },
+        });
+      }
+    } else if (!showMergeConflictPanel && mergeConflictPanel) {
+      api.removePanel(mergeConflictPanel);
+    }
+  }, [showMergeConflictPanel]);
 
   return (
     <DockviewReact

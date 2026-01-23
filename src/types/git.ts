@@ -76,7 +76,7 @@ export interface FileDiff {
   patch: string;
 }
 
-export type PanelId = 'branches' | 'commits' | 'files' | 'diff' | 'staging' | 'ai-review' | 'worktrees' | 'graph';
+export type PanelId = 'branches' | 'commits' | 'files' | 'diff' | 'staging' | 'ai-review' | 'worktrees' | 'graph' | 'merge-conflict';
 
 export interface RefInfo {
   name: string;

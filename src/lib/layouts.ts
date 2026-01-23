@@ -289,6 +289,22 @@ export const layoutPresets: LayoutPreset[] = [
       }
     },
   },
+  {
+    id: 'merge-conflict',
+    name: 'Merge Conflicts',
+    description: 'Full-screen merge conflict resolution',
+    apply: (api) => {
+      clearLayout(api);
+
+      api.addPanel({
+        id: 'merge-conflict',
+        component: 'merge-conflict',
+        title: 'Merge Conflicts',
+      });
+
+      // Single panel takes full width - no need to set sizes
+    },
+  },
 ];
 
 export function applyLayout(api: DockviewApi, layoutId: string) {
@@ -302,8 +318,10 @@ export function applyLayout(api: DockviewApi, layoutId: string) {
       // Sync store state based on which panels are in the layout
       const hasAIReview = api.getPanel('ai-review') !== undefined;
       const hasGraph = api.getPanel('graph') !== undefined;
+      const hasMergeConflict = api.getPanel('merge-conflict') !== undefined;
       uiStore.send({ type: 'setShowAIReviewPanel', show: hasAIReview });
       uiStore.send({ type: 'setShowGraphPanel', show: hasGraph });
+      uiStore.send({ type: 'setShowMergeConflictPanel', show: hasMergeConflict });
     } finally {
       // Use setTimeout to ensure flag is cleared after React effects run
       setTimeout(() => setApplyingLayoutPreset(false), 100);

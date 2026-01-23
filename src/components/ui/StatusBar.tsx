@@ -26,6 +26,7 @@ export function StatusBar() {
     files: 'j/k:navigate | Space:stage | u:unstage | d:discard',
     diff: 'v:toggle view | Tab:next panel',
     staging: 'Stage/unstage files | Enter:commit',
+    'merge-conflict': 'Ctrl+1:use ours | Ctrl+2:use theirs | Ctrl+Up/Down:navigate files',
   };
 
   const handleFetch = async () => {

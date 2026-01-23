@@ -45,6 +45,15 @@ pub fn run() {
             commands::get_skill_content,
             commands::get_skill_raw,
             commands::update_skill,
+            // Merge conflict commands
+            commands::get_merge_status,
+            commands::parse_file_conflicts,
+            commands::save_resolved_file,
+            commands::mark_file_resolved,
+            commands::abort_merge,
+            commands::continue_merge,
+            commands::merge_branch,
+            commands::ai_resolve_conflict,
         ])
         .setup(|_app| {
             #[cfg(debug_assertions)]

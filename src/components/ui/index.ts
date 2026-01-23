@@ -1,3 +1,4 @@
+export { Button } from './Button';
 export { StatusBar } from './StatusBar';
 export { HelpOverlay } from './HelpOverlay';
 export { SettingsDialog } from './SettingsDialog';

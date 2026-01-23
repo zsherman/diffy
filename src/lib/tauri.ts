@@ -12,6 +12,11 @@ import type {
   WorktreeCreateOptions,
 } from '../types/git';
 import type { SkillMetadata } from '../types/skills';
+import type {
+  MergeStatus,
+  FileConflictInfo,
+  AIResolveConflictResponse,
+} from '../features/merge-conflict/types';
 
 // Repository
 export async function openRepository(path: string): Promise<RepositoryInfo> {
@@ -270,4 +275,94 @@ export async function updateSkill(
     description: result.description,
     sourceUrl: result.source_url,
   };
+}
+
+// Merge conflict operations
+export async function getMergeStatus(repoPath: string): Promise<MergeStatus> {
+  const result = await invoke<{
+    in_merge: boolean;
+    conflicting_files: string[];
+    their_branch: string | null;
+  }>('get_merge_status', { repoPath });
+
+  return {
+    inMerge: result.in_merge,
+    conflictingFiles: result.conflicting_files,
+    theirBranch: result.their_branch,
+  };
+}
+
+export async function parseFileConflicts(
+  repoPath: string,
+  filePath: string
+): Promise<FileConflictInfo> {
+  const result = await invoke<{
+    file_path: string;
+    conflicts: Array<{
+      start_line: number;
+      end_line: number;
+      ours_content: string;
+      theirs_content: string;
+    }>;
+    ours_full: string;
+    theirs_full: string;
+    original_content: string;
+  }>('parse_file_conflicts', { repoPath, filePath });
+
+  return {
+    filePath: result.file_path,
+    conflicts: result.conflicts.map((c) => ({
+      startLine: c.start_line,
+      endLine: c.end_line,
+      oursContent: c.ours_content,
+      theirsContent: c.theirs_content,
+    })),
+    oursFull: result.ours_full,
+    theirsFull: result.theirs_full,
+    originalContent: result.original_content,
+  };
+}
+
+export async function saveResolvedFile(
+  repoPath: string,
+  filePath: string,
+  content: string
+): Promise<void> {
+  return invoke<void>('save_resolved_file', { repoPath, filePath, content });
+}
+
+export async function markFileResolved(
+  repoPath: string,
+  filePath: string
+): Promise<void> {
+  return invoke<void>('mark_file_resolved', { repoPath, filePath });
+}
+
+export async function abortMerge(repoPath: string): Promise<string> {
+  return invoke<string>('abort_merge', { repoPath });
+}
+
+export async function continueMerge(repoPath: string): Promise<string> {
+  return invoke<string>('continue_merge', { repoPath });
+}
+
+export async function mergeBranch(
+  repoPath: string,
+  branchName: string
+): Promise<string> {
+  return invoke<string>('merge_branch', { repoPath, branchName });
+}
+
+export async function aiResolveConflict(
+  filePath: string,
+  oursContent: string,
+  theirsContent: string,
+  instructions?: string
+): Promise<AIResolveConflictResponse> {
+  return invoke<AIResolveConflictResponse>('ai_resolve_conflict', {
+    filePath,
+    oursContent,
+    theirsContent,
+    instructions,
+  });
 }

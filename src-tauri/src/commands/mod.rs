@@ -1,4 +1,4 @@
-use crate::git::{self, BranchInfo, CommitGraph, CommitInfo, FileDiff, RepositoryInfo, StatusInfo, UnifiedDiff, WorktreeInfo, WorktreeCreateOptions};
+use crate::git::{self, BranchInfo, CommitGraph, CommitInfo, FileDiff, RepositoryInfo, StatusInfo, UnifiedDiff, WorktreeInfo, WorktreeCreateOptions, MergeStatus, FileConflictInfo};
 use std::process::Command;
 use std::path::PathBuf;
 use std::fs;
@@ -960,4 +960,132 @@ pub async fn lock_worktree(repo_path: String, worktree_name: String, reason: Opt
 #[tauri::command]
 pub async fn unlock_worktree(repo_path: String, worktree_name: String) -> Result<()> {
     git::unlock_worktree(&repo_path, &worktree_name).map_err(map_err)
+}
+
+// Merge conflict commands
+#[tauri::command]
+pub async fn get_merge_status(repo_path: String) -> Result<MergeStatus> {
+    let repo = git::open_repo(&repo_path).map_err(map_err)?;
+    git::get_merge_status(&repo).map_err(map_err)
+}
+
+#[tauri::command]
+pub async fn parse_file_conflicts(repo_path: String, file_path: String) -> Result<FileConflictInfo> {
+    git::parse_file_conflicts(&repo_path, &file_path).map_err(map_err)
+}
+
+#[tauri::command]
+pub async fn save_resolved_file(repo_path: String, file_path: String, content: String) -> Result<()> {
+    git::save_resolved_file(&repo_path, &file_path, &content).map_err(map_err)
+}
+
+#[tauri::command]
+pub async fn mark_file_resolved(repo_path: String, file_path: String) -> Result<()> {
+    let repo = git::open_repo(&repo_path).map_err(map_err)?;
+    git::mark_file_resolved(&repo, &file_path).map_err(map_err)
+}
+
+#[tauri::command]
+pub async fn abort_merge(repo_path: String) -> Result<String> {
+    git::abort_merge(&repo_path).map_err(map_err)
+}
+
+#[tauri::command]
+pub async fn continue_merge(repo_path: String) -> Result<String> {
+    git::continue_merge(&repo_path).map_err(map_err)
+}
+
+#[tauri::command]
+pub async fn merge_branch(repo_path: String, branch_name: String) -> Result<String> {
+    git::merge_branch(&repo_path, &branch_name).map_err(map_err)
+}
+
+#[derive(serde::Serialize)]
+pub struct AIResolveConflictResponse {
+    pub resolved: String,
+    pub explanation: String,
+}
+
+#[tauri::command]
+pub async fn ai_resolve_conflict(
+    file_path: String,
+    ours_content: String,
+    theirs_content: String,
+    instructions: Option<String>,
+) -> Result<AIResolveConflictResponse> {
+    let instructions_text = instructions.unwrap_or_default();
+    
+    let prompt = format!(
+        r#"You are resolving a Git merge conflict.
+
+File: {file_path}
+
+## Current Branch (Ours)
+```
+{ours_content}
+```
+
+## Incoming Branch (Theirs)
+```
+{theirs_content}
+```
+
+{instructions_section}
+
+Analyze both versions and produce a merged result that:
+1. Preserves all intended functionality from both branches
+2. Resolves any conflicts logically
+3. Maintains code style consistency
+
+Respond ONLY with valid JSON in this exact format (no markdown, no code blocks, just raw JSON):
+{{"resolved": "the merged code here", "explanation": "brief explanation of how you resolved the conflict"}}"#,
+        file_path = file_path,
+        ours_content = ours_content,
+        theirs_content = theirs_content,
+        instructions_section = if instructions_text.is_empty() {
+            String::new()
+        } else {
+            format!("## User Instructions\n{}\n", instructions_text)
+        }
+    );
+
+    // Call claude CLI
+    let claude_path = find_claude_binary()?;
+    let output = Command::new(&claude_path)
+        .args(["-p", &prompt])
+        .output()
+        .map_err(|e| format!("Failed to run claude at {:?}: {}", claude_path, e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Claude failed: {}", stderr));
+    }
+
+    let response = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+    if response.is_empty() {
+        return Err("Claude returned an empty response".to_string());
+    }
+
+    // Extract JSON from response
+    let json_str = extract_json_object(&response)
+        .ok_or_else(|| format!("Could not find valid JSON in response: {}", response))?;
+
+    let json: serde_json::Value = serde_json::from_str(json_str)
+        .map_err(|e| format!("Failed to parse AI response as JSON: {}. JSON was: {}", e, json_str))?;
+
+    let resolved = json["resolved"]
+        .as_str()
+        .ok_or("Invalid response: missing 'resolved' field")?
+        .to_string();
+
+    let explanation = json["explanation"]
+        .as_str()
+        .unwrap_or("Conflict resolved")
+        .to_string();
+
+    Ok(AIResolveConflictResponse {
+        resolved,
+        explanation,
+    })
 }

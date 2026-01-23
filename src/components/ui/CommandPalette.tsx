@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState, useEffect } from 'react';
 import {
   GitBranch,
+  GitMerge,
   Files,
   Code,
   Stack,
@@ -28,11 +29,13 @@ import {
   CaretRight,
   ArrowLeft,
   ArrowCounterClockwise,
+  Warning,
 } from '@phosphor-icons/react';
 import { useUIStore, getDockviewApi } from '../../stores/ui-store';
 import { useGitStore } from '../../stores/git-store';
+import { useMergeConflictStore } from '../../stores/merge-conflict-store';
 import { useToast } from './Toast';
-import { gitFetch, gitPull, gitPush, openRepository, discoverRepository } from '../../lib/tauri';
+import { gitFetch, gitPull, gitPush, openRepository, discoverRepository, getMergeStatus, parseFileConflicts, listBranches, mergeBranch } from '../../lib/tauri';
 import { getErrorMessage } from '../../lib/errors';
 import { applyLayout, layoutPresets } from '../../lib/layouts';
 import { getRecentRepositories, type RecentRepository } from '../../lib/recent-repos';
@@ -58,6 +61,7 @@ export function CommandPalette() {
     setShowAIReviewPanel,
     toggleWorktreesPanel,
     setShowWorktreesPanel,
+    setShowMergeConflictPanel,
     setTheme,
     setDiffViewMode,
     setDiffFontSize,
@@ -69,6 +73,7 @@ export function CommandPalette() {
   } = useUIStore();
 
   const { repository, setRepository, setIsLoading, setError } = useGitStore();
+  const { enterMergeMode } = useMergeConflictStore();
   const toast = useToast();
   const queryClient = useQueryClient();
 
@@ -76,6 +81,7 @@ export function CommandPalette() {
   const [search, setSearch] = useState('');
   const [pages, setPages] = useState<string[]>([]);
   const page = pages[pages.length - 1];
+  const [branchesForMerge, setBranchesForMerge] = useState<Array<{ name: string; isHead: boolean }>>([]);
 
   // Reset pages and search when dialog closes
   useEffect(() => {
@@ -176,6 +182,89 @@ export function CommandPalette() {
     }
   };
 
+  const handleResolveMergeConflicts = async () => {
+    if (!repository) return;
+    try {
+      const mergeStatus = await getMergeStatus(repository.path);
+      if (!mergeStatus.inMerge || mergeStatus.conflictingFiles.length === 0) {
+        toast.info('No merge conflicts', 'There are no merge conflicts to resolve');
+        return;
+      }
+      const fileInfos = await Promise.all(
+        mergeStatus.conflictingFiles.map((filePath) =>
+          parseFileConflicts(repository.path, filePath)
+        )
+      );
+      enterMergeMode(fileInfos, mergeStatus.theirBranch);
+      setShowMergeConflictPanel(true);
+      setActivePanel('merge-conflict');
+      // Switch to merge conflict layout
+      const api = getDockviewApi();
+      if (api) {
+        applyLayout(api, 'merge-conflict');
+      }
+    } catch (error) {
+      toast.error('Failed to load conflicts', getErrorMessage(error));
+    }
+  };
+
+  const handleOpenMergePage = async () => {
+    if (!repository) return;
+    try {
+      const branches = await listBranches(repository.path);
+      // Filter to local branches only (can't merge remote directly)
+      setBranchesForMerge(
+        branches
+          .filter((b) => !b.is_remote)
+          .map((b) => ({ name: b.name, isHead: b.is_head }))
+      );
+      setSearch('');
+      setPages([...pages, 'merge-branch']);
+    } catch (error) {
+      toast.error('Failed to load branches', getErrorMessage(error));
+    }
+  };
+
+  const handleMergeBranch = async (branchName: string) => {
+    if (!repository) return;
+    setShowCommandPalette(false);
+    try {
+      await mergeBranch(repository.path, branchName);
+      toast.success('Merge successful', `Merged ${branchName} into current branch`);
+      queryClient.invalidateQueries({ queryKey: ['branches'] });
+      queryClient.invalidateQueries({ queryKey: ['commits'] });
+      queryClient.invalidateQueries({ queryKey: ['status'] });
+    } catch (error) {
+      const errorMsg = getErrorMessage(error);
+      if (errorMsg.includes('conflicts')) {
+        toast.warning('Merge conflicts', 'The merge has conflicts that need to be resolved');
+        // Open the merge conflict panel
+        try {
+          const mergeStatus = await getMergeStatus(repository.path);
+          if (mergeStatus.conflictingFiles.length > 0) {
+            const fileInfos = await Promise.all(
+              mergeStatus.conflictingFiles.map((filePath) =>
+                parseFileConflicts(repository.path, filePath)
+              )
+            );
+            enterMergeMode(fileInfos, mergeStatus.theirBranch);
+            setShowMergeConflictPanel(true);
+            // Switch to merge conflict layout
+            const api = getDockviewApi();
+            if (api) {
+              applyLayout(api, 'merge-conflict');
+            }
+          }
+        } catch (e) {
+          console.error('Failed to load conflict info:', e);
+        }
+        queryClient.invalidateQueries({ queryKey: ['merge-status'] });
+      } else {
+        toast.error('Merge failed', errorMsg);
+      }
+    }
+  };
+
   return (
     <Command.Dialog
       open={showCommandPalette}
@@ -218,6 +307,7 @@ export function CommandPalette() {
             </button>
             <span className="text-sm text-text-muted">
               {page === 'recent' && 'Recent Repositories'}
+              {page === 'merge-branch' && 'Merge Branch'}
             </span>
           </div>
         )}
@@ -225,7 +315,7 @@ export function CommandPalette() {
         <Command.Input
           value={search}
           onValueChange={setSearch}
-          placeholder={page === 'recent' ? 'Search repositories...' : 'Type a command...'}
+          placeholder={page === 'recent' ? 'Search repositories...' : page === 'merge-branch' ? 'Search branches...' : 'Type a command...'}
           className="w-full px-4 py-3 bg-transparent border-b border-border-primary text-text-primary placeholder-text-muted outline-none focus:outline-none focus-visible:outline-none focus:ring-0 text-sm"
         />
 
@@ -258,430 +348,475 @@ export function CommandPalette() {
             </>
           )}
 
+          {/* Merge Branch Page */}
+          {page === 'merge-branch' && (
+            <>
+              {branchesForMerge
+                .filter((b) => !b.isHead) // Don't show current branch
+                .map((branch) => (
+                  <Command.Item
+                    key={branch.name}
+                    onSelect={() => handleMergeBranch(branch.name)}
+                    className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  >
+                    <GitMerge size={16} className="text-text-muted" />
+                    <span className="flex-1">{branch.name}</span>
+                    <span className="text-xs text-text-muted">
+                      Merge into current branch
+                    </span>
+                  </Command.Item>
+                ))}
+              {branchesForMerge.filter((b) => !b.isHead).length === 0 && (
+                <div className="py-6 text-center text-text-muted text-sm">
+                  No other branches available to merge
+                </div>
+              )}
+            </>
+          )}
+
           {/* Main menu (no page selected) */}
           {!page && (
             <>
               {/* Panels Group */}
-          <Command.Group
-            heading="Panels"
-            className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
-          >
-            <Command.Item
-              onSelect={() => runCommand(toggleBranchesPanel)}
-              className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-            >
-              <GitBranch size={16} className="text-text-muted" />
-              <span className="flex-1">Toggle Branches Panel</span>
-              <span className="text-xs text-text-muted">
-                {showBranchesPanel ? 'Hide' : 'Show'}
-              </span>
-              <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
-                1
-              </kbd>
-            </Command.Item>
-
-            <Command.Item
-              onSelect={() => runCommand(() => setShowFilesPanel(!showFilesPanel))}
-              className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-            >
-              <Files size={16} className="text-text-muted" />
-              <span className="flex-1">Toggle Files Panel</span>
-              <span className="text-xs text-text-muted">
-                {showFilesPanel ? 'Hide' : 'Show'}
-              </span>
-              <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
-                3
-              </kbd>
-            </Command.Item>
-
-            <Command.Item
-              onSelect={() => runCommand(() => setShowDiffPanel(!showDiffPanel))}
-              className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-            >
-              <Code size={16} className="text-text-muted" />
-              <span className="flex-1">Toggle Diff Panel</span>
-              <span className="text-xs text-text-muted">
-                {showDiffPanel ? 'Hide' : 'Show'}
-              </span>
-              <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
-                4
-              </kbd>
-            </Command.Item>
-
-            <Command.Item
-              onSelect={() => runCommand(toggleStagingSidebar)}
-              className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-            >
-              <Stack size={16} className="text-text-muted" />
-              <span className="flex-1">Toggle Staging Sidebar</span>
-              <span className="text-xs text-text-muted">
-                {showStagingSidebar ? 'Hide' : 'Show'}
-              </span>
-              <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
-                Cmd+Shift+S
-              </kbd>
-            </Command.Item>
-
-            <Command.Item
-              onSelect={() => runCommand(() => setShowAIReviewPanel(!showAIReviewPanel))}
-              className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-            >
-              <Robot size={16} className="text-text-muted" />
-              <span className="flex-1">Toggle AI Review Panel</span>
-              <span className="text-xs text-text-muted">
-                {showAIReviewPanel ? 'Hide' : 'Show'}
-              </span>
-            </Command.Item>
-
-            <Command.Item
-              onSelect={() => runCommand(toggleWorktreesPanel)}
-              className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-            >
-              <TreeStructure size={16} className="text-text-muted" />
-              <span className="flex-1">Toggle Worktrees Panel</span>
-              <span className="text-xs text-text-muted">
-                {showWorktreesPanel ? 'Hide' : 'Show'}
-              </span>
-            </Command.Item>
-          </Command.Group>
-
-          {/* Repository Group - Switch/Close repos */}
-          <Command.Group
-            heading="Repository"
-            className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
-          >
-            <Command.Item
-              onSelect={() => {
-                setSearch('');
-                setPages([...pages, 'recent']);
-              }}
-              className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-              keywords={['switch', 'recent', 'open']}
-            >
-              <FolderOpen size={16} className="text-text-muted" />
-              <span className="flex-1">Open Recent...</span>
-              <CaretRight size={16} className="text-text-muted" />
-            </Command.Item>
-
-            {repository && (
-              <Command.Item
-                onSelect={() => runCommand(handleCloseRepository)}
-                className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-                keywords={['close', 'exit', 'quit']}
+              <Command.Group
+                heading="Panels"
+                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
               >
-                <SignOut size={16} className="text-text-muted" />
-                <span className="flex-1">Close Repository</span>
-              </Command.Item>
-            )}
-          </Command.Group>
+                <Command.Item
+                  onSelect={() => runCommand(toggleBranchesPanel)}
+                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                >
+                  <GitBranch size={16} className="text-text-muted" />
+                  <span className="flex-1">Toggle Branches Panel</span>
+                  <span className="text-xs text-text-muted">
+                    {showBranchesPanel ? 'Hide' : 'Show'}
+                  </span>
+                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
+                    1
+                  </kbd>
+                </Command.Item>
 
-          {/* Navigation Group */}
-          <Command.Group
-            heading="Navigation"
-            className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
-          >
-            <Command.Item
-              onSelect={() =>
-                runCommand(() => {
-                  setActivePanel('branches');
-                  focusPanel('branches');
-                })
-              }
-              className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-            >
-              <GitBranch size={16} className="text-text-muted" />
-              <span className="flex-1">Go to Branches</span>
-              <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
-                1
-              </kbd>
-            </Command.Item>
+                <Command.Item
+                  onSelect={() => runCommand(() => setShowFilesPanel(!showFilesPanel))}
+                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                >
+                  <Files size={16} className="text-text-muted" />
+                  <span className="flex-1">Toggle Files Panel</span>
+                  <span className="text-xs text-text-muted">
+                    {showFilesPanel ? 'Hide' : 'Show'}
+                  </span>
+                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
+                    3
+                  </kbd>
+                </Command.Item>
 
-            <Command.Item
-              onSelect={() =>
-                runCommand(() => {
-                  setActivePanel('commits');
-                  focusPanel('commits');
-                })
-              }
-              className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-            >
-              <GitCommit size={16} className="text-text-muted" />
-              <span className="flex-1">Go to Commits</span>
-              <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
-                2
-              </kbd>
-            </Command.Item>
+                <Command.Item
+                  onSelect={() => runCommand(() => setShowDiffPanel(!showDiffPanel))}
+                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                >
+                  <Code size={16} className="text-text-muted" />
+                  <span className="flex-1">Toggle Diff Panel</span>
+                  <span className="text-xs text-text-muted">
+                    {showDiffPanel ? 'Hide' : 'Show'}
+                  </span>
+                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
+                    4
+                  </kbd>
+                </Command.Item>
 
-            <Command.Item
-              onSelect={() =>
-                runCommand(() => {
-                  setActivePanel('files');
-                  focusPanel('files');
-                })
-              }
-              className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-            >
-              <Files size={16} className="text-text-muted" />
-              <span className="flex-1">Go to Files</span>
-              <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
-                3
-              </kbd>
-            </Command.Item>
+                <Command.Item
+                  onSelect={() => runCommand(toggleStagingSidebar)}
+                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                >
+                  <Stack size={16} className="text-text-muted" />
+                  <span className="flex-1">Toggle Staging Sidebar</span>
+                  <span className="text-xs text-text-muted">
+                    {showStagingSidebar ? 'Hide' : 'Show'}
+                  </span>
+                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
+                    Cmd+Shift+S
+                  </kbd>
+                </Command.Item>
 
-            <Command.Item
-              onSelect={() =>
-                runCommand(() => {
-                  setActivePanel('diff');
-                  focusPanel('diff');
-                })
-              }
-              className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-            >
-              <Code size={16} className="text-text-muted" />
-              <span className="flex-1">Go to Diff</span>
-              <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
-                4
-              </kbd>
-            </Command.Item>
+                <Command.Item
+                  onSelect={() => runCommand(() => setShowAIReviewPanel(!showAIReviewPanel))}
+                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                >
+                  <Robot size={16} className="text-text-muted" />
+                  <span className="flex-1">Toggle AI Review Panel</span>
+                  <span className="text-xs text-text-muted">
+                    {showAIReviewPanel ? 'Hide' : 'Show'}
+                  </span>
+                </Command.Item>
 
-            <Command.Item
-              onSelect={() =>
-                runCommand(() => {
-                  setActivePanel('staging');
-                  focusPanel('staging');
-                })
-              }
-              className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-            >
-              <Stack size={16} className="text-text-muted" />
-              <span className="flex-1">Go to Staging</span>
-              <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
-                5
-              </kbd>
-            </Command.Item>
+                <Command.Item
+                  onSelect={() => runCommand(toggleWorktreesPanel)}
+                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                >
+                  <TreeStructure size={16} className="text-text-muted" />
+                  <span className="flex-1">Toggle Worktrees Panel</span>
+                  <span className="text-xs text-text-muted">
+                    {showWorktreesPanel ? 'Hide' : 'Show'}
+                  </span>
+                </Command.Item>
+              </Command.Group>
 
-            <Command.Item
-              onSelect={() =>
-                runCommand(() => {
-                  setShowWorktreesPanel(true);
-                  setActivePanel('worktrees');
-                  focusPanel('worktrees');
-                })
-              }
-              className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-            >
-              <TreeStructure size={16} className="text-text-muted" />
-              <span className="flex-1">Go to Worktrees</span>
-            </Command.Item>
-          </Command.Group>
-
-          {/* Git Group - only show when repo is open */}
-          {repository && (
-            <Command.Group
-              heading="Git"
-              className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
-            >
-              <Command.Item
-                onSelect={() => runCommand(handleFetch)}
-                className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+              {/* Repository Group - Switch/Close repos */}
+              <Command.Group
+                heading="Repository"
+                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
               >
-                <CloudArrowDown size={16} className="text-text-muted" />
-                <span className="flex-1">Fetch from Remote</span>
-              </Command.Item>
+                <Command.Item
+                  onSelect={() => {
+                    setSearch('');
+                    setPages([...pages, 'recent']);
+                  }}
+                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  keywords={['switch', 'recent', 'open']}
+                >
+                  <FolderOpen size={16} className="text-text-muted" />
+                  <span className="flex-1">Open Recent...</span>
+                  <CaretRight size={16} className="text-text-muted" />
+                </Command.Item>
 
-              <Command.Item
-                onSelect={() => runCommand(handlePull)}
-                className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                {repository && (
+                  <Command.Item
+                    onSelect={() => runCommand(handleCloseRepository)}
+                    className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                    keywords={['close', 'exit', 'quit']}
+                  >
+                    <SignOut size={16} className="text-text-muted" />
+                    <span className="flex-1">Close Repository</span>
+                  </Command.Item>
+                )}
+              </Command.Group>
+
+              {/* Navigation Group */}
+              <Command.Group
+                heading="Navigation"
+                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
               >
-                <ArrowDown size={16} className="text-text-muted" />
-                <span className="flex-1">Pull from Remote</span>
-              </Command.Item>
+                <Command.Item
+                  onSelect={() =>
+                    runCommand(() => {
+                      setActivePanel('branches');
+                      focusPanel('branches');
+                    })
+                  }
+                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                >
+                  <GitBranch size={16} className="text-text-muted" />
+                  <span className="flex-1">Go to Branches</span>
+                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
+                    1
+                  </kbd>
+                </Command.Item>
 
-              <Command.Item
-                onSelect={() => runCommand(handlePush)}
-                className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-              >
-                <ArrowUp size={16} className="text-text-muted" />
-                <span className="flex-1">Push to Remote</span>
-              </Command.Item>
+                <Command.Item
+                  onSelect={() =>
+                    runCommand(() => {
+                      setActivePanel('commits');
+                      focusPanel('commits');
+                    })
+                  }
+                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                >
+                  <GitCommit size={16} className="text-text-muted" />
+                  <span className="flex-1">Go to Commits</span>
+                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
+                    2
+                  </kbd>
+                </Command.Item>
 
-              <Command.Item
-                onSelect={() =>
-                  runCommand(() => {
-                    setShowWorktreesPanel(true);
-                    setActivePanel('worktrees');
-                    focusPanel('worktrees');
-                  })
-                }
-                className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-              >
-                <Plus size={16} className="text-text-muted" />
-                <span className="flex-1">Create New Worktree</span>
-              </Command.Item>
-            </Command.Group>
-          )}
+                <Command.Item
+                  onSelect={() =>
+                    runCommand(() => {
+                      setActivePanel('files');
+                      focusPanel('files');
+                    })
+                  }
+                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                >
+                  <Files size={16} className="text-text-muted" />
+                  <span className="flex-1">Go to Files</span>
+                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
+                    3
+                  </kbd>
+                </Command.Item>
 
-          {/* View Group */}
-          <Command.Group
-            heading="View"
-            className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
-          >
-            <Command.Item
-              onSelect={() =>
-                runCommand(() =>
-                  setTheme(theme === 'pierre-dark' ? 'pierre-light' : 'pierre-dark')
-                )
-              }
-              className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-            >
-              {theme === 'pierre-dark' ? (
-                <Sun size={16} className="text-text-muted" />
-              ) : (
-                <Moon size={16} className="text-text-muted" />
-              )}
-              <span className="flex-1">Toggle Theme</span>
-              <span className="text-xs text-text-muted">
-                {theme === 'pierre-dark' ? 'Switch to Light' : 'Switch to Dark'}
-              </span>
-            </Command.Item>
+                <Command.Item
+                  onSelect={() =>
+                    runCommand(() => {
+                      setActivePanel('diff');
+                      focusPanel('diff');
+                    })
+                  }
+                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                >
+                  <Code size={16} className="text-text-muted" />
+                  <span className="flex-1">Go to Diff</span>
+                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
+                    4
+                  </kbd>
+                </Command.Item>
 
-            <Command.Item
-              onSelect={() =>
-                runCommand(() =>
-                  setDiffViewMode(diffViewMode === 'split' ? 'unified' : 'split')
-                )
-              }
-              className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-            >
-              {diffViewMode === 'split' ? (
-                <Rows size={16} className="text-text-muted" />
-              ) : (
-                <SplitVertical size={16} className="text-text-muted" />
-              )}
-              <span className="flex-1">Toggle Diff View Mode</span>
-              <span className="text-xs text-text-muted">
-                {diffViewMode === 'split' ? 'Switch to Unified' : 'Switch to Split'}
-              </span>
-              <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
-                V
-              </kbd>
-            </Command.Item>
+                <Command.Item
+                  onSelect={() =>
+                    runCommand(() => {
+                      setActivePanel('staging');
+                      focusPanel('staging');
+                    })
+                  }
+                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                >
+                  <Stack size={16} className="text-text-muted" />
+                  <span className="flex-1">Go to Staging</span>
+                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
+                    5
+                  </kbd>
+                </Command.Item>
 
-            <Command.Item
-              onSelect={() =>
-                runCommand(() => setDiffFontSize(Math.min(diffFontSize + 1, 24)))
-              }
-              className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-            >
-              <TextAa size={16} className="text-text-muted" />
-              <span className="flex-1">Increase Font Size</span>
-              <span className="text-xs text-text-muted">{diffFontSize}px</span>
-            </Command.Item>
+                <Command.Item
+                  onSelect={() =>
+                    runCommand(() => {
+                      setShowWorktreesPanel(true);
+                      setActivePanel('worktrees');
+                      focusPanel('worktrees');
+                    })
+                  }
+                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                >
+                  <TreeStructure size={16} className="text-text-muted" />
+                  <span className="flex-1">Go to Worktrees</span>
+                </Command.Item>
+              </Command.Group>
 
-            <Command.Item
-              onSelect={() =>
-                runCommand(() => setDiffFontSize(Math.max(diffFontSize - 1, 10)))
-              }
-              className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-            >
-              <TextAa size={16} className="text-text-muted" />
-              <span className="flex-1">Decrease Font Size</span>
-              <span className="text-xs text-text-muted">{diffFontSize}px</span>
-            </Command.Item>
-          </Command.Group>
+              {/* Git Group - only show when repo is open */}
+              {repository && (
+                <Command.Group
+                  heading="Git"
+                  className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
+                >
+                  <Command.Item
+                    onSelect={() => runCommand(handleFetch)}
+                    className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  >
+                    <CloudArrowDown size={16} className="text-text-muted" />
+                    <span className="flex-1">Fetch from Remote</span>
+                  </Command.Item>
 
-          {/* Layout Group */}
-          <Command.Group
-            heading="Layout"
-            className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
-          >
-            <Command.Item
-              onSelect={() =>
-                runCommand(() => {
-                  localStorage.removeItem('diffy-dockview-layout');
-                  window.location.reload();
-                })
-              }
-              className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-              keywords={['reset', 'default', 'clear']}
-            >
-              <ArrowCounterClockwise size={16} className="text-text-muted shrink-0" />
-              <span className="shrink-0 whitespace-nowrap">Reset Layout</span>
-              <span className="flex-1 text-xs text-text-muted text-right">Restore default layout</span>
-            </Command.Item>
+                  <Command.Item
+                    onSelect={() => runCommand(handlePull)}
+                    className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  >
+                    <ArrowDown size={16} className="text-text-muted" />
+                    <span className="flex-1">Pull from Remote</span>
+                  </Command.Item>
 
-            {layoutPresets.map((preset) => (
-              <Command.Item
-                key={preset.id}
-                onSelect={() =>
-                  runCommand(() => {
-                    const api = getDockviewApi();
-                    if (api) {
-                      applyLayout(api, preset.id);
+                  <Command.Item
+                    onSelect={() => runCommand(handlePush)}
+                    className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  >
+                    <ArrowUp size={16} className="text-text-muted" />
+                    <span className="flex-1">Push to Remote</span>
+                  </Command.Item>
+
+                  <Command.Item
+                    onSelect={() =>
+                      runCommand(() => {
+                        setShowWorktreesPanel(true);
+                        setActivePanel('worktrees');
+                        focusPanel('worktrees');
+                      })
                     }
-                  })
-                }
-                className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                    className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  >
+                    <Plus size={16} className="text-text-muted" />
+                    <span className="flex-1">Create New Worktree</span>
+                  </Command.Item>
+
+                  <Command.Item
+                    onSelect={() => runCommand(handleResolveMergeConflicts)}
+                    className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                    keywords={['merge', 'conflict', 'resolve']}
+                  >
+                    <Warning size={16} className="text-accent-yellow" />
+                    <span className="flex-1">Resolve Merge Conflicts</span>
+                  </Command.Item>
+
+                  <Command.Item
+                    onSelect={() => handleOpenMergePage()}
+                    className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                    keywords={['merge', 'branch', 'combine']}
+                  >
+                    <GitMerge size={16} className="text-text-muted" />
+                    <span className="flex-1">Merge Branch...</span>
+                    <CaretRight size={16} className="text-text-muted" />
+                  </Command.Item>
+                </Command.Group>
+              )}
+
+              {/* View Group */}
+              <Command.Group
+                heading="View"
+                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
               >
-                <Layout size={16} className="text-text-muted shrink-0" />
-                <span className="shrink-0 whitespace-nowrap">Layout: {preset.name}</span>
-                <span className="flex-1 text-xs text-text-muted text-right truncate">{preset.description}</span>
-              </Command.Item>
-            ))}
-          </Command.Group>
+                <Command.Item
+                  onSelect={() =>
+                    runCommand(() =>
+                      setTheme(theme === 'pierre-dark' ? 'pierre-light' : 'pierre-dark')
+                    )
+                  }
+                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                >
+                  {theme === 'pierre-dark' ? (
+                    <Sun size={16} className="text-text-muted" />
+                  ) : (
+                    <Moon size={16} className="text-text-muted" />
+                  )}
+                  <span className="flex-1">Toggle Theme</span>
+                  <span className="text-xs text-text-muted">
+                    {theme === 'pierre-dark' ? 'Switch to Light' : 'Switch to Dark'}
+                  </span>
+                </Command.Item>
 
-          {/* Skills Group */}
-          <Command.Group
-            heading="Skills"
-            className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
-          >
-            <Command.Item
-              onSelect={() => runCommand(() => setShowSkillsDialog(true))}
-              className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-            >
-              <BookBookmark size={16} className="text-text-muted" />
-              <span className="flex-1">Manage Skills</span>
-            </Command.Item>
+                <Command.Item
+                  onSelect={() =>
+                    runCommand(() =>
+                      setDiffViewMode(diffViewMode === 'split' ? 'unified' : 'split')
+                    )
+                  }
+                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                >
+                  {diffViewMode === 'split' ? (
+                    <Rows size={16} className="text-text-muted" />
+                  ) : (
+                    <SplitVertical size={16} className="text-text-muted" />
+                  )}
+                  <span className="flex-1">Toggle Diff View Mode</span>
+                  <span className="text-xs text-text-muted">
+                    {diffViewMode === 'split' ? 'Switch to Unified' : 'Switch to Split'}
+                  </span>
+                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
+                    V
+                  </kbd>
+                </Command.Item>
 
-            {selectedSkillIds.length > 0 && (
-              <Command.Item
-                onSelect={() => runCommand(clearSelectedSkills)}
-                className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                <Command.Item
+                  onSelect={() =>
+                    runCommand(() => setDiffFontSize(Math.min(diffFontSize + 1, 24)))
+                  }
+                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                >
+                  <TextAa size={16} className="text-text-muted" />
+                  <span className="flex-1">Increase Font Size</span>
+                  <span className="text-xs text-text-muted">{diffFontSize}px</span>
+                </Command.Item>
+
+                <Command.Item
+                  onSelect={() =>
+                    runCommand(() => setDiffFontSize(Math.max(diffFontSize - 1, 10)))
+                  }
+                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                >
+                  <TextAa size={16} className="text-text-muted" />
+                  <span className="flex-1">Decrease Font Size</span>
+                  <span className="text-xs text-text-muted">{diffFontSize}px</span>
+                </Command.Item>
+              </Command.Group>
+
+              {/* Layout Group */}
+              <Command.Group
+                heading="Layout"
+                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
               >
-                <Trash size={16} className="text-text-muted" />
-                <span className="flex-1">Clear Selected Skills</span>
-                <span className="text-xs text-text-muted">
-                  {selectedSkillIds.length} selected
-                </span>
-              </Command.Item>
-            )}
-          </Command.Group>
+                <Command.Item
+                  onSelect={() =>
+                    runCommand(() => {
+                      localStorage.removeItem('diffy-dockview-layout');
+                      window.location.reload();
+                    })
+                  }
+                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  keywords={['reset', 'default', 'clear']}
+                >
+                  <ArrowCounterClockwise size={16} className="text-text-muted shrink-0" />
+                  <span className="shrink-0 whitespace-nowrap">Reset Layout</span>
+                  <span className="flex-1 text-xs text-text-muted text-right">Restore default layout</span>
+                </Command.Item>
 
-          {/* General Group */}
-          <Command.Group
-            heading="General"
-            className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
-          >
-            <Command.Item
-              onSelect={() => runCommand(() => setShowSettingsDialog(true))}
-              className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-            >
-              <GearSix size={16} className="text-text-muted" />
-              <span className="flex-1">Open Settings</span>
-            </Command.Item>
+                {layoutPresets.map((preset) => (
+                  <Command.Item
+                    key={preset.id}
+                    onSelect={() =>
+                      runCommand(() => {
+                        const api = getDockviewApi();
+                        if (api) {
+                          applyLayout(api, preset.id);
+                        }
+                      })
+                    }
+                    className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  >
+                    <Layout size={16} className="text-text-muted shrink-0" />
+                    <span className="shrink-0 whitespace-nowrap">Layout: {preset.name}</span>
+                    <span className="flex-1 text-xs text-text-muted text-right truncate">{preset.description}</span>
+                  </Command.Item>
+                ))}
+              </Command.Group>
 
-            <Command.Item
-              onSelect={() => runCommand(() => setShowHelpOverlay(true))}
-              className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-            >
-              <Keyboard size={16} className="text-text-muted" />
-              <span className="flex-1">Show Keyboard Shortcuts</span>
-              <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
-                ?
-              </kbd>
-            </Command.Item>
+              {/* Skills Group */}
+              <Command.Group
+                heading="Skills"
+                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
+              >
+                <Command.Item
+                  onSelect={() => runCommand(() => setShowSkillsDialog(true))}
+                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                >
+                  <BookBookmark size={16} className="text-text-muted" />
+                  <span className="flex-1">Manage Skills</span>
+                </Command.Item>
 
-          </Command.Group>
+                {selectedSkillIds.length > 0 && (
+                  <Command.Item
+                    onSelect={() => runCommand(clearSelectedSkills)}
+                    className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  >
+                    <Trash size={16} className="text-text-muted" />
+                    <span className="flex-1">Clear Selected Skills</span>
+                    <span className="text-xs text-text-muted">
+                      {selectedSkillIds.length} selected
+                    </span>
+                  </Command.Item>
+                )}
+              </Command.Group>
+
+              {/* General Group */}
+              <Command.Group
+                heading="General"
+                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
+              >
+                <Command.Item
+                  onSelect={() => runCommand(() => setShowSettingsDialog(true))}
+                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                >
+                  <GearSix size={16} className="text-text-muted" />
+                  <span className="flex-1">Open Settings</span>
+                </Command.Item>
+
+                <Command.Item
+                  onSelect={() => runCommand(() => setShowHelpOverlay(true))}
+                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                >
+                  <Keyboard size={16} className="text-text-muted" />
+                  <span className="flex-1">Show Keyboard Shortcuts</span>
+                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
+                    ?
+                  </kbd>
+                </Command.Item>
+
+              </Command.Group>
             </>
           )}
         </Command.List>

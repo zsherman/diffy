@@ -77,6 +77,9 @@ interface UIContext {
   // Skills
   selectedSkillIds: string[];
   showSkillsDialog: boolean;
+
+  // Merge conflict panel
+  showMergeConflictPanel: boolean;
 }
 
 // Get initial theme from localStorage
@@ -144,6 +147,7 @@ export const uiStore = createStore({
     graphColumnWidths: { branchTag: 180, graph: 120 },
     selectedSkillIds: getInitialSelectedSkills(),
     showSkillsDialog: false,
+    showMergeConflictPanel: false,
   } as UIContext,
   on: {
     setTheme: (ctx, event: { theme: Theme }) =>
@@ -168,6 +172,8 @@ export const uiStore = createStore({
     setSelectedCommit: (ctx, event: { commit: string | null }) =>
       produce(ctx, (draft) => {
         draft.selectedCommit = event.commit;
+        // Clear selected file when commit changes to avoid stale file paths
+        draft.selectedFile = null;
       }),
     setSelectedFile: (ctx, event: { file: string | null }) =>
       produce(ctx, (draft) => {
@@ -331,6 +337,14 @@ export const uiStore = createStore({
           localStorage.setItem('diffy-selected-skills', JSON.stringify([]));
         }
       }),
+    setShowMergeConflictPanel: (ctx, event: { show: boolean }) =>
+      produce(ctx, (draft) => {
+        draft.showMergeConflictPanel = event.show;
+      }),
+    toggleMergeConflictPanel: (ctx) =>
+      produce(ctx, (draft) => {
+        draft.showMergeConflictPanel = !draft.showMergeConflictPanel;
+      }),
   },
 });
 
@@ -370,6 +384,7 @@ export function useUIStore() {
   const graphColumnWidths = useSelector(uiStore, (s) => s.context.graphColumnWidths);
   const selectedSkillIds = useSelector(uiStore, (s) => s.context.selectedSkillIds);
   const showSkillsDialog = useSelector(uiStore, (s) => s.context.showSkillsDialog);
+  const showMergeConflictPanel = useSelector(uiStore, (s) => s.context.showMergeConflictPanel);
 
   return {
     // State
@@ -407,6 +422,7 @@ export function useUIStore() {
     graphColumnWidths,
     selectedSkillIds,
     showSkillsDialog,
+    showMergeConflictPanel,
 
     // Actions
     setTheme: (theme: Theme) =>
@@ -489,5 +505,9 @@ export function useUIStore() {
       uiStore.send({ type: 'setShowSkillsDialog', show }),
     clearSelectedSkills: () =>
       uiStore.send({ type: 'clearSelectedSkills' }),
+    setShowMergeConflictPanel: (show: boolean) =>
+      uiStore.send({ type: 'setShowMergeConflictPanel', show }),
+    toggleMergeConflictPanel: () =>
+      uiStore.send({ type: 'toggleMergeConflictPanel' }),
   };
 }

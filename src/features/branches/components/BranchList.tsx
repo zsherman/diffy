@@ -2,10 +2,16 @@ import { useMemo, useState, useCallback, useEffect, memo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { VList } from 'virtua';
 import type { VListHandle } from 'virtua';
-import { listBranches, checkoutBranch } from '../../../lib/tauri';
+import { GitMerge } from '@phosphor-icons/react';
+import { listBranches, checkoutBranch, mergeBranch, getMergeStatus, parseFileConflicts } from '../../../lib/tauri';
 import { useGitStore } from '../../../stores/git-store';
-import { useUIStore } from '../../../stores/ui-store';
+import { useUIStore, getDockviewApi } from '../../../stores/ui-store';
+import { useMergeConflictStore } from '../../../stores/merge-conflict-store';
 import { LoadingSpinner, SkeletonList } from '../../../components/ui';
+import { Button } from '../../../components/ui/Button';
+import { useToast } from '../../../components/ui/Toast';
+import { getErrorMessage } from '../../../lib/errors';
+import { applyLayout } from '../../../lib/layouts';
 import type { BranchInfo } from '../../../types/git';
 
 // Memoized header row
@@ -39,9 +45,8 @@ const BranchRow = memo(function BranchRow({
 
   return (
     <div
-      className={`flex items-center px-2 py-1 cursor-pointer text-sm ${
-        isFocused ? 'bg-bg-selected' : isSelected ? 'bg-bg-hover' : 'hover:bg-bg-hover'
-      }`}
+      className={`flex items-center px-2 py-1 cursor-pointer text-sm ${isFocused ? 'bg-bg-selected' : isSelected ? 'bg-bg-hover' : 'hover:bg-bg-hover'
+        }`}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
     >
@@ -49,9 +54,8 @@ const BranchRow = memo(function BranchRow({
         {isHead ? '●' : '○'}
       </span>
       <span
-        className={`truncate ${
-          isHead ? 'text-accent-green font-medium' : 'text-text-primary'
-        }`}
+        className={`truncate ${isHead ? 'text-accent-green font-medium' : 'text-text-primary'
+          }`}
       >
         {branch.is_remote ? branch.name.replace(/^[^/]+\//, '') : branch.name}
       </span>
@@ -67,9 +71,12 @@ export function BranchList() {
     selectedBranch,
     setSelectedBranch,
     activePanel,
-    setSelectedCommit
+    setSelectedCommit,
+    setShowMergeConflictPanel,
   } = useUIStore();
+  const { enterMergeMode } = useMergeConflictStore();
   const queryClient = useQueryClient();
+  const toast = useToast();
   const listRef = useRef<VListHandle>(null);
   const [focusedIndex, setFocusedIndex] = useState(0);
 
@@ -89,6 +96,62 @@ export function BranchList() {
       queryClient.invalidateQueries({ queryKey: ['status'] });
     },
   });
+
+  const mergeMutation = useMutation({
+    mutationFn: ({ branch }: { branch: string }) =>
+      mergeBranch(repository!.path, branch),
+    onSuccess: () => {
+      toast.success('Merge successful', `Merged ${selectedBranch} into current branch`);
+      queryClient.invalidateQueries({ queryKey: ['branches'] });
+      queryClient.invalidateQueries({ queryKey: ['commits'] });
+      queryClient.invalidateQueries({ queryKey: ['status'] });
+    },
+    onError: async (error) => {
+      const errorMsg = getErrorMessage(error);
+      if (errorMsg.includes('conflicts')) {
+        // Merge created conflicts - open the conflict resolution panel
+        toast.warning('Merge conflicts', 'The merge has conflicts that need to be resolved');
+        try {
+          const mergeStatus = await getMergeStatus(repository!.path);
+          if (mergeStatus.conflictingFiles.length > 0) {
+            const fileInfos = await Promise.all(
+              mergeStatus.conflictingFiles.map((filePath) =>
+                parseFileConflicts(repository!.path, filePath)
+              )
+            );
+            enterMergeMode(fileInfos, mergeStatus.theirBranch);
+            setShowMergeConflictPanel(true);
+            // Switch to merge conflict layout
+            const api = getDockviewApi();
+            if (api) {
+              applyLayout(api, 'merge-conflict');
+            }
+          }
+        } catch (e) {
+          console.error('Failed to load conflict info:', e);
+        }
+        queryClient.invalidateQueries({ queryKey: ['merge-status'] });
+      } else {
+        toast.error('Merge failed', errorMsg);
+      }
+    },
+  });
+
+  const handleMerge = useCallback(() => {
+    if (!selectedBranch || !repository) return;
+
+    // Find the selected branch info
+    const branch = branches.find((b) => b.name === selectedBranch);
+    if (!branch) return;
+
+    // Don't merge if it's the current branch
+    if (branch.is_head) {
+      toast.warning('Cannot merge', 'Cannot merge a branch into itself');
+      return;
+    }
+
+    mergeMutation.mutate({ branch: selectedBranch });
+  }, [selectedBranch, repository, branches, mergeMutation, toast]);
 
   // Filter branches
   const filteredBranches = useMemo(() => {
@@ -156,12 +219,15 @@ export function BranchList() {
             checkoutMutation.mutate({ branch: branch.name });
           }
         }
+      } else if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        handleMerge();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activePanel, flatList, focusedIndex, setSelectedBranch, setSelectedCommit, checkoutMutation]);
+  }, [activePanel, flatList, focusedIndex, setSelectedBranch, setSelectedCommit, checkoutMutation, handleMerge]);
 
   // Scroll focused item into view
   useEffect(() => {
@@ -199,10 +265,17 @@ export function BranchList() {
     );
   }
 
+  // Check if selected branch can be merged (not the current branch)
+  const canMerge = useMemo(() => {
+    if (!selectedBranch) return false;
+    const branch = branches.find((b) => b.name === selectedBranch);
+    return branch && !branch.is_head;
+  }, [selectedBranch, branches]);
+
   return (
     <div className="flex flex-col h-full">
-      {/* Filter input */}
-      <div className="px-2 py-1.5 border-b border-border-primary">
+      {/* Filter input and merge button */}
+      <div className="px-2 py-1.5 border-b border-border-primary space-y-1.5">
         <input
           type="text"
           placeholder="Filter branches..."
@@ -210,6 +283,18 @@ export function BranchList() {
           onChange={(e) => setBranchFilter(e.target.value)}
           className="w-full px-2 py-1 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
         />
+        {canMerge && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleMerge}
+            loading={mergeMutation.isPending}
+            leftIcon={<GitMerge size={12} weight="bold" />}
+            className="w-full"
+          >
+            Merge "{selectedBranch?.replace(/^[^/]+\//, '')}" into current
+          </Button>
+        )}
       </div>
 
       {/* Branch list */}

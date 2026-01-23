@@ -6,3 +6,4 @@ export { StagingPanel } from './StagingPanel';
 export { AIReviewPanel } from './AIReviewPanel';
 export { WorktreesPanel } from './WorktreesPanel';
 export { GraphPanel } from './GraphPanel';
+export { MergeConflictPanel } from './MergeConflictPanel';
