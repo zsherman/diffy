@@ -1,22 +1,43 @@
-import { useCallback, useState, useEffect } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { open } from '@tauri-apps/plugin-dialog';
-import { FolderOpen, ClockCounterClockwise, X, ChartBar } from '@phosphor-icons/react';
-import { DockviewLayout } from './components/layout';
-import { StatusBar, TopToolbar, HelpOverlay, SettingsDialog, CommandPalette, ToastProvider, TabBar } from './components/ui';
-import { RepoSelector } from './features/repository/components';
-import { SkillsDialog } from './features/skills';
-import { openRepository, discoverRepository } from './lib/tauri';
-import { useTabsStore, useActiveTabView, useHasOpenTabs, useActiveRepository, getSavedTabPaths, createTabState } from './stores/tabs-store';
-import { useTheme } from './stores/ui-store';
-import { useKeyboardNavigation } from './hooks/useKeyboardNavigation';
-import { useRepoWatcher } from './hooks/useRepoWatcher';
+import { useCallback, useState, useEffect } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { open } from "@tauri-apps/plugin-dialog";
+import {
+  FolderOpen,
+  ClockCounterClockwise,
+  X,
+  ChartBar,
+} from "@phosphor-icons/react";
+import { DockviewLayout } from "./components/layout";
+import {
+  StatusBar,
+  TopToolbar,
+  HelpOverlay,
+  SettingsDialog,
+  CommandPalette,
+  ToastProvider,
+  TabBar,
+  GlobalErrorBoundary,
+} from "./components/ui";
+import { RepoSelector } from "./features/repository/components";
+import { SkillsDialog } from "./features/skills";
+import { openRepository, discoverRepository } from "./lib/tauri";
+import {
+  useTabActions,
+  useActiveTabView,
+  useHasOpenTabs,
+  useActiveRepository,
+  getSavedTabPaths,
+  createTabState,
+} from "./stores/tabs-store";
+import { useTheme } from "./stores/ui-store";
+import { useKeyboardNavigation } from "./hooks/useKeyboardNavigation";
+import { useRepoWatcher } from "./hooks/useRepoWatcher";
 import {
   getRecentRepositories,
   addRecentRepository,
   removeRecentRepository,
   type RecentRepository,
-} from './lib/recent-repos';
+} from "./lib/recent-repos";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,18 +54,18 @@ function AppContent() {
   // Use focused hooks to minimize subscriptions and re-renders
   const hasOpenTabs = useHasOpenTabs();
   const repository = useActiveRepository();
-  const { openTab, restoreTabs } = useTabsStore();
+  // Use focused action hook - no state subscriptions, just stable callbacks
+  const { openTab, restoreTabs } = useTabActions();
   const { mainView } = useActiveTabView();
   const [recentRepos, setRecentRepos] = useState<RecentRepository[]>([]);
   const [isRestoring, setIsRestoring] = useState(true);
-
 
   // Get theme from UI store (global setting) - use focused hook to avoid unnecessary subscriptions
   const { theme } = useTheme();
 
   // Sync theme to document
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
+    document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
 
   // Set up keyboard navigation
@@ -86,7 +107,10 @@ function AppContent() {
       if (restoredTabs.length > 0) {
         // Determine active tab - use saved active or first tab
         let activeTabPath = saved.activeTabPath;
-        if (!activeTabPath || !restoredTabs.some((t) => t.repository.path === activeTabPath)) {
+        if (
+          !activeTabPath ||
+          !restoredTabs.some((t) => t.repository.path === activeTabPath)
+        ) {
           activeTabPath = restoredTabs[0].repository.path;
         }
         restoreTabs(restoredTabs, activeTabPath);
@@ -110,10 +134,10 @@ function AppContent() {
       const selected = await open({
         directory: true,
         multiple: false,
-        title: 'Select Git Repository',
+        title: "Select Git Repository",
       });
 
-      if (selected && typeof selected === 'string') {
+      if (selected && typeof selected === "string") {
         try {
           const repo = await openRepository(selected);
           openTab(repo);
@@ -132,27 +156,33 @@ function AppContent() {
     }
   }, [openTab]);
 
-  const handleOpenRecent = useCallback(async (path: string) => {
-    try {
-      const repo = await openRepository(path);
-      openTab(repo);
-    } catch {
+  const handleOpenRecent = useCallback(
+    async (path: string) => {
       try {
-        const repo = await discoverRepository(path);
+        const repo = await openRepository(path);
         openTab(repo);
       } catch {
-        // Remove from recent if it no longer exists
-        removeRecentRepository(path);
-        setRecentRepos(getRecentRepositories());
+        try {
+          const repo = await discoverRepository(path);
+          openTab(repo);
+        } catch {
+          // Remove from recent if it no longer exists
+          removeRecentRepository(path);
+          setRecentRepos(getRecentRepositories());
+        }
       }
-    }
-  }, [openTab]);
+    },
+    [openTab],
+  );
 
-  const handleRemoveRecent = useCallback((e: React.MouseEvent, path: string) => {
-    e.stopPropagation();
-    removeRecentRepository(path);
-    setRecentRepos(getRecentRepositories());
-  }, []);
+  const handleRemoveRecent = useCallback(
+    (e: React.MouseEvent, path: string) => {
+      e.stopPropagation();
+      removeRecentRepository(path);
+      setRecentRepos(getRecentRepositories());
+    },
+    [],
+  );
 
   // Show loading state while restoring tabs
   if (isRestoring) {
@@ -188,26 +218,41 @@ function AppContent() {
 
       {/* Main content */}
       {repository ? (
-        mainView === 'statistics' ? (
-          <div className="flex-1 flex items-center justify-center bg-bg-primary">
-            <div className="text-center max-w-md w-full px-4">
-              <ChartBar size={64} weight="duotone" className="mx-auto text-text-muted mb-4" />
-              <p className="text-text-primary mb-1 font-medium">Statistics</p>
-              <p className="text-text-muted text-sm">
-                Coming soon
-              </p>
+        <>
+          {/* Statistics view - rendered as overlay when active */}
+          {mainView === "statistics" && (
+            <div className="flex-1 flex items-center justify-center bg-bg-primary">
+              <div className="text-center max-w-md w-full px-4">
+                <ChartBar
+                  size={64}
+                  weight="duotone"
+                  className="mx-auto text-text-muted mb-4"
+                />
+                <p className="text-text-primary mb-1 font-medium">Statistics</p>
+                <p className="text-text-muted text-sm">Coming soon</p>
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="flex-1 min-h-0">
+          )}
+          {/* DockviewLayout stays mounted but hidden when statistics is active */}
+          {/* This avoids expensive remount when switching back to history/changes */}
+          <div
+            className="flex-1 min-h-0"
+            style={{ display: mainView === "statistics" ? "none" : undefined }}
+          >
             <DockviewLayout />
           </div>
-        )
+        </>
       ) : (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center max-w-md w-full px-4">
-            <FolderOpen size={64} weight="duotone" className="mx-auto text-text-muted mb-4" />
-            <p className="text-text-primary mb-1 font-medium">No repository selected</p>
+            <FolderOpen
+              size={64}
+              weight="duotone"
+              className="mx-auto text-text-muted mb-4"
+            />
+            <p className="text-text-primary mb-1 font-medium">
+              No repository selected
+            </p>
             <p className="text-text-muted text-sm mb-6">
               Open a Git repository to get started
             </p>
@@ -233,13 +278,16 @@ function AppContent() {
                       tabIndex={0}
                       onClick={() => handleOpenRecent(repo.path)}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
+                        if (e.key === "Enter" || e.key === " ") {
                           handleOpenRecent(repo.path);
                         }
                       }}
                       className="w-full group flex items-center gap-3 px-3 py-2 rounded-md bg-bg-secondary hover:bg-bg-hover transition-colors text-left cursor-pointer"
                     >
-                      <FolderOpen size={18} className="text-text-muted flex-shrink-0" />
+                      <FolderOpen
+                        size={18}
+                        className="text-text-muted flex-shrink-0"
+                      />
                       <div className="flex-1 min-w-0">
                         <p className="text-text-primary text-sm font-medium truncate">
                           {repo.name}
@@ -286,7 +334,9 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
-        <AppContent />
+        <GlobalErrorBoundary>
+          <AppContent />
+        </GlobalErrorBoundary>
       </ToastProvider>
     </QueryClientProvider>
   );

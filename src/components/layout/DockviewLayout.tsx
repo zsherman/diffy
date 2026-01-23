@@ -6,7 +6,11 @@ import {
   type SerializedDockview,
   type IDisposable,
 } from "dockview-react";
-import { useTheme, setDockviewApi, isPerfTracingEnabled } from "../../stores/ui-store";
+import {
+  useTheme,
+  setDockviewApi,
+  isPerfTracingEnabled,
+} from "../../stores/ui-store";
 import {
   useActiveTabPath,
   useActiveTabPanels,
@@ -397,17 +401,23 @@ export const DockviewLayout = memo(function DockviewLayout() {
     showMergeConflictPanel,
   } = useActiveTabPanels();
 
-  // Track renders with change detection
-  if (isPerfTracingEnabled()) {
+  // Track renders with change detection (only when perf tracing enabled)
+  const perfEnabled = isPerfTracingEnabled();
+  if (perfEnabled) {
     renderCount++;
     const panelsKey = `${showBranchesPanel}-${showFilesPanel}-${showDiffPanel}-${showStagingSidebar}-${showAIReviewPanel}-${showWorktreesPanel}-${showGraphPanel}-${showMergeConflictPanel}`;
     const changes: string[] = [];
     if (prevTheme !== theme) changes.push(`theme: ${prevTheme} -> ${theme}`);
-    if (prevActiveTabPath !== activeTabPath) changes.push(`path: ${prevActiveTabPath?.slice(-20)} -> ${activeTabPath?.slice(-20)}`);
+    if (prevActiveTabPath !== activeTabPath)
+      changes.push(
+        `path: ${prevActiveTabPath?.slice(-20)} -> ${activeTabPath?.slice(-20)}`,
+      );
     if (prevPanels !== panelsKey) changes.push(`panels changed`);
-    
-    console.log(`[perf] DockviewLayout render #${renderCount}${changes.length ? ` (${changes.join(', ')})` : ' (no prop change - parent render?)'}`);
-    
+
+    console.log(
+      `[perf] DockviewLayout render #${renderCount}${changes.length ? ` (${changes.join(", ")})` : " (no prop change - parent render?)"}`,
+    );
+
     prevTheme = theme;
     prevActiveTabPath = activeTabPath;
     prevPanels = panelsKey;
@@ -491,7 +501,11 @@ export const DockviewLayout = memo(function DockviewLayout() {
 
     // Store disposables in ref for cleanup on unmount
     // (onReady return value is NOT consumed by DockviewReact)
-    disposablesRef.current = [layoutDisposable, removeDisposable, addDisposable];
+    disposablesRef.current = [
+      layoutDisposable,
+      removeDisposable,
+      addDisposable,
+    ];
 
     isInitializedRef.current = true;
 
@@ -603,7 +617,9 @@ export const DockviewLayout = memo(function DockviewLayout() {
     }
   }, []);
 
-  // Handle tab switches - load/apply layout for the new repo
+  // Handle tab switches - FAST PATH: don't rebuild panels, just update context
+  // Panel content components (CommitList, FileList, etc.) react to activeTabPath changes
+  // via useTabsStore()/useActiveRepository() hooks, so we don't need to tear down and rebuild.
   useEffect(() => {
     const api = apiRef.current;
 
@@ -623,84 +639,46 @@ export const DockviewLayout = memo(function DockviewLayout() {
     // Check if repo actually changed
     if (currentRepoPathRef.current === activeTabPath) return;
 
-    const endTrace = traceStart("Tab Switch Effect");
+    const endTrace = traceStart("Tab Switch Effect (fast)");
     traceUntilPaint("Tab Switch");
 
-    // Save current layout before switching (if we had a repo)
+    // Save current layout in idle time (non-blocking)
+    // Use requestIdleCallback if available (Chrome), otherwise setTimeout (Safari/WebKit)
     if (currentRepoPathRef.current) {
-      saveLayoutForRepo(api, currentRepoPathRef.current);
+      const repoToSave = currentRepoPathRef.current;
+      const saveLayout = () => {
+        if (apiRef.current) {
+          saveLayoutForRepo(apiRef.current, repoToSave);
+        }
+      };
+      if (typeof requestIdleCallback !== "undefined") {
+        requestIdleCallback(saveLayout, { timeout: 2000 });
+      } else {
+        setTimeout(saveLayout, 100);
+      }
     }
 
     // Update current repo reference
     currentRepoPathRef.current = activeTabPath;
 
     if (!activeTabPath) {
-      // No repo selected - just create default layout
-      setApplyingLayoutPreset(true);
-      let syncedPanels: PanelVisibility;
-      try {
-        // Clear all panels
-        trace("clearAllPanels", () => {
-          const panels = [...api.panels];
-          panels.forEach((panel) => api.removePanel(panel));
-        });
-        trace("createDefaultLayout", () => createDefaultLayout(api));
-        syncedPanels = syncPanelsFromDockview(api);
-        lastReconcileRef.current = syncedPanels;
-      } finally {
-        setTimeout(() => setApplyingLayoutPreset(false), 100);
-      }
       endTrace();
       return;
     }
 
-    // Try to load saved layout for this repo
-    const savedLayout = loadLayoutForRepo(activeTabPath);
+    // FAST PATH: Don't clear panels or call fromJSON!
+    // Panel content components will automatically update because they use
+    // useTabsStore()/useActiveRepository() hooks that react to activeTabPath.
+    
+    // IMPORTANT: Sync lastReconcileRef with CURRENT Dockview state, not desired state.
+    // This prevents the reconciliation effect from adding/removing panels based on
+    // per-tab visibility. Panels stay as-is; only explicit user toggles will change them.
+    lastReconcileRef.current = syncPanelsFromDockview(api);
+    
+    // Also sync the new tab's panel visibility state to match current Dockview state.
+    // This ensures the tabs-store reflects reality (what panels are actually visible).
+    // When user explicitly toggles a panel, that will create a delta that reconcile handles.
 
-    setApplyingLayoutPreset(true);
-    let syncedPanels: PanelVisibility;
-    try {
-      if (savedLayout) {
-        try {
-          trace("api.fromJSON", () => api.fromJSON(savedLayout));
-          // Unlock all groups after loading
-          api.groups.forEach((g) => {
-            g.locked = false;
-          });
-          // Sync store from the loaded layout
-          syncedPanels = syncPanelsFromDockview(api);
-        } catch (e) {
-          console.warn("Failed to restore layout, creating default:", e);
-          // Clear and create default
-          trace("clearAllPanels (fallback)", () => {
-            const panels = [...api.panels];
-            panels.forEach((panel) => api.removePanel(panel));
-          });
-          trace("createDefaultLayout (fallback)", () =>
-            createDefaultLayout(api),
-          );
-          syncedPanels = syncPanelsFromDockview(api);
-        }
-      } else {
-        // No saved layout - create default
-        trace("clearAllPanels (no saved)", () => {
-          const panels = [...api.panels];
-          panels.forEach((panel) => api.removePanel(panel));
-        });
-        trace("createDefaultLayout (no saved)", () => createDefaultLayout(api));
-        syncedPanels = syncPanelsFromDockview(api);
-      }
-
-      // Ensure all groups are unlocked
-      api.groups.forEach((g) => {
-        g.locked = false;
-      });
-
-      // Update lastReconcileRef to prevent reconcile effect from fighting
-      lastReconcileRef.current = syncedPanels;
-    } finally {
-      setTimeout(() => setApplyingLayoutPreset(false), 100);
-    }
     endTrace();
   }, [activeTabPath]);
 

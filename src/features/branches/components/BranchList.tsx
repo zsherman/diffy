@@ -1,18 +1,32 @@
-import { useMemo, useState, useCallback, useEffect, memo, useRef } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { VList } from 'virtua';
-import type { VListHandle } from 'virtua';
-import { GitMerge } from '@phosphor-icons/react';
-import { listBranches, checkoutBranch, mergeBranch, getMergeStatus, parseFileConflicts } from '../../../lib/tauri';
-import { useTabsStore, useActiveTabState } from '../../../stores/tabs-store';
-import { useUIStore, getDockviewApi } from '../../../stores/ui-store';
-import { useMergeConflictStore } from '../../../stores/merge-conflict-store';
-import { LoadingSpinner, SkeletonList } from '../../../components/ui';
-import { Button } from '../../../components/ui/Button';
-import { useToast } from '../../../components/ui/Toast';
-import { getErrorMessage } from '../../../lib/errors';
-import { applyLayout } from '../../../lib/layouts';
-import type { BranchInfo } from '../../../types/git';
+import { useMemo, useState, useCallback, useEffect, memo, useRef } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { VList } from "virtua";
+import type { VListHandle } from "virtua";
+import { GitMerge } from "@phosphor-icons/react";
+import {
+  listBranches,
+  checkoutBranch,
+  mergeBranch,
+  getMergeStatus,
+  parseFileConflicts,
+} from "../../../lib/tauri";
+import {
+  useTabsStore,
+  useActiveTabState,
+  useActiveTabPanels,
+} from "../../../stores/tabs-store";
+import {
+  useActivePanel,
+  usePanelFontSize,
+  getDockviewApi,
+} from "../../../stores/ui-store";
+import { useMergeConflictStore } from "../../../stores/merge-conflict-store";
+import { LoadingSpinner, SkeletonList } from "../../../components/ui";
+import { Button } from "../../../components/ui/Button";
+import { useToast } from "../../../components/ui/Toast";
+import { getErrorMessage } from "../../../lib/errors";
+import { applyLayout } from "../../../lib/layouts";
+import type { BranchInfo } from "../../../types/git";
 
 // Memoized header row
 const BranchHeaderRow = memo(function BranchHeaderRow({
@@ -47,20 +61,28 @@ const BranchRow = memo(function BranchRow({
 
   return (
     <div
-      className={`flex items-center px-2 py-1 cursor-pointer ${isFocused ? 'bg-bg-selected' : isSelected ? 'bg-bg-hover' : 'hover:bg-bg-hover'
-        }`}
+      className={`flex items-center px-2 py-1 cursor-pointer ${
+        isFocused
+          ? "bg-bg-selected"
+          : isSelected
+            ? "bg-bg-hover"
+            : "hover:bg-bg-hover"
+      }`}
       style={{ fontSize: `${fontSize}px` }}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
     >
-      <span className={`mr-2 ${isHead ? 'text-accent-green' : 'text-text-muted'}`}>
-        {isHead ? '●' : '○'}
+      <span
+        className={`mr-2 ${isHead ? "text-accent-green" : "text-text-muted"}`}
+      >
+        {isHead ? "●" : "○"}
       </span>
       <span
-        className={`truncate ${isHead ? 'text-accent-green font-medium' : 'text-text-primary'
-          }`}
+        className={`truncate ${
+          isHead ? "text-accent-green font-medium" : "text-text-primary"
+        }`}
       >
-        {branch.isRemote ? branch.name.replace(/^[^/]+\//, '') : branch.name}
+        {branch.isRemote ? branch.name.replace(/^[^/]+\//, "") : branch.name}
       </span>
     </div>
   );
@@ -75,7 +97,10 @@ export function BranchList() {
     setSelectedBranch,
     setSelectedCommit,
   } = useActiveTabState();
-  const { activePanel, setShowMergeConflictPanel, panelFontSize } = useUIStore();
+  // Use focused hooks - avoids re-render when unrelated state changes
+  const { activePanel } = useActivePanel();
+  const { setShowMergeConflictPanel } = useActiveTabPanels();
+  const panelFontSize = usePanelFontSize();
   const { enterMergeMode } = useMergeConflictStore();
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -83,7 +108,7 @@ export function BranchList() {
   const [focusedIndex, setFocusedIndex] = useState(0);
 
   const { data: branches = [], isLoading } = useQuery({
-    queryKey: ['branches', repository?.path],
+    queryKey: ["branches", repository?.path],
     queryFn: () => listBranches(repository!.path),
     enabled: !!repository?.path,
     staleTime: 30000,
@@ -93,9 +118,9 @@ export function BranchList() {
     mutationFn: ({ branch }: { branch: string }) =>
       checkoutBranch(repository!.path, branch),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['branches'] });
-      queryClient.invalidateQueries({ queryKey: ['commits'] });
-      queryClient.invalidateQueries({ queryKey: ['status'] });
+      queryClient.invalidateQueries({ queryKey: ["branches"] });
+      queryClient.invalidateQueries({ queryKey: ["commits"] });
+      queryClient.invalidateQueries({ queryKey: ["status"] });
     },
   });
 
@@ -103,38 +128,44 @@ export function BranchList() {
     mutationFn: ({ branch }: { branch: string }) =>
       mergeBranch(repository!.path, branch),
     onSuccess: () => {
-      toast.success('Merge successful', `Merged ${selectedBranch} into current branch`);
-      queryClient.invalidateQueries({ queryKey: ['branches'] });
-      queryClient.invalidateQueries({ queryKey: ['commits'] });
-      queryClient.invalidateQueries({ queryKey: ['status'] });
+      toast.success(
+        "Merge successful",
+        `Merged ${selectedBranch} into current branch`,
+      );
+      queryClient.invalidateQueries({ queryKey: ["branches"] });
+      queryClient.invalidateQueries({ queryKey: ["commits"] });
+      queryClient.invalidateQueries({ queryKey: ["status"] });
     },
     onError: async (error) => {
       const errorMsg = getErrorMessage(error);
-      if (errorMsg.includes('conflicts')) {
+      if (errorMsg.includes("conflicts")) {
         // Merge created conflicts - open the conflict resolution panel
-        toast.warning('Merge conflicts', 'The merge has conflicts that need to be resolved');
+        toast.warning(
+          "Merge conflicts",
+          "The merge has conflicts that need to be resolved",
+        );
         try {
           const mergeStatus = await getMergeStatus(repository!.path);
           if (mergeStatus.conflictingFiles.length > 0) {
             const fileInfos = await Promise.all(
               mergeStatus.conflictingFiles.map((filePath) =>
-                parseFileConflicts(repository!.path, filePath)
-              )
+                parseFileConflicts(repository!.path, filePath),
+              ),
             );
             enterMergeMode(fileInfos, mergeStatus.theirBranch);
             setShowMergeConflictPanel(true);
             // Switch to merge conflict layout
             const api = getDockviewApi();
             if (api) {
-              applyLayout(api, 'merge-conflict');
+              applyLayout(api, "merge-conflict");
             }
           }
         } catch (e) {
-          console.error('Failed to load conflict info:', e);
+          console.error("Failed to load conflict info:", e);
         }
-        queryClient.invalidateQueries({ queryKey: ['merge-status'] });
+        queryClient.invalidateQueries({ queryKey: ["merge-status"] });
       } else {
-        toast.error('Merge failed', errorMsg);
+        toast.error("Merge failed", errorMsg);
       }
     },
   });
@@ -148,7 +179,7 @@ export function BranchList() {
 
     // Don't merge if it's the current branch
     if (branch.isHead) {
-      toast.warning('Cannot merge', 'Cannot merge a branch into itself');
+      toast.warning("Cannot merge", "Cannot merge a branch into itself");
       return;
     }
 
@@ -171,49 +202,56 @@ export function BranchList() {
 
   // Flat list for navigation
   const flatList = useMemo(() => {
-    const items: Array<{ type: 'header' | 'branch'; data: string | BranchInfo }> = [];
+    const items: Array<{
+      type: "header" | "branch";
+      data: string | BranchInfo;
+    }> = [];
     if (groupedBranches.local.length > 0) {
-      items.push({ type: 'header', data: 'Local' });
-      groupedBranches.local.forEach((b) => items.push({ type: 'branch', data: b }));
+      items.push({ type: "header", data: "Local" });
+      groupedBranches.local.forEach((b) =>
+        items.push({ type: "branch", data: b }),
+      );
     }
     if (groupedBranches.remote.length > 0) {
-      items.push({ type: 'header', data: 'Remote' });
-      groupedBranches.remote.forEach((b) => items.push({ type: 'branch', data: b }));
+      items.push({ type: "header", data: "Remote" });
+      groupedBranches.remote.forEach((b) =>
+        items.push({ type: "branch", data: b }),
+      );
     }
     return items;
   }, [groupedBranches]);
 
   // Keyboard navigation
   useEffect(() => {
-    if (activePanel !== 'branches') return;
+    if (activePanel !== "branches") return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
 
-      if (e.key === 'j' || e.key === 'ArrowDown') {
+      if (e.key === "j" || e.key === "ArrowDown") {
         e.preventDefault();
         setFocusedIndex((prev) => {
           let next = prev + 1;
           // Skip headers
-          while (next < flatList.length && flatList[next].type === 'header') {
+          while (next < flatList.length && flatList[next].type === "header") {
             next++;
           }
           return Math.min(next, flatList.length - 1);
         });
-      } else if (e.key === 'k' || e.key === 'ArrowUp') {
+      } else if (e.key === "k" || e.key === "ArrowUp") {
         e.preventDefault();
         setFocusedIndex((prev) => {
           let next = prev - 1;
           // Skip headers
-          while (next >= 0 && flatList[next].type === 'header') {
+          while (next >= 0 && flatList[next].type === "header") {
             next--;
           }
           return Math.max(next, 0);
         });
-      } else if (e.key === 'Enter') {
+      } else if (e.key === "Enter") {
         e.preventDefault();
         const item = flatList[focusedIndex];
-        if (item && item.type === 'branch') {
+        if (item && item.type === "branch") {
           const branch = item.data as BranchInfo;
           setSelectedBranch(branch.name);
           setSelectedCommit(null);
@@ -221,19 +259,27 @@ export function BranchList() {
             checkoutMutation.mutate({ branch: branch.name });
           }
         }
-      } else if (e.key === 'm' || e.key === 'M') {
+      } else if (e.key === "m" || e.key === "M") {
         e.preventDefault();
         handleMerge();
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activePanel, flatList, focusedIndex, setSelectedBranch, setSelectedCommit, checkoutMutation, handleMerge]);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    activePanel,
+    flatList,
+    focusedIndex,
+    setSelectedBranch,
+    setSelectedCommit,
+    checkoutMutation,
+    handleMerge,
+  ]);
 
   // Scroll focused item into view
   useEffect(() => {
-    listRef.current?.scrollToIndex(focusedIndex, { align: 'center' });
+    listRef.current?.scrollToIndex(focusedIndex, { align: "center" });
   }, [focusedIndex]);
 
   const handleBranchClick = useCallback(
@@ -242,7 +288,7 @@ export function BranchList() {
       setSelectedBranch(branch.name);
       setSelectedCommit(null);
     },
-    [setSelectedBranch, setSelectedCommit]
+    [setSelectedBranch, setSelectedCommit],
   );
 
   const handleBranchDoubleClick = useCallback(
@@ -251,7 +297,7 @@ export function BranchList() {
         checkoutMutation.mutate({ branch: branch.name });
       }
     },
-    [checkoutMutation]
+    [checkoutMutation],
   );
 
   if (isLoading) {
@@ -295,7 +341,7 @@ export function BranchList() {
             leftIcon={<GitMerge size={12} weight="bold" />}
             className="w-full"
           >
-            Merge "{selectedBranch?.replace(/^[^/]+\//, '')}" into current
+            Merge "{selectedBranch?.replace(/^[^/]+\//, "")}" into current
           </Button>
         )}
       </div>
@@ -303,7 +349,7 @@ export function BranchList() {
       {/* Branch list */}
       <VList ref={listRef} className="flex-1">
         {flatList.map((item, index) => {
-          if (item.type === 'header') {
+          if (item.type === "header") {
             return (
               <BranchHeaderRow
                 key={`header-${item.data}`}

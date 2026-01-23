@@ -1,13 +1,14 @@
-import { useMemo, memo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { VList } from 'virtua';
-import { parsePatchFiles } from '@pierre/diffs';
-import { FileDiff } from '@pierre/diffs/react';
-import { CaretRight, CaretDown, File, Warning } from '@phosphor-icons/react';
-import { getFileDiff, getWorkingDiff, getCommitDiff } from '../../../lib/tauri';
-import { useTabsStore, useActiveTabState } from '../../../stores/tabs-store';
-import { useUIStore } from '../../../stores/ui-store';
-import { LoadingSpinner, SkeletonDiff } from '../../../components/ui';
+import { useMemo, memo, useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { VList } from "virtua";
+import { parsePatchFiles } from "@pierre/diffs";
+import { FileDiff } from "@pierre/diffs/react";
+import { CaretRight, CaretDown, File, Warning } from "@phosphor-icons/react";
+import { getFileDiff, getWorkingDiff, getCommitDiff } from "../../../lib/tauri";
+import { useTabsStore, useActiveTabState } from "../../../stores/tabs-store";
+import { useDiffSettings } from "../../../stores/ui-store";
+import { LoadingSpinner, SkeletonDiff } from "../../../components/ui";
+import { createMountLogger } from "../../../lib/perf";
 
 // Threshold for auto-collapsing large diffs
 const LARGE_DIFF_THRESHOLD = 500;
@@ -44,21 +45,23 @@ const CollapsibleFileDiff = memo(function CollapsibleFileDiff({
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   fileDiff: any;
-  diffStyle: 'split' | 'unified';
+  diffStyle: "split" | "unified";
   defaultCollapsed?: boolean;
   fontSize: number;
-  themeType: 'light' | 'dark';
+  themeType: "light" | "dark";
 }) {
   const lineCount = getDiffLineCount(fileDiff);
   const isLargeDiff = lineCount > LARGE_DIFF_THRESHOLD;
-  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed ?? isLargeDiff);
+  const [isCollapsed, setIsCollapsed] = useState(
+    defaultCollapsed ?? isLargeDiff,
+  );
   const { additions, deletions } = getDiffStats(fileDiff);
 
   // FileDiffMetadata uses 'name' and 'prevName', not 'newPath'/'oldPath'
-  const currentName = (fileDiff.name || '').replace(/^[ab]\//, '');
-  const previousName = (fileDiff.prevName || '').replace(/^[ab]\//, '');
+  const currentName = (fileDiff.name || "").replace(/^[ab]\//, "");
+  const previousName = (fileDiff.prevName || "").replace(/^[ab]\//, "");
   const isRenamed = previousName && previousName !== currentName;
-  const displayName = currentName || previousName || 'Unknown file';
+  const displayName = currentName || previousName || "Unknown file";
 
   return (
     <div className="border-b border-border-primary">
@@ -67,17 +70,28 @@ const CollapsibleFileDiff = memo(function CollapsibleFileDiff({
         className="w-full flex items-center gap-2 px-3 py-2 bg-bg-secondary hover:bg-bg-hover transition-colors text-left"
       >
         {isCollapsed ? (
-          <CaretRight size={14} weight="bold" className="text-text-muted shrink-0" />
+          <CaretRight
+            size={14}
+            weight="bold"
+            className="text-text-muted shrink-0"
+          />
         ) : (
-          <CaretDown size={14} weight="bold" className="text-text-muted shrink-0" />
+          <CaretDown
+            size={14}
+            weight="bold"
+            className="text-text-muted shrink-0"
+          />
         )}
         <File size={14} weight="bold" className="text-accent-blue shrink-0" />
         {isRenamed ? (
           <span className="text-text-primary text-sm truncate">
-            {previousName} <span className="text-text-muted">→</span> {currentName}
+            {previousName} <span className="text-text-muted">→</span>{" "}
+            {currentName}
           </span>
         ) : (
-          <span className="text-text-primary text-sm truncate">{displayName}</span>
+          <span className="text-text-primary text-sm truncate">
+            {displayName}
+          </span>
         )}
         <div className="flex-1" />
         {isLargeDiff && isCollapsed && (
@@ -96,7 +110,11 @@ const CollapsibleFileDiff = memo(function CollapsibleFileDiff({
         </span>
       </button>
       {!isCollapsed && (
-        <div style={{ '--diffs-font-size': `${fontSize}px` } as React.CSSProperties}>
+        <div
+          style={
+            { "--diffs-font-size": `${fontSize}px` } as React.CSSProperties
+          }
+        >
           <FileDiff
             fileDiff={fileDiff}
             options={{
@@ -123,12 +141,12 @@ function SingleFileDiff({
   repoPath: string;
   commitId: string;
   filePath: string;
-  diffViewMode: 'split' | 'unified';
+  diffViewMode: "split" | "unified";
   fontSize: number;
-  themeType: 'light' | 'dark';
+  themeType: "light" | "dark";
 }) {
   const { data: fileDiff, isLoading } = useQuery({
-    queryKey: ['file-diff', repoPath, commitId, filePath],
+    queryKey: ["file-diff", repoPath, commitId, filePath],
     queryFn: () => getFileDiff(repoPath, commitId, filePath),
     staleTime: 60000,
   });
@@ -139,7 +157,7 @@ function SingleFileDiff({
       const parsed = parsePatchFiles(fileDiff.patch);
       return parsed[0]?.files[0] || null;
     } catch (e) {
-      console.error('Failed to parse file diff:', e);
+      console.error("Failed to parse file diff:", e);
       return null;
     }
   }, [fileDiff]);
@@ -161,11 +179,13 @@ function SingleFileDiff({
   }
 
   return (
-    <div style={{ '--diffs-font-size': `${fontSize}px` } as React.CSSProperties}>
+    <div
+      style={{ "--diffs-font-size": `${fontSize}px` } as React.CSSProperties}
+    >
       <FileDiff
         fileDiff={parsedFile}
         options={{
-          diffStyle: diffViewMode === 'split' ? 'split' : 'unified',
+          diffStyle: diffViewMode === "split" ? "split" : "unified",
           themeType,
         }}
       />
@@ -176,18 +196,22 @@ function SingleFileDiff({
 export function DiffViewer() {
   const { repository } = useTabsStore();
   const { selectedCommit, selectedFile } = useActiveTabState();
-  const { theme, diffViewMode, diffFontSize } = useUIStore();
-  const themeType = theme === 'pierre-light' ? 'light' : 'dark';
+  // Use focused hook - avoids re-render when unrelated UI state changes
+  const { theme, diffViewMode, diffFontSize } = useDiffSettings();
+  const themeType = theme === "pierre-light" ? "light" : "dark";
+
+  // Track mount/unmount for performance debugging
+  useEffect(() => createMountLogger("DiffViewer"), []);
 
   // Only fetch working diff when no commit is selected
   const { data: stagedDiff, isLoading: stagedLoading } = useQuery({
-    queryKey: ['working-diff-staged', repository?.path],
+    queryKey: ["working-diff-staged", repository?.path],
     queryFn: () => getWorkingDiff(repository!.path, true),
     enabled: !!repository?.path && !selectedCommit,
   });
 
   const { data: unstagedDiff, isLoading: unstagedLoading } = useQuery({
-    queryKey: ['working-diff-unstaged', repository?.path],
+    queryKey: ["working-diff-unstaged", repository?.path],
     queryFn: () => getWorkingDiff(repository!.path, false),
     enabled: !!repository?.path && !selectedCommit,
   });
@@ -205,10 +229,10 @@ export function DiffViewer() {
     if (patches.length === 0) return [];
 
     try {
-      const parsed = parsePatchFiles(patches.join('\n'));
-      return parsed.flatMap(p => p.files);
+      const parsed = parsePatchFiles(patches.join("\n"));
+      return parsed.flatMap((p) => p.files);
     } catch (e) {
-      console.error('Failed to parse working diff:', e);
+      console.error("Failed to parse working diff:", e);
       return [];
     }
   }, [selectedCommit, stagedDiff, unstagedDiff]);
@@ -218,18 +242,22 @@ export function DiffViewer() {
     if (!selectedFile) return workingParsedFiles.slice(0, 5);
 
     return workingParsedFiles.filter((f: any) => {
-      const name = f.name || '';
-      const prevName = f.prevName || '';
-      const cleanName = name.replace(/^[ab]\//, '');
-      const cleanPrev = prevName.replace(/^[ab]\//, '');
-      return name === selectedFile || prevName === selectedFile ||
-             cleanName === selectedFile || cleanPrev === selectedFile;
+      const name = f.name || "";
+      const prevName = f.prevName || "";
+      const cleanName = name.replace(/^[ab]\//, "");
+      const cleanPrev = prevName.replace(/^[ab]\//, "");
+      return (
+        name === selectedFile ||
+        prevName === selectedFile ||
+        cleanName === selectedFile ||
+        cleanPrev === selectedFile
+      );
     });
   }, [workingParsedFiles, selectedFile]);
 
   // Fetch full commit diff when a commit is selected (for showing all files)
   const { data: commitDiff, isLoading: commitDiffLoading } = useQuery({
-    queryKey: ['commit-diff-full', repository?.path, selectedCommit],
+    queryKey: ["commit-diff-full", repository?.path, selectedCommit],
     queryFn: () => getCommitDiff(repository!.path, selectedCommit!),
     enabled: !!repository?.path && !!selectedCommit && !selectedFile,
     staleTime: 60000,
@@ -240,9 +268,9 @@ export function DiffViewer() {
     if (!commitDiff?.patch) return [];
     try {
       const parsed = parsePatchFiles(commitDiff.patch);
-      return parsed.flatMap(p => p.files);
+      return parsed.flatMap((p) => p.files);
     } catch (e) {
-      console.error('Failed to parse commit diff:', e);
+      console.error("Failed to parse commit diff:", e);
       return [];
     }
   }, [commitDiff]);
@@ -293,7 +321,7 @@ export function DiffViewer() {
           <CollapsibleFileDiff
             key={fileDiff.name || fileDiff.prevName || index}
             fileDiff={fileDiff}
-            diffStyle={diffViewMode === 'split' ? 'split' : 'unified'}
+            diffStyle={diffViewMode === "split" ? "split" : "unified"}
             fontSize={diffFontSize}
             themeType={themeType}
           />
@@ -319,7 +347,7 @@ export function DiffViewer() {
   if (workingFilesToShow.length === 0) {
     return (
       <div className="flex items-center justify-center h-full text-text-muted">
-        {selectedFile ? `No changes in selected file` : 'No working changes'}
+        {selectedFile ? `No changes in selected file` : "No working changes"}
       </div>
     );
   }
@@ -330,7 +358,7 @@ export function DiffViewer() {
         <CollapsibleFileDiff
           key={fileDiff.name || fileDiff.prevName || index}
           fileDiff={fileDiff}
-          diffStyle={diffViewMode === 'split' ? 'split' : 'unified'}
+          diffStyle={diffViewMode === "split" ? "split" : "unified"}
           fontSize={diffFontSize}
           themeType={themeType}
         />

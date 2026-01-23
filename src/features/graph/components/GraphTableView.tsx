@@ -1,15 +1,34 @@
-import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
-import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
-import { VList } from 'virtua';
-import type { VListHandle } from 'virtua';
-import { getCommitHistoryAllBranches, getCommitGraph, listBranches } from '../../../lib/tauri';
-import { useTabsStore, useActiveTabState } from '../../../stores/tabs-store';
-import { useUIStore } from '../../../stores/ui-store';
-import { LoadingSpinner, SkeletonCommits } from '../../../components/ui';
-import { useCommitRefs } from '../hooks';
-import { GraphTableHeader } from './GraphTableHeader';
-import { GraphTableRow } from './GraphTableRow';
-import type { CommitInfo, CommitGraph as CommitGraphType } from '../../../types/git';
+import {
+  useMemo,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  useDeferredValue,
+} from "react";
+import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
+import { VList } from "virtua";
+import type { VListHandle } from "virtua";
+import {
+  getCommitHistoryAllBranches,
+  getCommitGraph,
+  listBranches,
+} from "../../../lib/tauri";
+import {
+  useTabsStore,
+  useActiveTabState,
+  useActiveTabPanels,
+} from "../../../stores/tabs-store";
+import { useActivePanel, useGraphColumnWidths } from "../../../stores/ui-store";
+import { LoadingSpinner, SkeletonCommits } from "../../../components/ui";
+import { useCommitRefs } from "../hooks";
+import { GraphTableHeader } from "./GraphTableHeader";
+import { GraphTableRow } from "./GraphTableRow";
+import type {
+  CommitInfo,
+  CommitGraph as CommitGraphType,
+} from "../../../types/git";
+import { createMountLogger } from "../../../lib/perf";
 
 const ROW_HEIGHT = 48;
 const MIN_BRANCH_TAG_WIDTH = 80;
@@ -27,17 +46,18 @@ export function GraphTableView() {
     setCommitFilter,
     setSelectedFile,
   } = useActiveTabState();
-  const {
-    activePanel,
-    setShowFilesPanel,
-    graphColumnWidths,
-    setGraphColumnWidths,
-  } = useUIStore();
+  // Use focused hooks - avoids re-render when unrelated state changes
+  const { activePanel } = useActivePanel();
+  const { setShowFilesPanel } = useActiveTabPanels();
+  const { graphColumnWidths, setGraphColumnWidths } = useGraphColumnWidths();
   const listRef = useRef<VListHandle>(null);
   const [focusedIndex, setFocusedIndex] = useState(0);
 
   // Local column widths state for immediate UI response
   const [localColumnWidths, setLocalColumnWidths] = useState(graphColumnWidths);
+
+  // Track mount/unmount for performance debugging
+  useEffect(() => createMountLogger('GraphTableView'), []);
 
   // Sync local state with store on mount and when store changes externally
   useEffect(() => {
@@ -52,7 +72,7 @@ export function GraphTableView() {
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery({
-    queryKey: ['graph-commits', repository?.path],
+    queryKey: ["graph-commits", repository?.path],
     queryFn: ({ pageParam = 0 }) =>
       getCommitHistoryAllBranches(repository!.path, PAGE_SIZE, pageParam),
     getNextPageParam: (lastPage, allPages) => {
@@ -67,24 +87,26 @@ export function GraphTableView() {
   });
 
   // Flatten pages into single array
-  const commits = useMemo(
-    () => commitsData?.pages.flat() ?? [],
-    [commitsData]
-  );
+  const commits = useMemo(() => commitsData?.pages.flat() ?? [], [commitsData]);
 
   // Debug log
   useEffect(() => {
-    console.log('[GraphTableView] Commits loaded:', {
+    console.log("[GraphTableView] Commits loaded:", {
       totalCommits: commits.length,
       hasNextPage,
       isFetchingNextPage,
       pages: commitsData?.pages.length,
     });
-  }, [commits.length, hasNextPage, isFetchingNextPage, commitsData?.pages.length]);
+  }, [
+    commits.length,
+    hasNextPage,
+    isFetchingNextPage,
+    commitsData?.pages.length,
+  ]);
 
   // Fetch branches
   const { data: branches = [], isLoading: isLoadingBranches } = useQuery({
-    queryKey: ['branches', repository?.path],
+    queryKey: ["branches", repository?.path],
     queryFn: () => listBranches(repository!.path),
     enabled: !!repository?.path,
     staleTime: 30000,
@@ -95,39 +117,49 @@ export function GraphTableView() {
 
   // Stable key for graph query
   const commitIdsKey = useMemo(
-    () => (commits.length > 0 ? commits[0].id + commits.length : ''),
-    [commits]
+    () => (commits.length > 0 ? commits[0].id + commits.length : ""),
+    [commits],
   );
 
   // Fetch graph data
   const { data: graph } = useQuery({
-    queryKey: ['graph', repository?.path, commitIdsKey],
-    queryFn: () => getCommitGraph(repository!.path, commits.map((c) => c.id)),
+    queryKey: ["graph", repository?.path, commitIdsKey],
+    queryFn: () =>
+      getCommitGraph(
+        repository!.path,
+        commits.map((c) => c.id),
+      ),
     enabled: !!repository?.path && commits.length > 0,
     staleTime: 30000,
   });
 
-  // Filter commits
+  // Defer filter value to keep typing responsive while filtering large lists
+  const deferredFilter = useDeferredValue(commitFilter);
+
+  // Filter commits - uses deferred value so typing stays responsive
   const filteredCommits = useMemo(() => {
-    if (!commitFilter) return commits;
-    const lower = commitFilter.toLowerCase();
+    if (!deferredFilter) return commits;
+    const lower = deferredFilter.toLowerCase();
     return commits.filter(
       (c) =>
         c.summary.toLowerCase().includes(lower) ||
         c.authorName.toLowerCase().includes(lower) ||
-        c.shortId.toLowerCase().includes(lower)
+        c.shortId.toLowerCase().includes(lower),
     );
-  }, [commits, commitFilter]);
+  }, [commits, deferredFilter]);
 
   // Calculate minimum graph width based on max columns
   const minGraphWidth = useMemo(() => {
     if (!graph) return MIN_GRAPH_WIDTH;
-    return Math.max(MIN_GRAPH_WIDTH, (graph.maxColumns + 2) * COLUMN_WIDTH + 40); // +40 for avatar
+    return Math.max(
+      MIN_GRAPH_WIDTH,
+      (graph.maxColumns + 2) * COLUMN_WIDTH + 40,
+    ); // +40 for avatar
   }, [graph]);
 
   // Handle column resize
   const handleResize = useCallback(
-    (column: 'branchTag' | 'graph', width: number) => {
+    (column: "branchTag" | "graph", width: number) => {
       const newWidths = {
         ...localColumnWidths,
         [column]: width,
@@ -136,23 +168,25 @@ export function GraphTableView() {
       // Debounce store update
       setGraphColumnWidths(newWidths);
     },
-    [localColumnWidths, setGraphColumnWidths]
+    [localColumnWidths, setGraphColumnWidths],
   );
 
   // Keyboard navigation
   useEffect(() => {
-    if (activePanel !== 'graph') return;
+    if (activePanel !== "graph") return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
 
-      if (e.key === 'j' || e.key === 'ArrowDown') {
+      if (e.key === "j" || e.key === "ArrowDown") {
         e.preventDefault();
-        setFocusedIndex((prev) => Math.min(prev + 1, filteredCommits.length - 1));
-      } else if (e.key === 'k' || e.key === 'ArrowUp') {
+        setFocusedIndex((prev) =>
+          Math.min(prev + 1, filteredCommits.length - 1),
+        );
+      } else if (e.key === "k" || e.key === "ArrowUp") {
         e.preventDefault();
         setFocusedIndex((prev) => Math.max(prev - 1, 0));
-      } else if (e.key === 'Enter') {
+      } else if (e.key === "Enter") {
         e.preventDefault();
         const commit = filteredCommits[focusedIndex];
         if (commit) {
@@ -162,13 +196,19 @@ export function GraphTableView() {
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activePanel, filteredCommits, focusedIndex, setSelectedCommit, setSelectedFile]);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    activePanel,
+    filteredCommits,
+    focusedIndex,
+    setSelectedCommit,
+    setSelectedFile,
+  ]);
 
   // Scroll focused item into view
   useEffect(() => {
-    listRef.current?.scrollToIndex(focusedIndex, { align: 'center' });
+    listRef.current?.scrollToIndex(focusedIndex, { align: "center" });
   }, [focusedIndex]);
 
   const handleCommitClick = useCallback(
@@ -178,7 +218,7 @@ export function GraphTableView() {
       setSelectedFile(null);
       setShowFilesPanel(true);
     },
-    [setSelectedCommit, setSelectedFile, setShowFilesPanel]
+    [setSelectedCommit, setSelectedFile, setShowFilesPanel],
   );
 
   // Load more when scrolling near the bottom
@@ -186,14 +226,19 @@ export function GraphTableView() {
     if (!listRef.current || !hasNextPage || isFetchingNextPage) return;
 
     const handle = listRef.current;
-    const endIndex = handle.findItemIndex(handle.scrollOffset + handle.viewportSize);
+    const endIndex = handle.findItemIndex(
+      handle.scrollOffset + handle.viewportSize,
+    );
 
     // Guard against invalid index
     if (endIndex < 0) return;
 
     // Load more when within 15 items of the end
     if (endIndex >= commits.length - 15) {
-      console.log('[GraphTableView] Loading more commits...', { endIndex, total: commits.length });
+      console.log("[GraphTableView] Loading more commits...", {
+        endIndex,
+        total: commits.length,
+      });
       fetchNextPage();
     }
   }, [hasNextPage, isFetchingNextPage, commits.length, fetchNextPage]);

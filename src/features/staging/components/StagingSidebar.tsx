@@ -1,6 +1,10 @@
-import React, { useState, useCallback, memo, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels';
+import React, { useState, useCallback, memo, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  Panel,
+  Group as PanelGroup,
+  Separator as PanelResizeHandle,
+} from "react-resizable-panels";
 import {
   FilePlus,
   PencilSimple,
@@ -15,7 +19,7 @@ import {
   ArrowLineDown,
   ArrowLineUp,
   X,
-} from '@phosphor-icons/react';
+} from "@phosphor-icons/react";
 import {
   getStatus,
   stageFiles,
@@ -29,33 +33,33 @@ import {
   dropStash,
   normalizeError,
   getErrorMessage,
-} from '../../../lib/tauri';
-import { useTabsStore, useActiveTabState } from '../../../stores/tabs-store';
-import { useUIStore } from '../../../stores/ui-store';
-import type { FileStatus, StashEntry } from '../../../types/git';
+} from "../../../lib/tauri";
+import { useTabsStore, useActiveTabState } from "../../../stores/tabs-store";
+import { usePanelFontSize } from "../../../stores/ui-store";
+import type { FileStatus, StashEntry } from "../../../types/git";
 
 const STATUS_COLORS: Record<string, string> = {
-  A: 'text-accent-green',
-  M: 'text-accent-yellow',
-  D: 'text-accent-red',
-  R: 'text-accent-purple',
-  '?': 'text-accent-green',
+  A: "text-accent-green",
+  M: "text-accent-yellow",
+  D: "text-accent-red",
+  R: "text-accent-purple",
+  "?": "text-accent-green",
 };
 
 const StatusIcon = ({ status }: { status: string }) => {
-  const color = STATUS_COLORS[status] || 'text-text-muted';
-  const iconProps = { size: 14, className: color, weight: 'bold' as const };
+  const color = STATUS_COLORS[status] || "text-text-muted";
+  const iconProps = { size: 14, className: color, weight: "bold" as const };
 
   switch (status) {
-    case 'A':
+    case "A":
       return <FilePlus {...iconProps} />;
-    case 'M':
+    case "M":
       return <PencilSimple {...iconProps} />;
-    case 'D':
+    case "D":
       return <Trash {...iconProps} />;
-    case 'R':
+    case "R":
       return <ArrowRight {...iconProps} />;
-    case '?':
+    case "?":
       return <FilePlus {...iconProps} />;
     default:
       return <Question {...iconProps} />;
@@ -83,7 +87,7 @@ const StagingFileRow = memo(function StagingFileRow({
   return (
     <div
       className={`flex items-center px-2 py-1 hover:bg-bg-hover group cursor-pointer ${
-        isSelected ? 'bg-accent-blue/20' : ''
+        isSelected ? "bg-accent-blue/20" : ""
       }`}
       style={{ fontSize: `${fontSize}px` }}
       onClick={onSelect}
@@ -91,7 +95,9 @@ const StagingFileRow = memo(function StagingFileRow({
       <span className="w-5 flex items-center justify-center shrink-0">
         <StatusIcon status={file.status} />
       </span>
-      <span className="truncate text-text-primary ml-1 flex-1 min-w-0">{file.path}</span>
+      <span className="truncate text-text-primary ml-1 flex-1 min-w-0">
+        {file.path}
+      </span>
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -99,7 +105,7 @@ const StagingFileRow = memo(function StagingFileRow({
         }}
         className="px-1.5 py-0.5 text-xs rounded bg-bg-tertiary hover:bg-bg-hover border border-border-primary opacity-0 group-hover:opacity-100 shrink-0 ml-1"
       >
-        {isStaged ? 'Unstage' : 'Stage'}
+        {isStaged ? "Unstage" : "Stage"}
       </button>
     </div>
   );
@@ -124,10 +130,10 @@ const StashRow = memo(function StashRow({
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp * 1000);
     return date.toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
@@ -140,9 +146,13 @@ const StashRow = memo(function StashRow({
         <Stack size={14} className="text-accent-purple" weight="bold" />
       </span>
       <div className="flex-1 min-w-0 ml-1">
-        <div className="truncate text-text-primary">stash@{'{' + stash.stashIndex + '}'}</div>
+        <div className="truncate text-text-primary">
+          stash@{"{" + stash.stashIndex + "}"}
+        </div>
         <div className="truncate text-text-muted text-xs">{stash.message}</div>
-        <div className="text-text-muted text-xs opacity-70">{formatTime(stash.time)}</div>
+        <div className="text-text-muted text-xs opacity-70">
+          {formatTime(stash.time)}
+        </div>
       </div>
       <div className="flex gap-1 opacity-0 group-hover:opacity-100 shrink-0 ml-1">
         <button
@@ -170,7 +180,11 @@ const StashRow = memo(function StashRow({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            if (confirm(`Delete stash@{${stash.stashIndex}}? This cannot be undone.`)) {
+            if (
+              confirm(
+                `Delete stash@{${stash.stashIndex}}? This cannot be undone.`,
+              )
+            ) {
               onDrop();
             }
           }}
@@ -211,7 +225,11 @@ const SectionHeader = memo(function SectionHeader({
         onClick={onToggle}
         className="flex items-center gap-1 text-xs font-semibold text-text-muted hover:text-text-primary"
       >
-        {isExpanded ? <CaretDown size={12} weight="bold" /> : <CaretRight size={12} weight="bold" />}
+        {isExpanded ? (
+          <CaretDown size={12} weight="bold" />
+        ) : (
+          <CaretRight size={12} weight="bold" />
+        )}
         <span>
           {title} ({count})
         </span>
@@ -241,7 +259,7 @@ export function StagingSidebar() {
     setAmendPreviousCommit,
     clearCommitForm,
   } = useActiveTabState();
-  const { panelFontSize } = useUIStore();
+  const panelFontSize = usePanelFontSize();
   const queryClient = useQueryClient();
 
   const [unstagedExpanded, setUnstagedExpanded] = useState(true);
@@ -251,17 +269,17 @@ export function StagingSidebar() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isStashing, setIsStashing] = useState(false);
   const [showStashInput, setShowStashInput] = useState(false);
-  const [stashMessage, setStashMessage] = useState('');
+  const [stashMessage, setStashMessage] = useState("");
 
   // Fetch status
+  // Long staleTime since file watcher handles invalidation - prevents duplicate fetches on tab switch
   const { data: status, refetch } = useQuery({
-    queryKey: ['status', repository?.path],
+    queryKey: ["status", repository?.path],
     queryFn: () => getStatus(repository!.path),
     enabled: !!repository?.path,
-    refetchInterval: 5000,
-    staleTime: 1000,
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: true,
+    staleTime: 30000, // 30s - watcher invalidates on changes
+    refetchOnMount: false, // Don't refetch if data exists - watcher handles updates
+    refetchOnWindowFocus: false, // Watcher handles this
   });
 
   // Force refetch when panel mounts to ensure fresh data
@@ -271,36 +289,58 @@ export function StagingSidebar() {
     }
   }, [repository?.path, refetch]);
 
-  // Fetch stashes
+  // Fetch stashes - safety refetch at longer interval
   const { data: stashes } = useQuery({
-    queryKey: ['stashes', repository?.path],
+    queryKey: ["stashes", repository?.path],
     queryFn: () => listStashes(repository!.path),
     enabled: !!repository?.path,
-    refetchInterval: 10000, // Less frequent than status
-    staleTime: 2000,
+    refetchInterval: 30000, // Reduced: stash list changes rarely
+    staleTime: 10000,
   });
 
-  // Mutations
+  // Mutations - scope invalidations to this repo only
+  const repoPath = repository?.path;
+
   const stageMutation = useMutation({
     mutationFn: (paths: string[]) => stageFiles(repository!.path, paths),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['status'] }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["status", repoPath] }),
   });
 
   const unstageMutation = useMutation({
     mutationFn: (paths: string[]) => unstageFiles(repository!.path, paths),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['status'] }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["status", repoPath] }),
   });
 
   const commitMutation = useMutation({
     mutationFn: (message: string) => createCommit(repository!.path, message),
     onSuccess: () => {
-      // Use refetchType: 'all' to ensure queries refetch even if not actively observed
-      queryClient.invalidateQueries({ queryKey: ['status'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['commits'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['graph'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['working-diff-staged'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['working-diff-unstaged'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['branches'], refetchType: 'all' });
+      // Scope invalidations to this repo only
+      queryClient.invalidateQueries({
+        queryKey: ["status", repoPath],
+        refetchType: "all",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["commits", repoPath],
+        refetchType: "all",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["graph", repoPath],
+        refetchType: "all",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["working-diff-staged", repoPath],
+        refetchType: "all",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["working-diff-unstaged", repoPath],
+        refetchType: "all",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["branches", repoPath],
+        refetchType: "all",
+      });
       clearCommitForm();
       setIsCommitting(false);
     },
@@ -309,20 +349,32 @@ export function StagingSidebar() {
     },
   });
 
-  // Stash invalidation helper
+  // Stash invalidation helper - scoped to this repo
   const invalidateAfterStash = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['status'], refetchType: 'all' });
-    queryClient.invalidateQueries({ queryKey: ['stashes'], refetchType: 'all' });
-    queryClient.invalidateQueries({ queryKey: ['working-diff-staged'], refetchType: 'all' });
-    queryClient.invalidateQueries({ queryKey: ['working-diff-unstaged'], refetchType: 'all' });
-  }, [queryClient]);
+    queryClient.invalidateQueries({
+      queryKey: ["status", repoPath],
+      refetchType: "all",
+    });
+    queryClient.invalidateQueries({
+      queryKey: ["stashes", repoPath],
+      refetchType: "all",
+    });
+    queryClient.invalidateQueries({
+      queryKey: ["working-diff-staged", repoPath],
+      refetchType: "all",
+    });
+    queryClient.invalidateQueries({
+      queryKey: ["working-diff-unstaged", repoPath],
+      refetchType: "all",
+    });
+  }, [queryClient, repoPath]);
 
   const createStashMutation = useMutation({
     mutationFn: (message?: string) => createStash(repository!.path, message),
     onSuccess: () => {
       invalidateAfterStash();
       setShowStashInput(false);
-      setStashMessage('');
+      setStashMessage("");
       setIsStashing(false);
     },
     onError: (error) => {
@@ -332,7 +384,8 @@ export function StagingSidebar() {
   });
 
   const applyStashMutation = useMutation({
-    mutationFn: (stashIndex: number) => applyStash(repository!.path, stashIndex),
+    mutationFn: (stashIndex: number) =>
+      applyStash(repository!.path, stashIndex),
     onSuccess: invalidateAfterStash,
     onError: (error) => {
       alert(getErrorMessage(normalizeError(error)));
@@ -350,7 +403,10 @@ export function StagingSidebar() {
   const dropStashMutation = useMutation({
     mutationFn: (stashIndex: number) => dropStash(repository!.path, stashIndex),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stashes'], refetchType: 'all' });
+      queryClient.invalidateQueries({
+        queryKey: ["stashes", repoPath],
+        refetchType: "all",
+      });
     },
     onError: (error) => {
       alert(getErrorMessage(normalizeError(error)));
@@ -358,9 +414,7 @@ export function StagingSidebar() {
   });
 
   // Combine unstaged and untracked files
-  const unstagedFiles = status
-    ? [...status.unstaged, ...status.untracked]
-    : [];
+  const unstagedFiles = status ? [...status.unstaged, ...status.untracked] : [];
   const stagedFiles = status?.staged ?? [];
   const totalChanges = unstagedFiles.length + stagedFiles.length;
 
@@ -382,14 +436,14 @@ export function StagingSidebar() {
     (path: string) => {
       stageMutation.mutate([path]);
     },
-    [stageMutation]
+    [stageMutation],
   );
 
   const handleUnstageFile = useCallback(
     (path: string) => {
       unstageMutation.mutate([path]);
     },
-    [unstageMutation]
+    [unstageMutation],
   );
 
   const handleCommit = useCallback(() => {
@@ -404,12 +458,12 @@ export function StagingSidebar() {
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         handleCommit();
       }
     },
-    [handleCommit]
+    [handleCommit],
   );
 
   const handleGenerateMessage = useCallback(async () => {
@@ -419,19 +473,25 @@ export function StagingSidebar() {
     try {
       const message = await generateCommitMessage(repository.path);
       // Split on first newline to separate title from body
-      const lines = message.split('\n');
-      const title = lines[0] || '';
-      const body = lines.slice(1).join('\n').trim();
+      const lines = message.split("\n");
+      const title = lines[0] || "";
+      const body = lines.slice(1).join("\n").trim();
       setCommitMessage(title);
       if (body) {
         setCommitDescription(body);
       }
     } catch (error) {
-      console.error('Failed to generate commit message:', error);
+      console.error("Failed to generate commit message:", error);
     } finally {
       setIsGenerating(false);
     }
-  }, [repository, stagedFiles.length, isGenerating, setCommitMessage, setCommitDescription]);
+  }, [
+    repository,
+    stagedFiles.length,
+    isGenerating,
+    setCommitMessage,
+    setCommitDescription,
+  ]);
 
   const handleCreateStash = useCallback(() => {
     if (totalChanges === 0 || isStashing) return;
@@ -441,27 +501,33 @@ export function StagingSidebar() {
 
   const handleStashKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter') {
+      if (e.key === "Enter") {
         e.preventDefault();
         handleCreateStash();
-      } else if (e.key === 'Escape') {
+      } else if (e.key === "Escape") {
         setShowStashInput(false);
-        setStashMessage('');
+        setStashMessage("");
       }
     },
-    [handleCreateStash]
+    [handleCreateStash],
   );
 
-  const isStashMutating = applyStashMutation.isPending || popStashMutation.isPending || dropStashMutation.isPending;
+  const isStashMutating =
+    applyStashMutation.isPending ||
+    popStashMutation.isPending ||
+    dropStashMutation.isPending;
 
-  const branchName = repository?.headBranch ?? 'main';
+  const branchName = repository?.headBranch ?? "main";
 
   return (
     <div className="w-full flex flex-col h-full bg-bg-secondary">
       {/* Header */}
       <div className="px-3 py-2 border-b border-border-primary">
-        <div className="font-medium text-text-primary" style={{ fontSize: `${panelFontSize}px` }}>
-          {totalChanges} file change{totalChanges !== 1 ? 's' : ''} on{' '}
+        <div
+          className="font-medium text-text-primary"
+          style={{ fontSize: `${panelFontSize}px` }}
+        >
+          {totalChanges} file change{totalChanges !== 1 ? "s" : ""} on{" "}
           <span className="text-accent-green">{branchName}</span>
         </div>
       </div>
@@ -471,142 +537,146 @@ export function StagingSidebar() {
           {/* File lists */}
           <div className="h-full overflow-hidden flex flex-col">
             {/* Stashes section */}
-        <SectionHeader
-          title="Stashes"
-          count={stashes?.length ?? 0}
-          isExpanded={stashesExpanded}
-          onToggle={() => setStashesExpanded(!stashesExpanded)}
-          actionLabel="Stash..."
-          onAction={() => setShowStashInput(true)}
-          actionDisabled={totalChanges === 0 || isStashing}
-          disableActionOnEmpty={false}
-        />
-        {stashesExpanded && (
-          <div className="min-h-0 flex-shrink-0">
-            {/* Stash input */}
-            {showStashInput && (
-              <div className="px-2 py-2 border-b border-border-primary bg-bg-tertiary">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Stash message (optional)"
-                    value={stashMessage}
-                    onChange={(e) => setStashMessage(e.target.value)}
-                    onKeyDown={handleStashKeyDown}
-                    autoFocus
-                    className="flex-1 px-2 py-1 bg-bg-secondary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
-                    style={{ fontSize: `${panelFontSize}px` }}
-                  />
-                  <button
-                    onClick={handleCreateStash}
-                    disabled={isStashing}
-                    className="px-3 py-1 bg-accent-purple text-white rounded text-xs hover:bg-accent-purple/90 disabled:bg-bg-tertiary disabled:text-text-muted"
-                  >
-                    {isStashing ? (
-                      <CircleNotch size={14} className="animate-spin" />
-                    ) : (
-                      'Stash'
-                    )}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowStashInput(false);
-                      setStashMessage('');
-                    }}
-                    className="px-2 py-1 bg-bg-secondary border border-border-primary rounded text-text-muted hover:text-text-primary"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
+            <SectionHeader
+              title="Stashes"
+              count={stashes?.length ?? 0}
+              isExpanded={stashesExpanded}
+              onToggle={() => setStashesExpanded(!stashesExpanded)}
+              actionLabel="Stash..."
+              onAction={() => setShowStashInput(true)}
+              actionDisabled={totalChanges === 0 || isStashing}
+              disableActionOnEmpty={false}
+            />
+            {stashesExpanded && (
+              <div className="min-h-0 flex-shrink-0">
+                {/* Stash input */}
+                {showStashInput && (
+                  <div className="px-2 py-2 border-b border-border-primary bg-bg-tertiary">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Stash message (optional)"
+                        value={stashMessage}
+                        onChange={(e) => setStashMessage(e.target.value)}
+                        onKeyDown={handleStashKeyDown}
+                        autoFocus
+                        className="flex-1 px-2 py-1 bg-bg-secondary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
+                        style={{ fontSize: `${panelFontSize}px` }}
+                      />
+                      <button
+                        onClick={handleCreateStash}
+                        disabled={isStashing}
+                        className="px-3 py-1 bg-accent-purple text-white rounded text-xs hover:bg-accent-purple/90 disabled:bg-bg-tertiary disabled:text-text-muted"
+                      >
+                        {isStashing ? (
+                          <CircleNotch size={14} className="animate-spin" />
+                        ) : (
+                          "Stash"
+                        )}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowStashInput(false);
+                          setStashMessage("");
+                        }}
+                        className="px-2 py-1 bg-bg-secondary border border-border-primary rounded text-text-muted hover:text-text-primary"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {/* Stash list */}
+                {stashes && stashes.length > 0 ? (
+                  <div className="max-h-40 overflow-auto">
+                    {stashes.map((stash) => (
+                      <StashRow
+                        key={stash.oid}
+                        stash={stash}
+                        onApply={() =>
+                          applyStashMutation.mutate(stash.stashIndex)
+                        }
+                        onPop={() => popStashMutation.mutate(stash.stashIndex)}
+                        onDrop={() =>
+                          dropStashMutation.mutate(stash.stashIndex)
+                        }
+                        fontSize={panelFontSize}
+                        isLoading={isStashMutating}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  !showStashInput && (
+                    <div
+                      className="px-2 py-2 text-text-muted text-center"
+                      style={{ fontSize: `${panelFontSize}px` }}
+                    >
+                      No stashes
+                    </div>
+                  )
+                )}
               </div>
             )}
-            {/* Stash list */}
-            {stashes && stashes.length > 0 ? (
-              <div className="max-h-40 overflow-auto">
-                {stashes.map((stash) => (
-                  <StashRow
-                    key={stash.oid}
-                    stash={stash}
-                    onApply={() => applyStashMutation.mutate(stash.stashIndex)}
-                    onPop={() => popStashMutation.mutate(stash.stashIndex)}
-                    onDrop={() => dropStashMutation.mutate(stash.stashIndex)}
+
+            {/* Unstaged section */}
+            <SectionHeader
+              title="Unstaged Files"
+              count={unstagedFiles.length}
+              isExpanded={unstagedExpanded}
+              onToggle={() => setUnstagedExpanded(!unstagedExpanded)}
+              actionLabel="Stage All"
+              onAction={handleStageAll}
+              actionDisabled={stageMutation.isPending}
+            />
+            {unstagedExpanded && unstagedFiles.length > 0 && (
+              <div className="min-h-0 flex-1 overflow-auto">
+                {unstagedFiles.map((file) => (
+                  <StagingFileRow
+                    key={file.path}
+                    file={file}
+                    isStaged={false}
+                    isSelected={selectedFile === file.path}
+                    onSelect={() => {
+                      setSelectedCommit(null);
+                      setSelectedFile(file.path);
+                    }}
+                    onStage={() => handleStageFile(file.path)}
+                    onUnstage={() => {}}
                     fontSize={panelFontSize}
-                    isLoading={isStashMutating}
                   />
                 ))}
               </div>
-            ) : (
-              !showStashInput && (
-                <div
-                  className="px-2 py-2 text-text-muted text-center"
-                  style={{ fontSize: `${panelFontSize}px` }}
-                >
-                  No stashes
-                </div>
-              )
             )}
-          </div>
-        )}
 
-        {/* Unstaged section */}
-        <SectionHeader
-          title="Unstaged Files"
-          count={unstagedFiles.length}
-          isExpanded={unstagedExpanded}
-          onToggle={() => setUnstagedExpanded(!unstagedExpanded)}
-          actionLabel="Stage All"
-          onAction={handleStageAll}
-          actionDisabled={stageMutation.isPending}
-        />
-        {unstagedExpanded && unstagedFiles.length > 0 && (
-          <div className="min-h-0 flex-1 overflow-auto">
-            {unstagedFiles.map((file) => (
-              <StagingFileRow
-                key={file.path}
-                file={file}
-                isStaged={false}
-                isSelected={selectedFile === file.path}
-                onSelect={() => {
-                  setSelectedCommit(null);
-                  setSelectedFile(file.path);
-                }}
-                onStage={() => handleStageFile(file.path)}
-                onUnstage={() => {}}
-                fontSize={panelFontSize}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Staged section */}
-        <SectionHeader
-          title="Staged Files"
-          count={stagedFiles.length}
-          isExpanded={stagedExpanded}
-          onToggle={() => setStagedExpanded(!stagedExpanded)}
-          actionLabel="Unstage All"
-          onAction={handleUnstageAll}
-          actionDisabled={unstageMutation.isPending}
-        />
-        {stagedExpanded && stagedFiles.length > 0 && (
-          <div className="min-h-0 flex-1 overflow-auto">
-            {stagedFiles.map((file) => (
-              <StagingFileRow
-                key={file.path}
-                file={file}
-                isStaged={true}
-                isSelected={selectedFile === file.path}
-                onSelect={() => {
-                  setSelectedCommit(null);
-                  setSelectedFile(file.path);
-                }}
-                onStage={() => {}}
-                onUnstage={() => handleUnstageFile(file.path)}
-                fontSize={panelFontSize}
-              />
-            ))}
-          </div>
-        )}
+            {/* Staged section */}
+            <SectionHeader
+              title="Staged Files"
+              count={stagedFiles.length}
+              isExpanded={stagedExpanded}
+              onToggle={() => setStagedExpanded(!stagedExpanded)}
+              actionLabel="Unstage All"
+              onAction={handleUnstageAll}
+              actionDisabled={unstageMutation.isPending}
+            />
+            {stagedExpanded && stagedFiles.length > 0 && (
+              <div className="min-h-0 flex-1 overflow-auto">
+                {stagedFiles.map((file) => (
+                  <StagingFileRow
+                    key={file.path}
+                    file={file}
+                    isStaged={true}
+                    isSelected={selectedFile === file.path}
+                    onSelect={() => {
+                      setSelectedCommit(null);
+                      setSelectedFile(file.path);
+                    }}
+                    onStage={() => {}}
+                    onUnstage={() => handleUnstageFile(file.path)}
+                    fontSize={panelFontSize}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </Panel>
 
@@ -616,7 +686,10 @@ export function StagingSidebar() {
           {/* Commit form */}
           <div className="h-full flex flex-col p-3 gap-2">
             {/* Amend checkbox */}
-            <label className="flex items-center gap-2 text-text-muted cursor-pointer shrink-0" style={{ fontSize: `${panelFontSize}px` }}>
+            <label
+              className="flex items-center gap-2 text-text-muted cursor-pointer shrink-0"
+              style={{ fontSize: `${panelFontSize}px` }}
+            >
               <input
                 type="checkbox"
                 checked={amendPreviousCommit}
@@ -644,7 +717,11 @@ export function StagingSidebar() {
                 title="Generate commit message with AI"
               >
                 {isGenerating ? (
-                  <CircleNotch size={16} weight="bold" className="animate-spin" />
+                  <CircleNotch
+                    size={16}
+                    weight="bold"
+                    className="animate-spin"
+                  />
                 ) : (
                   <Sparkle size={16} weight="bold" />
                 )}
@@ -665,14 +742,16 @@ export function StagingSidebar() {
             <button
               onClick={handleCommit}
               disabled={
-                !commitMessage.trim() || stagedFiles.length === 0 || isCommitting
+                !commitMessage.trim() ||
+                stagedFiles.length === 0 ||
+                isCommitting
               }
               className="w-full py-2 px-4 bg-accent-green text-white rounded font-medium hover:bg-accent-green/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors shrink-0"
               style={{ fontSize: `${panelFontSize}px` }}
             >
               {isCommitting
-                ? 'Committing...'
-                : `Commit Changes to ${stagedFiles.length} File${stagedFiles.length !== 1 ? 's' : ''}`}
+                ? "Committing..."
+                : `Commit Changes to ${stagedFiles.length} File${stagedFiles.length !== 1 ? "s" : ""}`}
             </button>
           </div>
         </Panel>

@@ -136,8 +136,13 @@ pub async fn discover_repository(start_path: String) -> Result<RepositoryInfo> {
 
 #[tauri::command]
 pub async fn list_branches(repo_path: String) -> Result<Vec<BranchInfo>> {
-    let repo = git::open_repo(&repo_path)?;
-    Ok(git::list_all_branches(&repo)?)
+    // Run blocking git operation on dedicated thread pool
+    tokio::task::spawn_blocking(move || {
+        let repo = git::open_repo(&repo_path)?;
+        Ok(git::list_all_branches(&repo)?)
+    })
+    .await
+    .map_err(|e| AppError::io(format!("Task join error: {}", e)))?
 }
 
 #[tauri::command]
@@ -160,8 +165,13 @@ pub async fn get_commit_history(
     limit: usize,
     offset: usize,
 ) -> Result<Vec<CommitInfo>> {
-    let repo = git::open_repo(&repo_path)?;
-    Ok(git::get_commits(&repo, branch.as_deref(), limit, offset)?)
+    // Run blocking git operation on dedicated thread pool
+    tokio::task::spawn_blocking(move || {
+        let repo = git::open_repo(&repo_path)?;
+        Ok(git::get_commits(&repo, branch.as_deref(), limit, offset)?)
+    })
+    .await
+    .map_err(|e| AppError::io(format!("Task join error: {}", e)))?
 }
 
 #[tauri::command]
@@ -171,15 +181,35 @@ pub async fn get_commit_history_all_branches(
     limit: usize,
     offset: usize,
 ) -> Result<Vec<CommitInfo>> {
-    let repo = git::open_repo(&repo_path)?;
-    Ok(git::get_commits_all_branches(&repo, limit, offset)?)
+    // Run blocking git operation on dedicated thread pool
+    tokio::task::spawn_blocking(move || {
+        let repo = git::open_repo(&repo_path)?;
+        Ok(git::get_commits_all_branches(&repo, limit, offset)?)
+    })
+    .await
+    .map_err(|e| AppError::io(format!("Task join error: {}", e)))?
 }
 
 #[tauri::command]
 #[instrument(skip_all, fields(commit_count = commit_ids.len()), err(Debug))]
 pub async fn get_commit_graph(repo_path: String, commit_ids: Vec<String>) -> Result<CommitGraph> {
-    let repo = git::open_repo(&repo_path)?;
-    Ok(git::build_commit_graph(&repo, &commit_ids)?)
+    use std::time::Instant;
+    let cmd_start = Instant::now();
+    let commit_count = commit_ids.len();
+    
+    // Run blocking git operation on dedicated thread pool
+    let result = tokio::task::spawn_blocking(move || {
+        let spawn_start = Instant::now();
+        let repo = git::open_repo(&repo_path)?;
+        let graph = git::build_commit_graph(&repo, &commit_ids)?;
+        tracing::info!("get_commit_graph spawn_blocking inner took {:?} for {} commits", spawn_start.elapsed(), commit_count);
+        Ok(graph)
+    })
+    .await
+    .map_err(|e| AppError::io(format!("Task join error: {}", e)))?;
+    
+    tracing::info!("get_commit_graph command total took {:?}", cmd_start.elapsed());
+    result
 }
 
 #[tauri::command]
@@ -202,15 +232,34 @@ pub async fn get_file_diff(
 #[tauri::command]
 #[instrument(skip_all, fields(staged), err(Debug))]
 pub async fn get_working_diff(repo_path: String, staged: bool) -> Result<UnifiedDiff> {
-    let repo = git::open_repo(&repo_path)?;
-    Ok(git::get_working_diff(&repo, staged)?)
+    // Run blocking git operation on dedicated thread pool
+    tokio::task::spawn_blocking(move || {
+        let repo = git::open_repo(&repo_path)?;
+        Ok(git::get_working_diff(&repo, staged)?)
+    })
+    .await
+    .map_err(|e| AppError::io(format!("Task join error: {}", e)))?
 }
 
 #[tauri::command]
 #[instrument(skip_all, err(Debug))]
 pub async fn get_status(repo_path: String) -> Result<StatusInfo> {
-    let repo = git::open_repo(&repo_path)?;
-    Ok(git::get_status(&repo)?)
+    use std::time::Instant;
+    let cmd_start = Instant::now();
+    
+    // Run blocking git operation on dedicated thread pool to avoid blocking async runtime
+    let result = tokio::task::spawn_blocking(move || {
+        let spawn_start = Instant::now();
+        let repo = git::open_repo(&repo_path)?;
+        let status = git::get_status(&repo)?;
+        tracing::info!("get_status spawn_blocking inner took {:?}", spawn_start.elapsed());
+        Ok(status)
+    })
+    .await
+    .map_err(|e| AppError::io(format!("Task join error: {}", e)))?;
+    
+    tracing::info!("get_status command total took {:?}", cmd_start.elapsed());
+    result
 }
 
 #[tauri::command]

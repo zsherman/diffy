@@ -86,12 +86,16 @@ function getInitialPerfTracingEnabled(): boolean {
 
 // Non-reactive getter for perf tracing (used in trace functions outside React)
 export function isPerfTracingEnabled(): boolean {
-  return uiStore.getSnapshot().context.perfTracingEnabled;
+  const enabled = uiStore.getSnapshot().context.perfTracingEnabled;
+  return enabled;
 }
 
 // Toggle perf tracing (used by Command Palette)
 export function togglePerfTracing(): void {
   const current = isPerfTracingEnabled();
+  console.log(
+    `[DEBUG] togglePerfTracing: current=${current}, setting to ${!current}`,
+  );
   uiStore.send({ type: "setPerfTracingEnabled", enabled: !current });
 }
 
@@ -210,9 +214,15 @@ export const uiStore = createStore({
       }),
     setPerfTracingEnabled: (ctx, event: { enabled: boolean }) =>
       produce(ctx, (draft) => {
+        console.log(
+          `[DEBUG] setPerfTracingEnabled action: setting to ${event.enabled}`,
+        );
         draft.perfTracingEnabled = event.enabled;
         if (typeof window !== "undefined") {
           localStorage.setItem("diffy-perf-tracing", String(event.enabled));
+          console.log(
+            `[DEBUG] localStorage 'diffy-perf-tracing' set to: ${localStorage.getItem("diffy-perf-tracing")}`,
+          );
         }
       }),
   },
@@ -250,6 +260,138 @@ export function useTheme() {
     [],
   );
   return { theme, setTheme };
+}
+
+// Focused hook for just activePanel (used by DockviewPanelWrapper)
+// Avoids re-renders when unrelated UI state changes (theme, dialogs, preferences)
+export function useActivePanel() {
+  const activePanel = useSelector(uiStore, (s) => s.context.activePanel);
+  const setActivePanel = useCallback(
+    (panel: PanelId) => uiStore.send({ type: "setActivePanel", panel }),
+    [],
+  );
+  return { activePanel, setActivePanel };
+}
+
+// Focused hook for diff view settings (used by DiffViewer, ConflictEditor, etc.)
+// Combines all diff-related settings in a single hook with custom equality
+export function useDiffSettings() {
+  const settings = useSelector(
+    uiStore,
+    (s) => ({
+      theme: s.context.theme,
+      diffViewMode: s.context.diffViewMode,
+      diffFontSize: s.context.diffFontSize,
+    }),
+    (a, b) =>
+      a.theme === b.theme &&
+      a.diffViewMode === b.diffViewMode &&
+      a.diffFontSize === b.diffFontSize,
+  );
+  const setDiffViewMode = useCallback(
+    (mode: "split" | "unified") =>
+      uiStore.send({ type: "setDiffViewMode", mode }),
+    [],
+  );
+  const setDiffFontSize = useCallback(
+    (size: number) => uiStore.send({ type: "setDiffFontSize", size }),
+    [],
+  );
+  return { ...settings, setDiffViewMode, setDiffFontSize };
+}
+
+// Focused hook for just panel font size (used by list components)
+export function usePanelFontSize() {
+  return useSelector(uiStore, (s) => s.context.panelFontSize);
+}
+
+// Focused hook for skills selection (used by AIReviewContent, SkillSelector)
+export function useSkillsSelection() {
+  const selectedSkillIds = useSelector(
+    uiStore,
+    (s) => s.context.selectedSkillIds,
+  );
+  const setSelectedSkillIds = useCallback(
+    (skillIds: string[]) =>
+      uiStore.send({ type: "setSelectedSkillIds", skillIds }),
+    [],
+  );
+  const toggleSkillSelection = useCallback(
+    (skillId: string) =>
+      uiStore.send({ type: "toggleSkillSelection", skillId }),
+    [],
+  );
+  const clearSelectedSkills = useCallback(
+    () => uiStore.send({ type: "clearSelectedSkills" }),
+    [],
+  );
+  return {
+    selectedSkillIds,
+    setSelectedSkillIds,
+    toggleSkillSelection,
+    clearSelectedSkills,
+  };
+}
+
+// Focused hook for graph column widths (used by GraphTableView)
+export function useGraphColumnWidths() {
+  const graphColumnWidths = useSelector(
+    uiStore,
+    (s) => s.context.graphColumnWidths,
+    (a, b) => a.branchTag === b.branchTag && a.graph === b.graph,
+  );
+  const setGraphColumnWidths = useCallback(
+    (widths: { branchTag: number; graph: number }) =>
+      uiStore.send({ type: "setGraphColumnWidths", widths }),
+    [],
+  );
+  return { graphColumnWidths, setGraphColumnWidths };
+}
+
+// Focused hook for dialogs (used by CommandPalette, SettingsDialog, etc.)
+export function useDialogs() {
+  const showHelpOverlay = useSelector(
+    uiStore,
+    (s) => s.context.showHelpOverlay,
+  );
+  const showCommandPalette = useSelector(
+    uiStore,
+    (s) => s.context.showCommandPalette,
+  );
+  const showSettingsDialog = useSelector(
+    uiStore,
+    (s) => s.context.showSettingsDialog,
+  );
+  const showSkillsDialog = useSelector(
+    uiStore,
+    (s) => s.context.showSkillsDialog,
+  );
+  const setShowHelpOverlay = useCallback(
+    (show: boolean) => uiStore.send({ type: "setShowHelpOverlay", show }),
+    [],
+  );
+  const setShowCommandPalette = useCallback(
+    (show: boolean) => uiStore.send({ type: "setShowCommandPalette", show }),
+    [],
+  );
+  const setShowSettingsDialog = useCallback(
+    (show: boolean) => uiStore.send({ type: "setShowSettingsDialog", show }),
+    [],
+  );
+  const setShowSkillsDialog = useCallback(
+    (show: boolean) => uiStore.send({ type: "setShowSkillsDialog", show }),
+    [],
+  );
+  return {
+    showHelpOverlay,
+    showCommandPalette,
+    showSettingsDialog,
+    showSkillsDialog,
+    setShowHelpOverlay,
+    setShowCommandPalette,
+    setShowSettingsDialog,
+    setShowSkillsDialog,
+  };
 }
 
 // Wrapper hook - maintains backward compatible API but reads panel state from tabs-store
@@ -381,7 +523,8 @@ export function useUIStore() {
     [],
   );
   const setPerfTracingEnabled = useCallback(
-    (enabled: boolean) => uiStore.send({ type: "setPerfTracingEnabled", enabled }),
+    (enabled: boolean) =>
+      uiStore.send({ type: "setPerfTracingEnabled", enabled }),
     [],
   );
 

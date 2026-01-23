@@ -1,22 +1,80 @@
-import { useCallback, useEffect, useTransition } from 'react';
-import { open } from '@tauri-apps/plugin-dialog';
-import { Plus, X } from '@phosphor-icons/react';
-import { useTabsStore, useActiveTabState } from '../../stores/tabs-store';
-import { openRepository, discoverRepository } from '../../lib/tauri';
-import { useToast } from './Toast';
+import { useCallback, useEffect, useTransition } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
+import { useQueryClient } from "@tanstack/react-query";
+import { Plus, X } from "@phosphor-icons/react";
+import { useTabsStore, useActiveTabState } from "../../stores/tabs-store";
+import {
+  openRepository,
+  discoverRepository,
+  getCommitHistory,
+  getStatus,
+} from "../../lib/tauri";
+import { useToast } from "./Toast";
+import { perfStart, measureUntilPaint } from "../../lib/perf";
 
 export function TabBar() {
   const { tabs, activeTabPath, openTab, closeTab, switchTab } = useTabsStore();
   const { commitMessage, commitDescription } = useActiveTabState();
   const toast = useToast();
+  const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
 
-  // Wrap switchTab in startTransition to keep showing old content during transition
-  const handleSwitchTab = useCallback((path: string) => {
-    startTransition(() => {
-      switchTab(path);
-    });
-  }, [switchTab]);
+  // Prefetch critical data, then switch tab in a transition
+  const handleSwitchTab = useCallback(
+    async (path: string) => {
+      // Skip if already active
+      if (path === activeTabPath) return;
+
+      const endPrefetch = perfStart("TabBar.prefetch");
+
+      // Prefetch critical data BEFORE starting the transition
+      // This ensures data is in cache when components render
+      await Promise.all([
+        queryClient.prefetchQuery({
+          queryKey: ["commits", path, null],
+          queryFn: () => getCommitHistory(path, undefined, 200),
+          staleTime: 30000,
+        }),
+        queryClient.prefetchQuery({
+          queryKey: ["status", path],
+          queryFn: () => getStatus(path),
+          staleTime: 30000,
+        }),
+      ]);
+
+      endPrefetch();
+
+      // Now switch tab - data is already cached, so render should be fast
+      measureUntilPaint("TabBar.switchTab");
+      startTransition(() => {
+        switchTab(path);
+      });
+    },
+    [switchTab, activeTabPath, queryClient],
+  );
+
+  // Prefetch data on tab hover to warm cache before switch
+  const handleTabHover = useCallback(
+    (repoPath: string) => {
+      // Don't prefetch if already the active tab
+      if (repoPath === activeTabPath) return;
+
+      // Prefetch commits (main data needed for the commits panel)
+      queryClient.prefetchQuery({
+        queryKey: ["commits", repoPath, null], // null = default branch
+        queryFn: () => getCommitHistory(repoPath, undefined, 200),
+        staleTime: 30000,
+      });
+
+      // Prefetch status (needed for files panel)
+      queryClient.prefetchQuery({
+        queryKey: ["status", repoPath],
+        queryFn: () => getStatus(repoPath),
+        staleTime: 30000, // 30s - watcher invalidates on changes
+      });
+    },
+    [queryClient, activeTabPath],
+  );
 
   // Handle opening a new repository
   const handleAddTab = useCallback(async () => {
@@ -24,10 +82,10 @@ export function TabBar() {
       const selected = await open({
         directory: true,
         multiple: false,
-        title: 'Select Git Repository',
+        title: "Select Git Repository",
       });
 
-      if (selected && typeof selected === 'string') {
+      if (selected && typeof selected === "string") {
         try {
           const repo = await openRepository(selected);
           openTab(repo);
@@ -36,12 +94,12 @@ export function TabBar() {
             const repo = await discoverRepository(selected);
             openTab(repo);
           } catch {
-            toast.error('Not a git repository', selected);
+            toast.error("Not a git repository", selected);
           }
         }
       }
     } catch (e) {
-      toast.error('Failed to open repository', String(e));
+      toast.error("Failed to open repository", String(e));
     }
   }, [openTab, toast]);
 
@@ -54,14 +112,14 @@ export function TabBar() {
       const isActiveTab = path === activeTabPath;
       if (isActiveTab && (commitMessage.trim() || commitDescription.trim())) {
         const confirmed = window.confirm(
-          'You have an unsaved commit message. Are you sure you want to close this tab?'
+          "You have an unsaved commit message. Are you sure you want to close this tab?",
         );
         if (!confirmed) return;
       }
 
       closeTab(path);
     },
-    [closeTab, activeTabPath, commitMessage, commitDescription]
+    [closeTab, activeTabPath, commitMessage, commitDescription],
   );
 
   // Handle middle-click to close
@@ -73,7 +131,7 @@ export function TabBar() {
         handleCloseTab(e, path);
       }
     },
-    [handleCloseTab]
+    [handleCloseTab],
   );
 
   // Keyboard shortcuts for tab navigation
@@ -82,18 +140,20 @@ export function TabBar() {
       const isMeta = e.metaKey || e.ctrlKey;
 
       // Cmd+W to close current tab
-      if (isMeta && e.key === 'w') {
+      if (isMeta && e.key === "w") {
         e.preventDefault();
         if (activeTabPath) {
           // Create a synthetic event for the dirty check
-          const syntheticEvent = { stopPropagation: () => {} } as React.MouseEvent;
+          const syntheticEvent = {
+            stopPropagation: () => {},
+          } as React.MouseEvent;
           handleCloseTab(syntheticEvent, activeTabPath);
         }
         return;
       }
 
       // Cmd+1-9 to switch tabs
-      if (isMeta && e.key >= '1' && e.key <= '9') {
+      if (isMeta && e.key >= "1" && e.key <= "9") {
         e.preventDefault();
         const index = parseInt(e.key) - 1;
         if (index < tabs.length) {
@@ -103,21 +163,21 @@ export function TabBar() {
       }
 
       // Cmd+T to open new tab
-      if (isMeta && e.key === 't') {
+      if (isMeta && e.key === "t") {
         e.preventDefault();
         handleAddTab();
         return;
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [activeTabPath, tabs, handleSwitchTab, handleCloseTab, handleAddTab]);
 
   return (
     <div
       data-tauri-drag-region
-      className={`flex items-center h-8 bg-bg-secondary border-b border-border-primary select-none pl-[78px] ${isPending ? 'opacity-80' : ''}`}
+      className={`flex items-center h-8 bg-bg-secondary border-b border-border-primary select-none pl-[78px] ${isPending ? "opacity-80" : ""}`}
     >
       {/* Tab list */}
       <div className="flex items-center h-full overflow-x-auto">
@@ -130,9 +190,10 @@ export function TabBar() {
               tabIndex={0}
               aria-selected={isActive}
               onClick={() => handleSwitchTab(tab.repository.path)}
+              onMouseEnter={() => handleTabHover(tab.repository.path)}
               onMouseDown={(e) => handleMouseDown(e, tab.repository.path)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
+                if (e.key === "Enter" || e.key === " ") {
                   handleSwitchTab(tab.repository.path);
                 }
               }}
@@ -142,14 +203,14 @@ export function TabBar() {
                 border-r border-border-primary
                 ${
                   isActive
-                    ? 'bg-bg-primary text-text-primary'
-                    : 'bg-bg-secondary text-text-muted hover:bg-bg-tertiary hover:text-text-primary'
+                    ? "bg-bg-primary text-text-primary"
+                    : "bg-bg-secondary text-text-muted hover:bg-bg-tertiary hover:text-text-primary"
                 }
               `}
             >
               {/* Tab number indicator */}
               <span className="text-text-muted text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">
-                {index < 9 ? `${index + 1}` : ''}
+                {index < 9 ? `${index + 1}` : ""}
               </span>
 
               {/* Repository name */}

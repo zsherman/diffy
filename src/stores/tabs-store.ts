@@ -379,6 +379,22 @@ export function useActiveTabPath() {
   return useSelector(tabsStore, (s) => s.context.activeTabPath);
 }
 
+// Focused hook for just tab actions (no state subscriptions - used by AppContent)
+// These are stable callbacks that don't cause re-renders
+export function useTabActions() {
+  const openTab = useCallback(
+    (repository: RepositoryInfo) =>
+      tabsStore.send({ type: "openTab", repository }),
+    [],
+  );
+  const restoreTabs = useCallback(
+    (tabs: RepoTabState[], activeTabPath: string | null) =>
+      tabsStore.send({ type: "restoreTabs", tabs, activeTabPath }),
+    [],
+  );
+  return { openTab, restoreTabs };
+}
+
 // Focused hook for checking if any tabs exist (used by App)
 export function useHasOpenTabs() {
   return useSelector(tabsStore, (s) => s.context.tabs.length > 0);
@@ -499,7 +515,10 @@ export function useTabsStore() {
 type TabsState = { context: TabsContext };
 function selectActiveTab(s: TabsState): RepoTabState | null {
   if (!s.context.activeTabPath) return null;
-  return s.context.tabs.find((t) => t.repository.path === s.context.activeTabPath) ?? null;
+  return (
+    s.context.tabs.find((t) => t.repository.path === s.context.activeTabPath) ??
+    null
+  );
 }
 
 // Default panel state for when no tab is active
@@ -552,7 +571,8 @@ export function useActiveTabPanels() {
 
   // Panel actions (memoized)
   const syncPanels = useCallback(
-    (panels: Partial<PanelVisibility>) => tabsStore.send({ type: "syncPanels", panels }),
+    (panels: Partial<PanelVisibility>) =>
+      tabsStore.send({ type: "syncPanels", panels }),
     [],
   );
   const setShowBranchesPanel = useCallback(
@@ -600,7 +620,8 @@ export function useActiveTabPanels() {
     [],
   );
   const setShowMergeConflictPanel = useCallback(
-    (show: boolean) => tabsStore.send({ type: "setShowMergeConflictPanel", show }),
+    (show: boolean) =>
+      tabsStore.send({ type: "setShowMergeConflictPanel", show }),
     [],
   );
   const toggleMergeConflictPanel = useCallback(
@@ -635,8 +656,14 @@ export function useActiveTabPanels() {
 }
 
 // View state type for single selector
-type ViewState = { mainView: "history" | "changes" | "statistics"; viewMode: ViewMode };
-const DEFAULT_VIEW_STATE: ViewState = { mainView: "history", viewMode: "working" };
+type ViewState = {
+  mainView: "history" | "changes" | "statistics";
+  viewMode: ViewMode;
+};
+const DEFAULT_VIEW_STATE: ViewState = {
+  mainView: "history",
+  viewMode: "working",
+};
 
 // Hook for view mode state (used by App, RepoSelector)
 // Uses a SINGLE selector for both values
@@ -658,7 +685,8 @@ export function useActiveTabView() {
     [],
   );
   const setMainView = useCallback(
-    (view: "history" | "changes" | "statistics") => updateActiveTab({ mainView: view }),
+    (view: "history" | "changes" | "statistics") =>
+      updateActiveTab({ mainView: view }),
     [updateActiveTab],
   );
   const setViewMode = useCallback(
@@ -706,7 +734,8 @@ export function useActiveTabSelection() {
       a.selectedWorktree === b.selectedWorktree,
   );
 
-  const { selectedBranch, selectedCommit, selectedFile, selectedWorktree } = selection;
+  const { selectedBranch, selectedCommit, selectedFile, selectedWorktree } =
+    selection;
 
   const updateActiveTab = useCallback(
     (updates: Partial<Omit<RepoTabState, "repository">>) =>
@@ -718,7 +747,8 @@ export function useActiveTabSelection() {
     [updateActiveTab],
   );
   const setSelectedCommit = useCallback(
-    (commit: string | null) => updateActiveTab({ selectedCommit: commit, selectedFile: null }),
+    (commit: string | null) =>
+      updateActiveTab({ selectedCommit: commit, selectedFile: null }),
     [updateActiveTab],
   );
   const setSelectedFile = useCallback(
@@ -726,7 +756,8 @@ export function useActiveTabSelection() {
     [updateActiveTab],
   );
   const setSelectedWorktree = useCallback(
-    (worktree: string | null) => updateActiveTab({ selectedWorktree: worktree }),
+    (worktree: string | null) =>
+      updateActiveTab({ selectedWorktree: worktree }),
     [updateActiveTab],
   );
 
@@ -744,9 +775,18 @@ export function useActiveTabSelection() {
 
 // Hook for commit form state (used by StagingSidebar)
 export function useActiveTabCommitForm() {
-  const commitMessage = useSelector(tabsStore, (s) => selectActiveTab(s)?.commitMessage ?? "");
-  const commitDescription = useSelector(tabsStore, (s) => selectActiveTab(s)?.commitDescription ?? "");
-  const amendPreviousCommit = useSelector(tabsStore, (s) => selectActiveTab(s)?.amendPreviousCommit ?? false);
+  const commitMessage = useSelector(
+    tabsStore,
+    (s) => selectActiveTab(s)?.commitMessage ?? "",
+  );
+  const commitDescription = useSelector(
+    tabsStore,
+    (s) => selectActiveTab(s)?.commitDescription ?? "",
+  );
+  const amendPreviousCommit = useSelector(
+    tabsStore,
+    (s) => selectActiveTab(s)?.amendPreviousCommit ?? false,
+  );
 
   const updateActiveTab = useCallback(
     (updates: Partial<Omit<RepoTabState, "repository">>) =>
@@ -758,7 +798,8 @@ export function useActiveTabCommitForm() {
     [updateActiveTab],
   );
   const setCommitDescription = useCallback(
-    (description: string) => updateActiveTab({ commitDescription: description }),
+    (description: string) =>
+      updateActiveTab({ commitDescription: description }),
     [updateActiveTab],
   );
   const setAmendPreviousCommit = useCallback(
@@ -783,9 +824,18 @@ export function useActiveTabCommitForm() {
 
 // Hook for filter state (used by BranchList, CommitList, WorktreeList)
 export function useActiveTabFilters() {
-  const branchFilter = useSelector(tabsStore, (s) => selectActiveTab(s)?.branchFilter ?? "");
-  const commitFilter = useSelector(tabsStore, (s) => selectActiveTab(s)?.commitFilter ?? "");
-  const worktreeFilter = useSelector(tabsStore, (s) => selectActiveTab(s)?.worktreeFilter ?? "");
+  const branchFilter = useSelector(
+    tabsStore,
+    (s) => selectActiveTab(s)?.branchFilter ?? "",
+  );
+  const commitFilter = useSelector(
+    tabsStore,
+    (s) => selectActiveTab(s)?.commitFilter ?? "",
+  );
+  const worktreeFilter = useSelector(
+    tabsStore,
+    (s) => selectActiveTab(s)?.worktreeFilter ?? "",
+  );
 
   const updateActiveTab = useCallback(
     (updates: Partial<Omit<RepoTabState, "repository">>) =>
@@ -821,10 +871,18 @@ export function useActiveTabAIReview() {
     tabsStore,
     (s) => selectActiveTab(s)?.aiReview ?? null,
     // Shallow equality for aiReview object
-    (a, b) => a === b || (a?.summary === b?.summary && a?.bugs?.length === b?.bugs?.length),
+    (a, b) =>
+      a === b ||
+      (a?.summary === b?.summary && a?.bugs?.length === b?.bugs?.length),
   );
-  const aiReviewLoading = useSelector(tabsStore, (s) => selectActiveTab(s)?.aiReviewLoading ?? false);
-  const aiReviewError = useSelector(tabsStore, (s) => selectActiveTab(s)?.aiReviewError ?? null);
+  const aiReviewLoading = useSelector(
+    tabsStore,
+    (s) => selectActiveTab(s)?.aiReviewLoading ?? false,
+  );
+  const aiReviewError = useSelector(
+    tabsStore,
+    (s) => selectActiveTab(s)?.aiReviewError ?? null,
+  );
 
   const updateActiveTab = useCallback(
     (updates: Partial<Omit<RepoTabState, "repository">>) =>
@@ -875,7 +933,10 @@ export function useActiveTabState() {
   const aiReview = useActiveTabAIReview();
 
   // Additional selectors not in focused hooks
-  const dockviewLayout = useSelector(tabsStore, (s) => selectActiveTab(s)?.dockviewLayout ?? null);
+  const dockviewLayout = useSelector(
+    tabsStore,
+    (s) => selectActiveTab(s)?.dockviewLayout ?? null,
+  );
   const saveDockviewLayout = useCallback(
     (layout: unknown) => tabsStore.send({ type: "saveDockviewLayout", layout }),
     [],

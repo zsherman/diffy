@@ -1,4 +1,5 @@
-import type { CommitGraph as CommitGraphType } from '../../../types/git';
+import { memo, useMemo } from "react";
+import type { CommitGraph as CommitGraphType } from "../../../types/git";
 
 interface CommitGraphProps {
   graph: CommitGraphType;
@@ -9,28 +10,41 @@ interface CommitGraphProps {
 
 const COLUMN_WIDTH = 16;
 const NODE_RADIUS = 4;
+const BUFFER = 5;
 const COLORS = [
-  '#89b4fa', // blue
-  '#a6e3a1', // green
-  '#f9e2af', // yellow
-  '#cba6f7', // purple
-  '#f38ba8', // red
-  '#94e2d5', // teal
-  '#fab387', // peach
+  "#89b4fa", // blue
+  "#a6e3a1", // green
+  "#f9e2af", // yellow
+  "#cba6f7", // purple
+  "#f38ba8", // red
+  "#94e2d5", // teal
+  "#fab387", // peach
 ];
 
-export function CommitGraphSVG({ graph, rowHeight, visibleStartIndex, visibleEndIndex }: CommitGraphProps) {
+// Memoized graph component to avoid re-renders when parent updates
+export const CommitGraphSVG = memo(function CommitGraphSVG({
+  graph,
+  rowHeight,
+  visibleStartIndex,
+  visibleEndIndex,
+}: CommitGraphProps) {
+  // Memoize visible range calculation
+  const { startIndex, visibleNodes } = useMemo(() => {
+    if (!graph || graph.nodes.length === 0) {
+      return { startIndex: 0, visibleNodes: [] };
+    }
+    const start = Math.max(0, visibleStartIndex - BUFFER);
+    const end = Math.min(graph.nodes.length, visibleEndIndex + BUFFER);
+    return {
+      startIndex: start,
+      visibleNodes: graph.nodes.slice(start, end),
+    };
+  }, [graph, visibleStartIndex, visibleEndIndex]);
+
   if (!graph || graph.nodes.length === 0) return null;
 
   const width = (graph.maxColumns + 1) * COLUMN_WIDTH;
   const height = graph.nodes.length * rowHeight;
-
-  // Only render visible portion plus some buffer
-  const buffer = 5;
-  const startIndex = Math.max(0, visibleStartIndex - buffer);
-  const endIndex = Math.min(graph.nodes.length, visibleEndIndex + buffer);
-
-  const visibleNodes = graph.nodes.slice(startIndex, endIndex);
 
   return (
     <svg
@@ -59,7 +73,9 @@ export function CommitGraphSVG({ graph, rowHeight, visibleStartIndex, visibleEnd
                 key={`${node.commitId}-conn-${connIdx}`}
                 d={path}
                 fill="none"
-                stroke={conn.isMerge ? COLORS[conn.toColumn % COLORS.length] : color}
+                stroke={
+                  conn.isMerge ? COLORS[conn.toColumn % COLORS.length] : color
+                }
                 strokeWidth={2}
                 strokeOpacity={0.7}
               />
@@ -103,4 +119,4 @@ export function CommitGraphSVG({ graph, rowHeight, visibleStartIndex, visibleEnd
       })}
     </svg>
   );
-}
+});

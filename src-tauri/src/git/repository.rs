@@ -284,11 +284,21 @@ fn get_commit_stats(repo: &Repository, commit: &git2::Commit) -> Result<(usize, 
 }
 
 pub fn get_status(repo: &Repository) -> Result<StatusInfo, GitError> {
+    use std::time::Instant;
+    let start = Instant::now();
+    
     let mut opts = StatusOptions::new();
     opts.include_untracked(true);
-    opts.recurse_untracked_dirs(true);
+    // Don't recurse into untracked directories - this is MUCH faster
+    // Untracked folders will show as a single entry (like git status does)
+    opts.recurse_untracked_dirs(false);
+    // Skip ignored files entirely for better performance
+    opts.include_ignored(false);
+    // Don't refresh the index from disk - use cached state (faster)
+    opts.update_index(false);
 
     let statuses = repo.statuses(Some(&mut opts))?;
+    tracing::info!("git status took {:?} for {} entries", start.elapsed(), statuses.len());
 
     let mut staged = Vec::new();
     let mut unstaged = Vec::new();

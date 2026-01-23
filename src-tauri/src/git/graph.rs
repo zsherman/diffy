@@ -34,6 +34,9 @@ pub fn build_commit_graph(
     repo: &Repository,
     commit_ids: &[String],
 ) -> Result<CommitGraph, GitError> {
+    use std::time::Instant;
+    let start = Instant::now();
+    
     if commit_ids.is_empty() {
         return Ok(CommitGraph {
             nodes: vec![],
@@ -112,6 +115,8 @@ pub fn build_commit_graph(
 
     let max_columns = nodes.iter().map(|n| n.column).max().unwrap_or(0) + 1;
 
+    tracing::info!("build_commit_graph took {:?} for {} commits", start.elapsed(), commit_ids.len());
+    
     Ok(CommitGraph { nodes, max_columns })
 }
 

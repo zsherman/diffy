@@ -1,8 +1,8 @@
-import { useEffect, Suspense, type ReactNode } from 'react';
-import type { IDockviewPanelProps } from 'dockview-react';
-import { useUIStore } from '../../stores/ui-store';
-import { LoadingSpinner } from '../ui';
-import type { PanelId } from '../../types/git';
+import { useEffect, Suspense, type ReactNode } from "react";
+import type { IDockviewPanelProps } from "dockview-react";
+import { useActivePanel } from "../../stores/ui-store";
+import { LoadingSpinner, PanelErrorBoundary } from "../ui";
+import type { PanelId } from "../../types/git";
 
 interface DockviewPanelWrapperProps extends IDockviewPanelProps {
   panelId: PanelId;
@@ -24,7 +24,8 @@ export function DockviewPanelWrapper({
   api,
   fallback,
 }: DockviewPanelWrapperProps) {
-  const { activePanel, setActivePanel } = useUIStore();
+  // Use focused hook for just activePanel - avoids re-render when unrelated UI state changes
+  const { activePanel, setActivePanel } = useActivePanel();
   const isActive = activePanel === panelId;
 
   // Sync dockview focus changes to ui-store
@@ -41,12 +42,16 @@ export function DockviewPanelWrapper({
   return (
     <div
       className={`flex flex-col h-full w-full bg-bg-secondary ${
-        isActive ? 'ring-1 ring-inset ring-accent-blue/30' : ''
+        isActive ? "ring-1 ring-inset ring-accent-blue/30" : ""
       }`}
       onClick={() => setActivePanel(panelId)}
     >
       <Suspense fallback={fallback ?? <DefaultFallback />}>
-        {children}
+        {/* Only reset error boundary on panel change, NOT on repo change.
+            Repo switching should update panel content, not reset error state. */}
+        <PanelErrorBoundary panelId={panelId} resetKeys={[panelId]}>
+          {children}
+        </PanelErrorBoundary>
       </Suspense>
     </div>
   );

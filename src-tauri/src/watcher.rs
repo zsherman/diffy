@@ -106,19 +106,43 @@ impl WatcherState {
     }
 
     /// Start watching a repository
+    /// 
+    /// This spawns the watcher setup in a background thread to avoid blocking
+    /// the UI during tab switches. The watcher may take a moment to be ready
+    /// for large repositories.
     pub fn watch(&self, repo_path: PathBuf, app: AppHandle) -> Result<(), String> {
-        let mut watcher_guard = self.watcher.lock().map_err(|e| e.to_string())?;
+        let watcher_arc = Arc::clone(&self.watcher);
+        
+        // Spawn watcher setup in background to avoid blocking UI
+        std::thread::spawn(move || {
+            let mut watcher_guard = match watcher_arc.lock() {
+                Ok(guard) => guard,
+                Err(e) => {
+                    error!("Failed to acquire watcher lock: {}", e);
+                    return;
+                }
+            };
 
-        // Stop existing watcher if any
-        if let Some(ref mut existing) = *watcher_guard {
-            let _ = existing.stop();
-        }
+            // Stop existing watcher if any
+            if let Some(ref mut existing) = *watcher_guard {
+                let _ = existing.stop();
+            }
 
-        // Create and start new watcher
-        let mut watcher = RepoWatcher::new(repo_path, app)?;
-        watcher.start()?;
+            // Create and start new watcher
+            match RepoWatcher::new(repo_path.clone(), app) {
+                Ok(mut watcher) => {
+                    if let Err(e) = watcher.start() {
+                        error!("Failed to start watcher for {:?}: {}", repo_path, e);
+                        return;
+                    }
+                    *watcher_guard = Some(watcher);
+                }
+                Err(e) => {
+                    error!("Failed to create watcher for {:?}: {}", repo_path, e);
+                }
+            }
+        });
 
-        *watcher_guard = Some(watcher);
         Ok(())
     }
 

@@ -1,9 +1,15 @@
-import { memo } from 'react';
+import { memo, useMemo } from "react";
+
+// Simple cache for MD5 hashes - avoids recomputation during list scrolling
+const md5Cache = new Map<string, string>();
 
 // Simple MD5 hash function for Gravatar
 function md5(string: string): string {
   function md5cycle(x: number[], k: number[]) {
-    let a = x[0], b = x[1], c = x[2], d = x[3];
+    let a = x[0],
+      b = x[1],
+      c = x[2],
+      d = x[3];
 
     a = ff(a, b, c, d, k[0], 7, -680876936);
     d = ff(d, a, b, c, k[1], 12, -389564586);
@@ -79,25 +85,64 @@ function md5(string: string): string {
     x[3] = add32(d, x[3]);
   }
 
-  function cmn(q: number, a: number, b: number, x: number, s: number, t: number) {
+  function cmn(
+    q: number,
+    a: number,
+    b: number,
+    x: number,
+    s: number,
+    t: number,
+  ) {
     a = add32(add32(a, q), add32(x, t));
     return add32((a << s) | (a >>> (32 - s)), b);
   }
 
-  function ff(a: number, b: number, c: number, d: number, x: number, s: number, t: number) {
-    return cmn((b & c) | ((~b) & d), a, b, x, s, t);
+  function ff(
+    a: number,
+    b: number,
+    c: number,
+    d: number,
+    x: number,
+    s: number,
+    t: number,
+  ) {
+    return cmn((b & c) | (~b & d), a, b, x, s, t);
   }
 
-  function gg(a: number, b: number, c: number, d: number, x: number, s: number, t: number) {
-    return cmn((b & d) | (c & (~d)), a, b, x, s, t);
+  function gg(
+    a: number,
+    b: number,
+    c: number,
+    d: number,
+    x: number,
+    s: number,
+    t: number,
+  ) {
+    return cmn((b & d) | (c & ~d), a, b, x, s, t);
   }
 
-  function hh(a: number, b: number, c: number, d: number, x: number, s: number, t: number) {
+  function hh(
+    a: number,
+    b: number,
+    c: number,
+    d: number,
+    x: number,
+    s: number,
+    t: number,
+  ) {
     return cmn(b ^ c ^ d, a, b, x, s, t);
   }
 
-  function ii(a: number, b: number, c: number, d: number, x: number, s: number, t: number) {
-    return cmn(c ^ (b | (~d)), a, b, x, s, t);
+  function ii(
+    a: number,
+    b: number,
+    c: number,
+    d: number,
+    x: number,
+    s: number,
+    t: number,
+  ) {
+    return cmn(c ^ (b | ~d), a, b, x, s, t);
   }
 
   function md51(s: string) {
@@ -125,27 +170,31 @@ function md5(string: string): string {
   function md5blk(s: string) {
     const md5blks = [];
     for (let i = 0; i < 64; i += 4) {
-      md5blks[i >> 2] = s.charCodeAt(i) + (s.charCodeAt(i + 1) << 8) + (s.charCodeAt(i + 2) << 16) + (s.charCodeAt(i + 3) << 24);
+      md5blks[i >> 2] =
+        s.charCodeAt(i) +
+        (s.charCodeAt(i + 1) << 8) +
+        (s.charCodeAt(i + 2) << 16) +
+        (s.charCodeAt(i + 3) << 24);
     }
     return md5blks;
   }
 
-  const hex_chr = '0123456789abcdef'.split('');
+  const hex_chr = "0123456789abcdef".split("");
 
   function rhex(n: number) {
-    let s = '';
+    let s = "";
     for (let j = 0; j < 4; j++) {
-      s += hex_chr[(n >> (j * 8 + 4)) & 0x0F] + hex_chr[(n >> (j * 8)) & 0x0F];
+      s += hex_chr[(n >> (j * 8 + 4)) & 0x0f] + hex_chr[(n >> (j * 8)) & 0x0f];
     }
     return s;
   }
 
   function hex(x: number[]) {
-    return x.map(rhex).join('');
+    return x.map(rhex).join("");
   }
 
   function add32(a: number, b: number) {
-    return (a + b) & 0xFFFFFFFF;
+    return (a + b) & 0xffffffff;
   }
 
   return hex(md51(string));
@@ -157,12 +206,24 @@ interface AuthorAvatarProps {
   ringColor?: string;
 }
 
+// Helper to get cached MD5 hash
+function getCachedMd5(email: string): string {
+  const key = email.toLowerCase().trim();
+  let hash = md5Cache.get(key);
+  if (!hash) {
+    hash = md5(key);
+    md5Cache.set(key, hash);
+  }
+  return hash;
+}
+
 export const AuthorAvatar = memo(function AuthorAvatar({
   email,
   size = 24,
   ringColor,
 }: AuthorAvatarProps) {
-  const hash = md5(email.toLowerCase().trim());
+  // Use cached MD5 hash - avoids expensive recomputation during list scrolling
+  const hash = useMemo(() => getCachedMd5(email), [email]);
   const url = `https://gravatar.com/avatar/${hash}?d=identicon&s=${size * 2}`;
 
   return (
@@ -172,7 +233,11 @@ export const AuthorAvatar = memo(function AuthorAvatar({
       width={size}
       height={size}
       className="rounded-full shrink-0"
-      style={ringColor ? { outline: `2px solid ${ringColor}`, outlineOffset: '1px' } : undefined}
+      style={
+        ringColor
+          ? { outline: `2px solid ${ringColor}`, outlineOffset: "1px" }
+          : undefined
+      }
       loading="lazy"
     />
   );
