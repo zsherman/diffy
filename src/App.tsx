@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
@@ -29,7 +29,7 @@ import {
   getSavedTabPaths,
   createTabState,
 } from "./stores/tabs-store";
-import { useTheme } from "./stores/ui-store";
+import { useTheme, getDockviewApi } from "./stores/ui-store";
 import { useKeyboardNavigation } from "./hooks/useKeyboardNavigation";
 import { useRepoWatcher } from "./hooks/useRepoWatcher";
 import {
@@ -63,10 +63,39 @@ function AppContent() {
   // Get theme from UI store (global setting) - use focused hook to avoid unnecessary subscriptions
   const { theme } = useTheme();
 
+  // Track previous mainView to detect transitions from statistics
+  const prevMainViewRef = useRef(mainView);
+
   // Sync theme to document
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
+
+  // Ref to the Dockview container for layout recalculation
+  const dockviewContainerRef = useRef<HTMLDivElement>(null);
+
+  // Force Dockview layout recalculation when returning from statistics view
+  // Dockview doesn't auto-resize correctly after being hidden with display:none
+  useEffect(() => {
+    const wasStatistics = prevMainViewRef.current === "statistics";
+    const isNowVisible = mainView !== "statistics";
+    prevMainViewRef.current = mainView;
+
+    if (wasStatistics && isNowVisible && dockviewContainerRef.current) {
+      // Give React a moment to update display:none -> visible, then nudge Dockview
+      requestAnimationFrame(() => {
+        const api = getDockviewApi();
+        const container = dockviewContainerRef.current;
+        if (api && container) {
+          // Force layout recalculation with current dimensions
+          const { width, height } = container.getBoundingClientRect();
+          if (width > 0 && height > 0) {
+            api.layout(width, height, true);
+          }
+        }
+      });
+    }
+  }, [mainView]);
 
   // Set up keyboard navigation
   useKeyboardNavigation();
@@ -236,6 +265,7 @@ function AppContent() {
           {/* DockviewLayout stays mounted but hidden when statistics is active */}
           {/* This avoids expensive remount when switching back to history/changes */}
           <div
+            ref={dockviewContainerRef}
             className="flex-1 min-h-0"
             style={{ display: mainView === "statistics" ? "none" : undefined }}
           >

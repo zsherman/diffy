@@ -428,6 +428,7 @@ export const DockviewLayout = memo(function DockviewLayout() {
   const currentRepoPathRef = useRef<string | null>(null);
   const lastReconcileRef = useRef<PanelVisibility | null>(null);
   const pendingTabPathRef = useRef<string | null>(null); // Track pending tab switch during initialization
+  const skipNextReconcileRef = useRef(false); // Skip reconcile once after tab switch
 
   // Store disposables in refs so we can clean them up on unmount
   const disposablesRef = useRef<IDisposable[]>([]);
@@ -679,6 +680,10 @@ export const DockviewLayout = memo(function DockviewLayout() {
     // This ensures the tabs-store reflects reality (what panels are actually visible).
     // When user explicitly toggles a panel, that will create a delta that reconcile handles.
 
+    // Skip the next reconcile effect - the syncPanels call above may cause a re-render
+    // with new desiredPanels that differs from lastReconcileRef. We want to ignore that.
+    skipNextReconcileRef.current = true;
+
     endTrace();
   }, [activeTabPath]);
 
@@ -695,6 +700,17 @@ export const DockviewLayout = memo(function DockviewLayout() {
     if (isInLayoutTransaction()) {
       if (isPerfTracingEnabled())
         console.log("[perf] Reconcile Effect skipped (in transaction)");
+      return;
+    }
+
+    // Skip once after tab switch - the tab switch effect already synced lastReconcileRef
+    // and we don't want to reconcile based on the new tab's stored panel visibility.
+    if (skipNextReconcileRef.current) {
+      if (isPerfTracingEnabled())
+        console.log("[perf] Reconcile Effect skipped (skipNextReconcile flag)");
+      skipNextReconcileRef.current = false;
+      // Update lastReconcileRef to match current desired state so future explicit toggles work
+      lastReconcileRef.current = { ...desiredPanels };
       return;
     }
 

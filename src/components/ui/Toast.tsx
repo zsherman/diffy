@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Toast } from '@base-ui/react/toast';
 import { Check, X, Warning, Info, Copy, CheckCircle } from '@phosphor-icons/react';
 
@@ -82,6 +82,50 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+const MAX_COLLAPSED_HEIGHT = 80; // ~4 lines of text
+
+function CollapsibleDescription({ description }: { description: string }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [needsCollapse, setNeedsCollapse] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const element = contentRef.current;
+    if (!element) return;
+
+    // Check initial size
+    const checkHeight = () => {
+      setNeedsCollapse(element.scrollHeight > MAX_COLLAPSED_HEIGHT);
+    };
+
+    // Use requestAnimationFrame to batch the measurement
+    const rafId = requestAnimationFrame(checkHeight);
+
+    return () => cancelAnimationFrame(rafId);
+  }, [description]);
+
+  return (
+    <div className="mt-2">
+      <div
+        ref={contentRef}
+        className={`text-sm text-text-muted leading-relaxed overflow-hidden transition-all duration-200 ${
+          !isExpanded && needsCollapse ? 'max-h-[80px]' : 'max-h-[400px]'
+        }`}
+      >
+        {description}
+      </div>
+      {needsCollapse && (
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="text-xs text-accent-blue hover:text-accent-blue/80 mt-1 transition-colors"
+        >
+          {isExpanded ? 'Show less' : 'Show more'}
+        </button>
+      )}
+    </div>
+  );
+}
+
 interface ToastDataWithActionId extends Omit<ToastData, 'action'> {
   actionId?: string;
   actionLabel?: string;
@@ -129,8 +173,8 @@ function ToastList() {
             <span className="text-text-primary">{title}</span>
           </Toast.Title>
           {description && (
-            <Toast.Description className="text-sm text-text-muted mt-2 leading-relaxed">
-              {description}
+            <Toast.Description asChild>
+              <CollapsibleDescription description={description} />
             </Toast.Description>
           )}
           {actionId && actionLabel && (

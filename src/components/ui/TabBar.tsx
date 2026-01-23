@@ -10,7 +10,7 @@ import {
   getStatus,
 } from "../../lib/tauri";
 import { useToast } from "./Toast";
-import { perfStart, measureUntilPaint } from "../../lib/perf";
+import { measureUntilPaint } from "../../lib/perf";
 
 export function TabBar() {
   const { tabs, activeTabPath, openTab, closeTab, switchTab } = useTabsStore();
@@ -19,33 +19,27 @@ export function TabBar() {
   const queryClient = useQueryClient();
   const [isPending, startTransition] = useTransition();
 
-  // Prefetch critical data, then switch tab in a transition
+  // Switch tab immediately; prefetch fires in background (hover should have warmed the cache)
   const handleSwitchTab = useCallback(
-    async (path: string) => {
+    (path: string) => {
       // Skip if already active
       if (path === activeTabPath) return;
 
-      const endPrefetch = perfStart("TabBar.prefetch");
-
-      // Prefetch critical data BEFORE starting the transition
-      // This ensures data is in cache when components render
-      await Promise.all([
-        queryClient.prefetchQuery({
-          queryKey: ["commits", path, null],
-          queryFn: () => getCommitHistory(path, undefined, 200),
-          staleTime: 30000,
-        }),
-        queryClient.prefetchQuery({
-          queryKey: ["status", path],
-          queryFn: () => getStatus(path),
-          staleTime: 30000,
-        }),
-      ]);
-
-      endPrefetch();
-
-      // Now switch tab - data is already cached, so render should be fast
       measureUntilPaint("TabBar.switchTab");
+
+      // Fire prefetch in background (non-blocking) - hover likely already warmed cache
+      queryClient.prefetchQuery({
+        queryKey: ["commits", path, null],
+        queryFn: () => getCommitHistory(path, undefined, 200),
+        staleTime: 30000,
+      });
+      queryClient.prefetchQuery({
+        queryKey: ["status", path],
+        queryFn: () => getStatus(path),
+        staleTime: 30000,
+      });
+
+      // Switch immediately - don't wait for prefetch
       startTransition(() => {
         switchTab(path);
       });

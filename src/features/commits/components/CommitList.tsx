@@ -151,8 +151,9 @@ export function CommitList() {
   );
 
   // Fetch graph data (non-suspense, loads in background)
+  // Use 'commitListGraph' key to avoid collision with GraphTableView's graph query
   const { data: graph } = useQuery({
-    queryKey: ["graph", repository?.path, commitIdsKey],
+    queryKey: ["commitListGraph", repository?.path, selectedBranch, commitIdsKey],
     queryFn: () =>
       getCommitGraph(
         repository!.path,

@@ -122,8 +122,9 @@ export function GraphTableView() {
   );
 
   // Fetch graph data
+  // Use 'graphTableGraph' key to avoid collision with CommitList's graph query
   const { data: graph } = useQuery({
-    queryKey: ["graph", repository?.path, commitIdsKey],
+    queryKey: ["graphTableGraph", repository?.path, "allBranches", commitIdsKey],
     queryFn: () =>
       getCommitGraph(
         repository!.path,

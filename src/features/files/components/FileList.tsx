@@ -183,12 +183,14 @@ export function FileList() {
 
   // Fetch working directory status
   // Long staleTime since file watcher handles invalidation - prevents duplicate fetches on tab switch
-  const { data: status, isLoading: statusLoading } = useQuery({
+  // placeholderData keeps showing previous data during tab switch (smooth transitions)
+  const { data: status, isLoading: statusLoading, isFetching: statusFetching } = useQuery({
     queryKey: ["status", repository?.path],
     queryFn: () => getStatus(repository!.path),
     enabled: !!repository?.path && !selectedCommit,
     staleTime: 30000, // 30s - watcher invalidates on changes
     refetchOnMount: false, // Don't refetch if data exists - watcher handles updates
+    placeholderData: (previousData) => previousData, // Keep showing previous data during switch
   });
 
   // Fetch commit files when a commit is selected (only keep file list, discard patch)
@@ -373,6 +375,15 @@ export function FileList() {
     },
     [setSelectedFile, setShowDiffPanel],
   );
+
+  // Show loading state when fetching for the first time (no cached data yet)
+  if ((statusLoading || statusFetching) && !status && !selectedCommit) {
+    return (
+      <div className="flex items-center justify-center h-full text-text-muted text-sm">
+        Loading files...
+      </div>
+    );
+  }
 
   if (flatList.length === 0 && !statusLoading && !diffLoading) {
     return (
