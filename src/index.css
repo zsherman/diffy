@@ -194,3 +194,33 @@ body {
 .resize-handle:active {
   background: var(--accent-blue);
 }
+
+/* uPlot theme overrides */
+.uplot {
+  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+}
+
+.uplot .u-cursor-x,
+.uplot .u-cursor-y {
+  border-color: var(--text-muted) !important;
+  border-style: dashed !important;
+}
+
+.uplot .u-select {
+  background: var(--accent-blue) !important;
+  opacity: 0.15;
+}
+
+.uplot .u-cursor-pt {
+  background: var(--accent-blue) !important;
+  border-color: var(--bg-primary) !important;
+}
+
+/* Ensure uPlot canvas doesn't overflow */
+.uplot-container {
+  overflow: hidden;
+}
+
+.uplot-container canvas {
+  display: block;
+}

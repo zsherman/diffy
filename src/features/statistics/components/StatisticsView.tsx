@@ -10,6 +10,7 @@ import {
 } from "@phosphor-icons/react";
 import { useActiveRepository } from "../../../stores/tabs-store";
 import { useActiveTabStatistics } from "../../../stores/tabs-store";
+import { useTheme } from "../../../stores/ui-store";
 import { useContributionData } from "../hooks/useContributionData";
 import { ContributionCalendar } from "./ContributionCalendar";
 import { CalendarLegend } from "./CalendarLegend";
@@ -28,6 +29,7 @@ export function StatisticsView() {
   const repository = useActiveRepository();
   const { statisticsContributorEmail, setStatisticsContributorEmail } =
     useActiveTabStatistics();
+  const { theme } = useTheme();
 
   const {
     contributionsByDay,
@@ -227,7 +229,10 @@ export function StatisticsView() {
                 <span className="text-xs text-text-muted">(weekly)</span>
               </div>
               <div className="h-48">
-                <CommitsOverTimeChart weeklyBuckets={chartData.weeklyBuckets} />
+                <CommitsOverTimeChart
+                  key={`commits-time-${theme}`}
+                  weeklyBuckets={chartData.weeklyBuckets}
+                />
               </div>
             </div>
           )}
@@ -243,7 +248,10 @@ export function StatisticsView() {
                   </span>
                 </div>
                 <div className="h-40">
-                  <CommitsByDayChart dayBuckets={chartData.dayBuckets} />
+                  <CommitsByDayChart
+                    key={`commits-day-${theme}`}
+                    dayBuckets={chartData.dayBuckets}
+                  />
                 </div>
               </div>
 
@@ -255,7 +263,10 @@ export function StatisticsView() {
                   </span>
                 </div>
                 <div className="h-40">
-                  <CommitsByHourChart hourBuckets={chartData.hourBuckets} />
+                  <CommitsByHourChart
+                    key={`commits-hour-${theme}`}
+                    hourBuckets={chartData.hourBuckets}
+                  />
                 </div>
               </div>
             </div>
@@ -271,7 +282,10 @@ export function StatisticsView() {
                 </span>
               </div>
               <div className="h-64">
-                <TopContributorsChart contributors={chartData.topContributors} />
+                <TopContributorsChart
+                  key={`contributors-${theme}`}
+                  contributors={chartData.topContributors}
+                />
               </div>
             </div>
           )}
