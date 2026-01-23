@@ -41,7 +41,7 @@ const BranchRow = memo(function BranchRow({
   onClick: () => void;
   onDoubleClick: () => void;
 }) {
-  const isHead = branch.is_head;
+  const isHead = branch.isHead;
 
   return (
     <div
@@ -57,7 +57,7 @@ const BranchRow = memo(function BranchRow({
         className={`truncate ${isHead ? 'text-accent-green font-medium' : 'text-text-primary'
           }`}
       >
-        {branch.is_remote ? branch.name.replace(/^[^/]+\//, '') : branch.name}
+        {branch.isRemote ? branch.name.replace(/^[^/]+\//, '') : branch.name}
       </span>
     </div>
   );
@@ -145,7 +145,7 @@ export function BranchList() {
     if (!branch) return;
 
     // Don't merge if it's the current branch
-    if (branch.is_head) {
+    if (branch.isHead) {
       toast.warning('Cannot merge', 'Cannot merge a branch into itself');
       return;
     }
@@ -162,8 +162,8 @@ export function BranchList() {
 
   // Group by local/remote
   const groupedBranches = useMemo(() => {
-    const local = filteredBranches.filter((b) => !b.is_remote);
-    const remote = filteredBranches.filter((b) => b.is_remote);
+    const local = filteredBranches.filter((b) => !b.isRemote);
+    const remote = filteredBranches.filter((b) => b.isRemote);
     return { local, remote };
   }, [filteredBranches]);
 
@@ -215,7 +215,7 @@ export function BranchList() {
           const branch = item.data as BranchInfo;
           setSelectedBranch(branch.name);
           setSelectedCommit(null);
-          if (!branch.is_remote) {
+          if (!branch.isRemote) {
             checkoutMutation.mutate({ branch: branch.name });
           }
         }
@@ -245,7 +245,7 @@ export function BranchList() {
 
   const handleBranchDoubleClick = useCallback(
     (branch: BranchInfo) => {
-      if (!branch.is_remote) {
+      if (!branch.isRemote) {
         checkoutMutation.mutate({ branch: branch.name });
       }
     },
@@ -269,7 +269,7 @@ export function BranchList() {
   const canMerge = useMemo(() => {
     if (!selectedBranch) return false;
     const branch = branches.find((b) => b.name === selectedBranch);
-    return branch && !branch.is_head;
+    return branch && !branch.isHead;
   }, [selectedBranch, branches]);
 
   return (

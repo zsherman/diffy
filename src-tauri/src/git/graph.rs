@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use super::GitError;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct GraphNode {
     pub commit_id: String,
     pub column: usize,
@@ -12,6 +13,7 @@ pub struct GraphNode {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct GraphConnection {
     pub from_column: usize,
     pub to_column: usize,
@@ -20,6 +22,7 @@ pub struct GraphConnection {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct CommitGraph {
     pub nodes: Vec<GraphNode>,
     pub max_columns: usize,

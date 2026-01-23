@@ -41,6 +41,7 @@ fn git_command() -> Command {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct MergeStatus {
     pub in_merge: bool,
     pub conflicting_files: Vec<String>,
@@ -48,6 +49,7 @@ pub struct MergeStatus {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct ConflictRegion {
     pub start_line: usize,
     pub end_line: usize,
@@ -56,6 +58,7 @@ pub struct ConflictRegion {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct FileConflictInfo {
     pub file_path: String,
     pub conflicts: Vec<ConflictRegion>,

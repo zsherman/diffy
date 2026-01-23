@@ -70,7 +70,7 @@ export function BranchSwitcher() {
 
   // Only show local branches for switching
   const localBranches = useMemo(
-    () => branches.filter((b) => !b.is_remote),
+    () => branches.filter((b) => !b.isRemote),
     [branches]
   );
 
@@ -82,12 +82,12 @@ export function BranchSwitcher() {
   }, [localBranches, inputValue]);
 
   const currentBranch = useMemo(
-    () => localBranches.find((b) => b.is_head),
+    () => localBranches.find((b) => b.isHead),
     [localBranches]
   );
 
   const handleSelect = (value: BranchInfo | null) => {
-    if (value && !value.is_head) {
+    if (value && !value.isHead) {
       checkoutMutation.mutate(value.name);
     }
     setOpen(false);
@@ -127,7 +127,7 @@ export function BranchSwitcher() {
         aria-label="Switch branch"
       >
         <GitBranch size={12} weight="bold" />
-        <span className="max-w-[150px] truncate">{repository.head_branch ?? 'detached'}</span>
+        <span className="max-w-[150px] truncate">{repository.headBranch ?? 'detached'}</span>
         <CaretUpDown size={10} className="text-text-muted" />
       </Combobox.Trigger>
 

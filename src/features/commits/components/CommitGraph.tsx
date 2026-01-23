@@ -22,7 +22,7 @@ const COLORS = [
 export function CommitGraphSVG({ graph, rowHeight, visibleStartIndex, visibleEndIndex }: CommitGraphProps) {
   if (!graph || graph.nodes.length === 0) return null;
 
-  const width = (graph.max_columns + 1) * COLUMN_WIDTH;
+  const width = (graph.maxColumns + 1) * COLUMN_WIDTH;
   const height = graph.nodes.length * rowHeight;
 
   // Only render visible portion plus some buffer
@@ -47,19 +47,19 @@ export function CommitGraphSVG({ graph, rowHeight, visibleStartIndex, visibleEnd
         const color = COLORS[node.column % COLORS.length];
 
         return node.connections.map((conn, connIdx) => {
-          const targetY = conn.to_row * rowHeight + rowHeight / 2;
-          const targetX = conn.to_column * COLUMN_WIDTH + COLUMN_WIDTH / 2;
+          const targetY = conn.toRow * rowHeight + rowHeight / 2;
+          const targetX = conn.toColumn * COLUMN_WIDTH + COLUMN_WIDTH / 2;
 
           // Bezier curve for merge lines
-          if (conn.is_merge || conn.from_column !== conn.to_column) {
+          if (conn.isMerge || conn.fromColumn !== conn.toColumn) {
             const midY = (y + targetY) / 2;
             const path = `M ${x} ${y} C ${x} ${midY}, ${targetX} ${midY}, ${targetX} ${targetY}`;
             return (
               <path
-                key={`${node.commit_id}-conn-${connIdx}`}
+                key={`${node.commitId}-conn-${connIdx}`}
                 d={path}
                 fill="none"
-                stroke={conn.is_merge ? COLORS[conn.to_column % COLORS.length] : color}
+                stroke={conn.isMerge ? COLORS[conn.toColumn % COLORS.length] : color}
                 strokeWidth={2}
                 strokeOpacity={0.7}
               />
@@ -69,7 +69,7 @@ export function CommitGraphSVG({ graph, rowHeight, visibleStartIndex, visibleEnd
           // Straight line for same column
           return (
             <line
-              key={`${node.commit_id}-conn-${connIdx}`}
+              key={`${node.commitId}-conn-${connIdx}`}
               x1={x}
               y1={y}
               x2={targetX}
@@ -91,7 +91,7 @@ export function CommitGraphSVG({ graph, rowHeight, visibleStartIndex, visibleEnd
 
         return (
           <circle
-            key={`${node.commit_id}-node`}
+            key={`${node.commitId}-node`}
             cx={x}
             cy={y}
             r={NODE_RADIUS}

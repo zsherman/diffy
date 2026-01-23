@@ -102,14 +102,14 @@ const CommitHeader = memo(function CommitHeader({ commit }: { commit: CommitInfo
         </div>
       )}
       <div className="flex items-center gap-3 text-xs text-text-muted">
-        <span className="font-mono text-accent-blue">{commit.short_id}</span>
-        <span>{commit.author_name}</span>
+        <span className="font-mono text-accent-blue">{commit.shortId}</span>
+        <span>{commit.authorName}</span>
         <span>{formattedDate}</span>
       </div>
       <div className="flex items-center gap-3 text-xs text-text-muted mt-1">
         <span className="text-accent-green">+{commit.additions}</span>
         <span className="text-accent-red">-{commit.deletions}</span>
-        <span>{commit.files_changed} file{commit.files_changed !== 1 ? 's' : ''}</span>
+        <span>{commit.filesChanged} file{commit.filesChanged !== 1 ? 's' : ''}</span>
       </div>
     </div>
   );

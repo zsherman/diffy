@@ -268,7 +268,7 @@ export function StagingSidebar() {
     }
   }, [repository, stagedFiles.length, isGenerating, setCommitMessage, setCommitDescription]);
 
-  const branchName = repository?.head_branch ?? 'main';
+  const branchName = repository?.headBranch ?? 'main';
 
   return (
     <div className="w-full flex flex-col h-full bg-bg-secondary">

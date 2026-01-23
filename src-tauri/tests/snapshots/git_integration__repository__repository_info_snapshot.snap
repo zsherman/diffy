@@ -1,0 +1,12 @@
+---
+source: tests/git_integration.rs
+expression: info
+---
+RepositoryInfo {
+    path: "/tmp/test-repo/",
+    name: "test-repo",
+    is_bare: false,
+    head_branch: Some(
+        "main",
+    ),
+}

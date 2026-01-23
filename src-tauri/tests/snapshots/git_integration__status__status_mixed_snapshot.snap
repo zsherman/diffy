@@ -1,0 +1,27 @@
+---
+source: tests/git_integration.rs
+expression: status
+---
+StatusInfo {
+    staged: [
+        FileStatus {
+            path: "staged.txt",
+            status: "A",
+            is_staged: true,
+        },
+    ],
+    unstaged: [
+        FileStatus {
+            path: "README.md",
+            status: "M",
+            is_staged: false,
+        },
+    ],
+    untracked: [
+        FileStatus {
+            path: "untracked.txt",
+            status: "?",
+            is_staged: false,
+        },
+    ],
+}

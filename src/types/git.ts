@@ -1,55 +1,55 @@
 export interface RepositoryInfo {
   path: string;
   name: string;
-  is_bare: boolean;
-  head_branch: string | null;
+  isBare: boolean;
+  headBranch: string | null;
 }
 
 export interface BranchInfo {
   name: string;
-  is_head: boolean;
-  is_remote: boolean;
+  isHead: boolean;
+  isRemote: boolean;
   upstream: string | null;
-  commit_id: string;
-  commit_message: string;
+  commitId: string;
+  commitMessage: string;
 }
 
 export interface CommitInfo {
   id: string;
-  short_id: string;
+  shortId: string;
   message: string;
   summary: string;
-  author_name: string;
-  author_email: string;
+  authorName: string;
+  authorEmail: string;
   time: number;
-  parent_ids: string[];
-  files_changed: number;
+  parentIds: string[];
+  filesChanged: number;
   additions: number;
   deletions: number;
 }
 
 export interface GraphNode {
-  commit_id: string;
+  commitId: string;
   column: number;
   connections: GraphConnection[];
 }
 
 export interface GraphConnection {
-  from_column: number;
-  to_column: number;
-  to_row: number;
-  is_merge: boolean;
+  fromColumn: number;
+  toColumn: number;
+  toRow: number;
+  isMerge: boolean;
 }
 
 export interface CommitGraph {
   nodes: GraphNode[];
-  max_columns: number;
+  maxColumns: number;
 }
 
 export interface FileStatus {
   path: string;
   status: string;
-  is_staged: boolean;
+  isStaged: boolean;
 }
 
 export interface StatusInfo {
@@ -60,7 +60,7 @@ export interface StatusInfo {
 
 export interface DiffFile {
   path: string;
-  old_path: string | null;
+  oldPath: string | null;
   status: string;
   additions: number;
   deletions: number;
@@ -81,7 +81,7 @@ export type PanelId = 'branches' | 'commits' | 'files' | 'diff' | 'staging' | 'a
 export interface RefInfo {
   name: string;
   type: 'branch' | 'tag' | 'remote';
-  is_head: boolean;
+  isHead: boolean;
 }
 
 export type ViewMode = 'working' | 'commit';
@@ -109,13 +109,13 @@ export interface AIReviewData {
 export interface WorktreeInfo {
   name: string;
   path: string;
-  head_branch: string | null;
-  head_commit: string | null;
-  is_main: boolean;
-  is_locked: boolean;
-  lock_reason: string | null;
-  is_prunable: boolean;
-  is_dirty: boolean;
+  headBranch: string | null;
+  headCommit: string | null;
+  isMain: boolean;
+  isLocked: boolean;
+  lockReason: string | null;
+  isPrunable: boolean;
+  isDirty: boolean;
 }
 
 export interface WorktreeCreateOptions {

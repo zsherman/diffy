@@ -1,13 +1,14 @@
+use crate::error::{AppError, Result};
 use crate::git::{self, BranchInfo, CommitGraph, CommitInfo, FileDiff, RepositoryInfo, StatusInfo, UnifiedDiff, WorktreeInfo, WorktreeCreateOptions, MergeStatus, FileConflictInfo};
 use std::process::Command;
 use std::path::PathBuf;
 use std::fs;
 use tauri::Manager;
-
-type Result<T> = std::result::Result<T, String>;
+use tracing::instrument;
 
 // Skills-related types
 #[derive(serde::Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct SkillMetadata {
     pub id: String,
     pub name: String,
@@ -19,7 +20,7 @@ pub struct SkillMetadata {
 fn get_skills_dir_path(app: &tauri::AppHandle) -> Result<PathBuf> {
     let app_data_dir = app.path()
         .app_data_dir()
-        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+        .map_err(|e| AppError::io(format!("Failed to get app data dir: {}", e)))?;
     Ok(app_data_dir.join("skills"))
 }
 
@@ -87,9 +88,6 @@ fn find_claude_binary() -> Result<PathBuf> {
     Ok(PathBuf::from("claude"))
 }
 
-fn map_err<E: std::fmt::Display>(e: E) -> String {
-    e.to_string()
-}
 
 /// Extract a JSON object from text that may contain additional content.
 /// Looks for the outermost { } pair and returns the content between them.
@@ -123,66 +121,72 @@ fn extract_json_object(text: &str) -> Option<&str> {
 }
 
 #[tauri::command]
+#[instrument(skip_all, fields(path = %path), err(Debug))]
 pub async fn open_repository(path: String) -> Result<RepositoryInfo> {
-    let repo = git::open_repo(&path).map_err(map_err)?;
-    git::get_repository_info(&repo).map_err(map_err)
+    let repo = git::open_repo(&path)?;
+    Ok(git::get_repository_info(&repo)?)
 }
 
 #[tauri::command]
+#[instrument(skip_all, fields(start_path = %start_path), err(Debug))]
 pub async fn discover_repository(start_path: String) -> Result<RepositoryInfo> {
-    let repo = git::discover_repo(&start_path).map_err(map_err)?;
-    git::get_repository_info(&repo).map_err(map_err)
+    let repo = git::discover_repo(&start_path)?;
+    Ok(git::get_repository_info(&repo)?)
 }
 
 #[tauri::command]
 pub async fn list_branches(repo_path: String) -> Result<Vec<BranchInfo>> {
-    let repo = git::open_repo(&repo_path).map_err(map_err)?;
-    git::list_all_branches(&repo).map_err(map_err)
+    let repo = git::open_repo(&repo_path)?;
+    Ok(git::list_all_branches(&repo)?)
 }
 
 #[tauri::command]
 pub async fn checkout_branch(repo_path: String, branch_name: String) -> Result<()> {
-    let repo = git::open_repo(&repo_path).map_err(map_err)?;
-    git::checkout_branch(&repo, &branch_name).map_err(map_err)
+    let repo = git::open_repo(&repo_path)?;
+    Ok(git::checkout_branch(&repo, &branch_name)?)
 }
 
 #[tauri::command]
 pub async fn create_branch(repo_path: String, branch_name: String, checkout: bool) -> Result<()> {
-    let repo = git::open_repo(&repo_path).map_err(map_err)?;
-    git::create_branch(&repo, &branch_name, checkout).map_err(map_err)
+    let repo = git::open_repo(&repo_path)?;
+    Ok(git::create_branch(&repo, &branch_name, checkout)?)
 }
 
 #[tauri::command]
+#[instrument(skip_all, fields(branch = ?branch, limit, offset), err(Debug))]
 pub async fn get_commit_history(
     repo_path: String,
     branch: Option<String>,
     limit: usize,
     offset: usize,
 ) -> Result<Vec<CommitInfo>> {
-    let repo = git::open_repo(&repo_path).map_err(map_err)?;
-    git::get_commits(&repo, branch.as_deref(), limit, offset).map_err(map_err)
+    let repo = git::open_repo(&repo_path)?;
+    Ok(git::get_commits(&repo, branch.as_deref(), limit, offset)?)
 }
 
 #[tauri::command]
+#[instrument(skip_all, fields(limit, offset), err(Debug))]
 pub async fn get_commit_history_all_branches(
     repo_path: String,
     limit: usize,
     offset: usize,
 ) -> Result<Vec<CommitInfo>> {
-    let repo = git::open_repo(&repo_path).map_err(map_err)?;
-    git::get_commits_all_branches(&repo, limit, offset).map_err(map_err)
+    let repo = git::open_repo(&repo_path)?;
+    Ok(git::get_commits_all_branches(&repo, limit, offset)?)
 }
 
 #[tauri::command]
+#[instrument(skip_all, fields(commit_count = commit_ids.len()), err(Debug))]
 pub async fn get_commit_graph(repo_path: String, commit_ids: Vec<String>) -> Result<CommitGraph> {
-    let repo = git::open_repo(&repo_path).map_err(map_err)?;
-    git::build_commit_graph(&repo, &commit_ids).map_err(map_err)
+    let repo = git::open_repo(&repo_path)?;
+    Ok(git::build_commit_graph(&repo, &commit_ids)?)
 }
 
 #[tauri::command]
+#[instrument(skip_all, fields(commit_id = %commit_id), err(Debug))]
 pub async fn get_commit_diff(repo_path: String, commit_id: String) -> Result<UnifiedDiff> {
-    let repo = git::open_repo(&repo_path).map_err(map_err)?;
-    git::get_commit_diff(&repo, &commit_id).map_err(map_err)
+    let repo = git::open_repo(&repo_path)?;
+    Ok(git::get_commit_diff(&repo, &commit_id)?)
 }
 
 #[tauri::command]
@@ -191,69 +195,74 @@ pub async fn get_file_diff(
     commit_id: String,
     file_path: String,
 ) -> Result<FileDiff> {
-    let repo = git::open_repo(&repo_path).map_err(map_err)?;
-    git::get_file_diff(&repo, &commit_id, &file_path).map_err(map_err)
+    let repo = git::open_repo(&repo_path)?;
+    Ok(git::get_file_diff(&repo, &commit_id, &file_path)?)
 }
 
 #[tauri::command]
+#[instrument(skip_all, fields(staged), err(Debug))]
 pub async fn get_working_diff(repo_path: String, staged: bool) -> Result<UnifiedDiff> {
-    let repo = git::open_repo(&repo_path).map_err(map_err)?;
-    git::get_working_diff(&repo, staged).map_err(map_err)
+    let repo = git::open_repo(&repo_path)?;
+    Ok(git::get_working_diff(&repo, staged)?)
 }
 
 #[tauri::command]
+#[instrument(skip_all, err(Debug))]
 pub async fn get_status(repo_path: String) -> Result<StatusInfo> {
-    let repo = git::open_repo(&repo_path).map_err(map_err)?;
-    git::get_status(&repo).map_err(map_err)
+    let repo = git::open_repo(&repo_path)?;
+    Ok(git::get_status(&repo)?)
 }
 
 #[tauri::command]
+#[instrument(skip_all, fields(file_count = paths.len()), err(Debug))]
 pub async fn stage_files(repo_path: String, paths: Vec<String>) -> Result<()> {
-    let repo = git::open_repo(&repo_path).map_err(map_err)?;
-    git::stage_files(&repo, &paths).map_err(map_err)
+    let repo = git::open_repo(&repo_path)?;
+    Ok(git::stage_files(&repo, &paths)?)
 }
 
 #[tauri::command]
+#[instrument(skip_all, fields(file_count = paths.len()), err(Debug))]
 pub async fn unstage_files(repo_path: String, paths: Vec<String>) -> Result<()> {
-    let repo = git::open_repo(&repo_path).map_err(map_err)?;
-    git::unstage_files(&repo, &paths).map_err(map_err)
+    let repo = git::open_repo(&repo_path)?;
+    Ok(git::unstage_files(&repo, &paths)?)
 }
 
 #[tauri::command]
 pub async fn discard_changes(repo_path: String, paths: Vec<String>) -> Result<()> {
-    let repo = git::open_repo(&repo_path).map_err(map_err)?;
-    git::discard_changes(&repo, &paths).map_err(map_err)
+    let repo = git::open_repo(&repo_path)?;
+    Ok(git::discard_changes(&repo, &paths)?)
 }
 
 #[tauri::command]
 pub async fn create_commit(repo_path: String, message: String) -> Result<String> {
-    let repo = git::open_repo(&repo_path).map_err(map_err)?;
-    git::create_commit(&repo, &message).map_err(map_err)
+    let repo = git::open_repo(&repo_path)?;
+    Ok(git::create_commit(&repo, &message)?)
 }
 
 #[tauri::command]
 pub async fn git_fetch(repo_path: String) -> Result<String> {
-    git::git_fetch(&repo_path).map_err(map_err)
+    Ok(git::git_fetch(&repo_path)?)
 }
 
 #[tauri::command]
 pub async fn git_pull(repo_path: String) -> Result<String> {
-    git::git_pull(&repo_path).map_err(map_err)
+    Ok(git::git_pull(&repo_path)?)
 }
 
 #[tauri::command]
 pub async fn git_push(repo_path: String) -> Result<String> {
-    git::git_push(&repo_path).map_err(map_err)
+    Ok(git::git_push(&repo_path)?)
 }
 
 #[tauri::command]
+#[instrument(skip_all, err(Debug))]
 pub async fn generate_commit_message(repo_path: String) -> Result<String> {
     // Get the staged diff
-    let repo = git::open_repo(&repo_path).map_err(map_err)?;
-    let diff = git::get_working_diff(&repo, true).map_err(map_err)?;
+    let repo = git::open_repo(&repo_path)?;
+    let diff = git::get_working_diff(&repo, true)?;
 
     if diff.patch.is_empty() {
-        return Err("No staged changes to generate a commit message for".to_string());
+        return Err(AppError::validation("No staged changes to generate a commit message for"));
     }
 
     // Truncate diff if too long (Claude has context limits)
@@ -276,11 +285,11 @@ pub async fn generate_commit_message(repo_path: String) -> Result<String> {
     let output = Command::new(&claude_path)
         .args(["-p", &prompt])
         .output()
-        .map_err(|e| format!("Failed to run claude at {:?}: {}", claude_path, e))?;
+        .map_err(|e| AppError::ai(format!("Failed to run claude at {:?}: {}", claude_path, e)))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Claude failed: {}", stderr));
+        return Err(AppError::ai(format!("Claude failed: {}", stderr)));
     }
 
     let message = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -288,6 +297,7 @@ pub async fn generate_commit_message(repo_path: String) -> Result<String> {
 }
 
 #[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AIReviewBug {
     pub title: String,
     pub description: String,
@@ -295,6 +305,7 @@ pub struct AIReviewBug {
 }
 
 #[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AIReviewFileComment {
     pub file_path: String,
     pub severity: String,
@@ -303,6 +314,7 @@ pub struct AIReviewFileComment {
 }
 
 #[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AIReviewData {
     pub overview: String,
     pub potential_bugs: Vec<AIReviewBug>,
@@ -311,27 +323,28 @@ pub struct AIReviewData {
 }
 
 #[tauri::command]
+#[instrument(skip_all, fields(commit_id = ?commit_id, skill_count = skill_ids.as_ref().map(|s| s.len()).unwrap_or(0)), err(Debug))]
 pub async fn generate_ai_review(
     app: tauri::AppHandle,
     repo_path: String,
     commit_id: Option<String>,
     skill_ids: Option<Vec<String>>,
 ) -> Result<AIReviewData> {
-    let repo = git::open_repo(&repo_path).map_err(map_err)?;
+    let repo = git::open_repo(&repo_path)?;
 
     // Get diff based on whether we're reviewing a commit or working changes
     let diff_patch = if let Some(ref cid) = commit_id {
-        let diff = git::get_commit_diff(&repo, cid).map_err(map_err)?;
+        let diff = git::get_commit_diff(&repo, cid)?;
         diff.patch
     } else {
         // Get combined staged and unstaged diff for working changes
-        let staged = git::get_working_diff(&repo, true).map_err(map_err)?;
-        let unstaged = git::get_working_diff(&repo, false).map_err(map_err)?;
+        let staged = git::get_working_diff(&repo, true)?;
+        let unstaged = git::get_working_diff(&repo, false)?;
         format!("{}\n{}", staged.patch, unstaged.patch)
     };
 
     if diff_patch.trim().is_empty() {
-        return Err("No changes to review".to_string());
+        return Err(AppError::validation("No changes to review"));
     }
 
     // Truncate diff if too long
@@ -390,18 +403,18 @@ Diff to review:
     let output = Command::new(&claude_path)
         .args(["-p", &prompt])
         .output()
-        .map_err(|e| format!("Failed to run claude at {:?}: {}", claude_path, e))?;
+        .map_err(|e| AppError::ai(format!("Failed to run claude at {:?}: {}", claude_path, e)))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Claude failed: {}", stderr));
+        return Err(AppError::ai(format!("Claude failed: {}", stderr)));
     }
 
     let response = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
     // Parse the JSON response
     let json: serde_json::Value = serde_json::from_str(&response)
-        .map_err(|e| format!("Failed to parse AI response as JSON: {}. Response was: {}", e, response))?;
+        .map_err(|e| AppError::parse(format!("Failed to parse AI response as JSON: {}. Response was: {}", e, response)))?;
 
     let overview = json["overview"]
         .as_str()
@@ -453,6 +466,7 @@ Diff to review:
 }
 
 #[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct IssueToFix {
     pub issue_type: String, // "bug" or "file_comment"
     pub title: String,
@@ -463,7 +477,7 @@ pub struct IssueToFix {
 #[tauri::command]
 pub async fn fix_ai_review_issues(repo_path: String, issues: Vec<IssueToFix>) -> Result<String> {
     if issues.is_empty() {
-        return Err("No issues selected to fix".to_string());
+        return Err(AppError::validation("No issues selected to fix"));
     }
 
     // Collect unique file paths from issues
@@ -481,7 +495,7 @@ pub async fn fix_ai_review_issues(repo_path: String, issues: Vec<IssueToFix>) ->
         let full_path = std::path::Path::new(&repo_path).join(path);
         if full_path.exists() {
             let content = std::fs::read_to_string(&full_path)
-                .map_err(|e| format!("Failed to read {}: {}", path, e))?;
+                .map_err(|e| AppError::io(format!("Failed to read {}: {}", path, e)))?;
             file_contents.push((path.clone(), content));
         } else {
             missing_files.push(path.clone());
@@ -490,10 +504,10 @@ pub async fn fix_ai_review_issues(repo_path: String, issues: Vec<IssueToFix>) ->
 
     // Check if we have any file contents to work with
     if file_contents.is_empty() && !file_paths.is_empty() {
-        return Err(format!(
+        return Err(AppError::validation(format!(
             "Cannot fix issues: none of the referenced files exist. Missing files: {}",
             missing_files.join(", ")
-        ));
+        )));
     }
 
     // Build the issues description
@@ -543,7 +557,7 @@ Include only files that need changes. Preserve all existing code that doesn't ne
         .args(["-p", &prompt])
         .current_dir(&repo_path)
         .output()
-        .map_err(|e| format!("Failed to run claude at {:?}: {}", claude_path, e))?;
+        .map_err(|e| AppError::ai(format!("Failed to run claude at {:?}: {}", claude_path, e)))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
@@ -559,37 +573,37 @@ Include only files that need changes. Preserve all existing code that doesn't ne
         } else {
             error_msg.push_str(". No error output captured - the Claude CLI may not be installed or configured correctly.");
         }
-        return Err(error_msg);
+        return Err(AppError::ai(error_msg));
     }
 
     let response = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
     if response.is_empty() {
-        return Err("Claude returned an empty response. This may indicate an issue with the Claude CLI or the prompt was too large.".to_string());
+        return Err(AppError::ai("Claude returned an empty response. This may indicate an issue with the Claude CLI or the prompt was too large."));
     }
 
     // Try to extract JSON from the response (Claude sometimes includes explanation text)
     let json_str = extract_json_object(&response)
-        .ok_or_else(|| format!("Could not find valid JSON in response. Response was: {}", response))?;
+        .ok_or_else(|| AppError::parse(format!("Could not find valid JSON in response. Response was: {}", response)))?;
 
     // Parse the JSON response
     let json: serde_json::Value = serde_json::from_str(json_str)
-        .map_err(|e| format!("Failed to parse AI response as JSON: {}. JSON was: {}", e, json_str))?;
+        .map_err(|e| AppError::parse(format!("Failed to parse AI response as JSON: {}. JSON was: {}", e, json_str)))?;
 
     // Apply the fixes
     let files = json["files"].as_array()
-        .ok_or("Invalid response: missing files array")?;
+        .ok_or_else(|| AppError::parse("Invalid response: missing files array"))?;
 
     let mut fixed_count = 0;
     for file in files {
         let path = file["path"].as_str()
-            .ok_or("Invalid response: file missing path")?;
+            .ok_or_else(|| AppError::parse("Invalid response: file missing path"))?;
         let content = file["content"].as_str()
-            .ok_or("Invalid response: file missing content")?;
+            .ok_or_else(|| AppError::parse("Invalid response: file missing content"))?;
 
         let full_path = std::path::Path::new(&repo_path).join(path);
         std::fs::write(&full_path, content)
-            .map_err(|e| format!("Failed to write {}: {}", path, e))?;
+            .map_err(|e| AppError::io(format!("Failed to write {}: {}", path, e)))?;
         fixed_count += 1;
     }
 
@@ -614,7 +628,7 @@ pub async fn list_skills(app: tauri::AppHandle) -> Result<Vec<SkillMetadata>> {
 
     let mut skills = Vec::new();
     let entries = fs::read_dir(&skills_dir)
-        .map_err(|e| format!("Failed to read skills directory: {}", e))?;
+        .map_err(|e| AppError::io(format!("Failed to read skills directory: {}", e)))?;
 
     for entry in entries.flatten() {
         let path = entry.path();
@@ -705,7 +719,7 @@ pub async fn install_skill_from_url(app: tauri::AppHandle, url: String) -> Resul
 
     // Ensure skills directory exists
     fs::create_dir_all(&skills_dir)
-        .map_err(|e| format!("Failed to create skills directory: {}", e))?;
+        .map_err(|e| AppError::io(format!("Failed to create skills directory: {}", e)))?;
 
     // Get candidate URLs to try (for skills.sh URL transformation)
     let candidates = get_skill_url_candidates(&url);
@@ -749,12 +763,12 @@ pub async fn install_skill_from_url(app: tauri::AppHandle, url: String) -> Resul
     let content = match content {
         Some(c) => c,
         None => {
-            return Err(format!(
+            return Err(AppError::network(format!(
                 "Could not fetch skill from URL. {}. \
                 For skills.sh URLs, make sure the skill exists. \
                 You can also try using a direct raw GitHub URL.",
                 last_error
-            ));
+            )));
         }
     };
 
@@ -763,10 +777,10 @@ pub async fn install_skill_from_url(app: tauri::AppHandle, url: String) -> Resul
 
     // Validate we got a proper name
     if name == "Unnamed Skill" {
-        return Err(
+        return Err(AppError::skill(
             "Invalid skill file: could not parse name from frontmatter. \
-            The file should have YAML frontmatter with a 'name' field.".to_string()
-        );
+            The file should have YAML frontmatter with a 'name' field."
+        ));
     }
 
     let id = generate_skill_id(&name);
@@ -774,7 +788,7 @@ pub async fn install_skill_from_url(app: tauri::AppHandle, url: String) -> Resul
     // Save the skill file
     let skill_path = skills_dir.join(format!("{}.md", id));
     fs::write(&skill_path, &content)
-        .map_err(|e| format!("Failed to save skill file: {}", e))?;
+        .map_err(|e| AppError::io(format!("Failed to save skill file: {}", e)))?;
 
     // Save metadata with source URL
     let meta_path = skills_dir.join(format!("{}.meta.json", id));
@@ -783,7 +797,7 @@ pub async fn install_skill_from_url(app: tauri::AppHandle, url: String) -> Resul
         "fetch_url": successful_url
     });
     fs::write(&meta_path, meta.to_string())
-        .map_err(|e| format!("Failed to save skill metadata: {}", e))?;
+        .map_err(|e| AppError::io(format!("Failed to save skill metadata: {}", e)))?;
 
     Ok(SkillMetadata {
         id,
@@ -802,12 +816,12 @@ pub async fn delete_skill(app: tauri::AppHandle, skill_id: String) -> Result<()>
 
     if skill_path.exists() {
         fs::remove_file(&skill_path)
-            .map_err(|e| format!("Failed to delete skill file: {}", e))?;
+            .map_err(|e| AppError::io(format!("Failed to delete skill file: {}", e)))?;
     }
 
     if meta_path.exists() {
         fs::remove_file(&meta_path)
-            .map_err(|e| format!("Failed to delete skill metadata: {}", e))?;
+            .map_err(|e| AppError::io(format!("Failed to delete skill metadata: {}", e)))?;
     }
 
     Ok(())
@@ -819,11 +833,11 @@ pub async fn get_skill_content(app: tauri::AppHandle, skill_id: String) -> Resul
     let skill_path = skills_dir.join(format!("{}.md", skill_id));
 
     if !skill_path.exists() {
-        return Err(format!("Skill '{}' not found", skill_id));
+        return Err(AppError::skill(format!("Skill '{}' not found", skill_id)));
     }
 
     let content = fs::read_to_string(&skill_path)
-        .map_err(|e| format!("Failed to read skill file: {}", e))?;
+        .map_err(|e| AppError::io(format!("Failed to read skill file: {}", e)))?;
 
     // Return just the body (after frontmatter)
     let (_name, _description, body) = parse_skill_frontmatter(&content);
@@ -836,11 +850,11 @@ pub async fn get_skill_raw(app: tauri::AppHandle, skill_id: String) -> Result<St
     let skill_path = skills_dir.join(format!("{}.md", skill_id));
 
     if !skill_path.exists() {
-        return Err(format!("Skill '{}' not found", skill_id));
+        return Err(AppError::skill(format!("Skill '{}' not found", skill_id)));
     }
 
     fs::read_to_string(&skill_path)
-        .map_err(|e| format!("Failed to read skill file: {}", e))
+        .map_err(|e| AppError::io(format!("Failed to read skill file: {}", e)))
 }
 
 #[tauri::command]
@@ -855,7 +869,7 @@ pub async fn update_skill(
     let old_meta_path = skills_dir.join(format!("{}.meta.json", skill_id));
 
     if !old_path.exists() {
-        return Err(format!("Skill '{}' not found", skill_id));
+        return Err(AppError::skill(format!("Skill '{}' not found", skill_id)));
     }
 
     // Parse the new content to get metadata
@@ -866,11 +880,11 @@ pub async fn update_skill(
 
     // Validate the content has frontmatter
     if !content.trim().starts_with("---") {
-        return Err("Invalid skill content: must start with YAML frontmatter (---)".to_string());
+        return Err(AppError::validation("Invalid skill content: must start with YAML frontmatter (---)"));
     }
 
     if name == "Unnamed Skill" {
-        return Err("Invalid skill content: frontmatter must include a 'name' field".to_string());
+        return Err(AppError::validation("Invalid skill content: frontmatter must include a 'name' field"));
     }
 
     // Read existing metadata
@@ -890,18 +904,18 @@ pub async fn update_skill(
 
         // Check if new ID already exists
         if new_path.exists() {
-            return Err(format!("A skill with ID '{}' already exists", final_id));
+            return Err(AppError::validation(format!("A skill with ID '{}' already exists", final_id)));
         }
 
         // Write to new path
         fs::write(&new_path, &content)
-            .map_err(|e| format!("Failed to save skill file: {}", e))?;
+            .map_err(|e| AppError::io(format!("Failed to save skill file: {}", e)))?;
 
         // Move metadata if exists
         if let Some(ref url) = source_url {
             let meta = serde_json::json!({ "source_url": url });
             fs::write(&new_meta_path, meta.to_string())
-                .map_err(|e| format!("Failed to save skill metadata: {}", e))?;
+                .map_err(|e| AppError::io(format!("Failed to save skill metadata: {}", e)))?;
         }
 
         // Delete old files
@@ -912,7 +926,7 @@ pub async fn update_skill(
     } else {
         // Just update the content in place
         fs::write(&old_path, &content)
-            .map_err(|e| format!("Failed to save skill file: {}", e))?;
+            .map_err(|e| AppError::io(format!("Failed to save skill file: {}", e)))?;
     }
 
     Ok(SkillMetadata {
@@ -926,8 +940,8 @@ pub async fn update_skill(
 // Worktree commands
 #[tauri::command]
 pub async fn list_worktrees(repo_path: String) -> Result<Vec<WorktreeInfo>> {
-    let repo = git::open_repo(&repo_path).map_err(map_err)?;
-    git::list_worktrees(&repo).map_err(map_err)
+    let repo = git::open_repo(&repo_path)?;
+    Ok(git::list_worktrees(&repo)?)
 }
 
 #[tauri::command]
@@ -944,60 +958,61 @@ pub async fn create_worktree(
         branch,
         new_branch,
     };
-    git::create_worktree(&repo_path, options).map_err(map_err)
+    Ok(git::create_worktree(&repo_path, options)?)
 }
 
 #[tauri::command]
 pub async fn remove_worktree(repo_path: String, worktree_name: String, force: bool) -> Result<()> {
-    git::remove_worktree(&repo_path, &worktree_name, force).map_err(map_err)
+    Ok(git::remove_worktree(&repo_path, &worktree_name, force)?)
 }
 
 #[tauri::command]
 pub async fn lock_worktree(repo_path: String, worktree_name: String, reason: Option<String>) -> Result<()> {
-    git::lock_worktree(&repo_path, &worktree_name, reason.as_deref()).map_err(map_err)
+    Ok(git::lock_worktree(&repo_path, &worktree_name, reason.as_deref())?)
 }
 
 #[tauri::command]
 pub async fn unlock_worktree(repo_path: String, worktree_name: String) -> Result<()> {
-    git::unlock_worktree(&repo_path, &worktree_name).map_err(map_err)
+    Ok(git::unlock_worktree(&repo_path, &worktree_name)?)
 }
 
 // Merge conflict commands
 #[tauri::command]
+#[instrument(skip_all, err(Debug))]
 pub async fn get_merge_status(repo_path: String) -> Result<MergeStatus> {
-    let repo = git::open_repo(&repo_path).map_err(map_err)?;
-    git::get_merge_status(&repo).map_err(map_err)
+    let repo = git::open_repo(&repo_path)?;
+    Ok(git::get_merge_status(&repo)?)
 }
 
 #[tauri::command]
 pub async fn parse_file_conflicts(repo_path: String, file_path: String) -> Result<FileConflictInfo> {
-    git::parse_file_conflicts(&repo_path, &file_path).map_err(map_err)
+    Ok(git::parse_file_conflicts(&repo_path, &file_path)?)
 }
 
 #[tauri::command]
 pub async fn save_resolved_file(repo_path: String, file_path: String, content: String) -> Result<()> {
-    git::save_resolved_file(&repo_path, &file_path, &content).map_err(map_err)
+    Ok(git::save_resolved_file(&repo_path, &file_path, &content)?)
 }
 
 #[tauri::command]
 pub async fn mark_file_resolved(repo_path: String, file_path: String) -> Result<()> {
-    let repo = git::open_repo(&repo_path).map_err(map_err)?;
-    git::mark_file_resolved(&repo, &file_path).map_err(map_err)
+    let repo = git::open_repo(&repo_path)?;
+    Ok(git::mark_file_resolved(&repo, &file_path)?)
 }
 
 #[tauri::command]
 pub async fn abort_merge(repo_path: String) -> Result<String> {
-    git::abort_merge(&repo_path).map_err(map_err)
+    Ok(git::abort_merge(&repo_path)?)
 }
 
 #[tauri::command]
 pub async fn continue_merge(repo_path: String) -> Result<String> {
-    git::continue_merge(&repo_path).map_err(map_err)
+    Ok(git::continue_merge(&repo_path)?)
 }
 
 #[tauri::command]
 pub async fn merge_branch(repo_path: String, branch_name: String) -> Result<String> {
-    git::merge_branch(&repo_path, &branch_name).map_err(map_err)
+    Ok(git::merge_branch(&repo_path, &branch_name)?)
 }
 
 #[derive(serde::Serialize)]
@@ -1054,29 +1069,29 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks, 
     let output = Command::new(&claude_path)
         .args(["-p", &prompt])
         .output()
-        .map_err(|e| format!("Failed to run claude at {:?}: {}", claude_path, e))?;
+        .map_err(|e| AppError::ai(format!("Failed to run claude at {:?}: {}", claude_path, e)))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Claude failed: {}", stderr));
+        return Err(AppError::ai(format!("Claude failed: {}", stderr)));
     }
 
     let response = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
     if response.is_empty() {
-        return Err("Claude returned an empty response".to_string());
+        return Err(AppError::ai("Claude returned an empty response"));
     }
 
     // Extract JSON from response
     let json_str = extract_json_object(&response)
-        .ok_or_else(|| format!("Could not find valid JSON in response: {}", response))?;
+        .ok_or_else(|| AppError::parse(format!("Could not find valid JSON in response: {}", response)))?;
 
     let json: serde_json::Value = serde_json::from_str(json_str)
-        .map_err(|e| format!("Failed to parse AI response as JSON: {}. JSON was: {}", e, json_str))?;
+        .map_err(|e| AppError::parse(format!("Failed to parse AI response as JSON: {}. JSON was: {}", e, json_str)))?;
 
     let resolved = json["resolved"]
         .as_str()
-        .ok_or("Invalid response: missing 'resolved' field")?
+        .ok_or_else(|| AppError::parse("Invalid response: missing 'resolved' field"))?
         .to_string();
 
     let explanation = json["explanation"]
@@ -1088,4 +1103,31 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks, 
         resolved,
         explanation,
     })
+}
+
+// =============================================================================
+// File Watcher Commands
+// =============================================================================
+
+use crate::watcher::WatcherState;
+
+#[tauri::command]
+#[instrument(skip_all, fields(repo_path = %repo_path), err(Debug))]
+pub async fn start_watching(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, WatcherState>,
+    repo_path: String,
+) -> Result<()> {
+    let path = PathBuf::from(&repo_path);
+    state
+        .watch(path, app)
+        .map_err(|e| AppError::io(format!("Failed to start watcher: {}", e)))
+}
+
+#[tauri::command]
+#[instrument(skip_all, err(Debug))]
+pub async fn stop_watching(state: tauri::State<'_, WatcherState>) -> Result<()> {
+    state
+        .unwatch()
+        .map_err(|e| AppError::io(format!("Failed to stop watcher: {}", e)))
 }

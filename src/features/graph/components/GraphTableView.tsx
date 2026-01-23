@@ -112,15 +112,15 @@ export function GraphTableView() {
     return commits.filter(
       (c) =>
         c.summary.toLowerCase().includes(lower) ||
-        c.author_name.toLowerCase().includes(lower) ||
-        c.short_id.toLowerCase().includes(lower)
+        c.authorName.toLowerCase().includes(lower) ||
+        c.shortId.toLowerCase().includes(lower)
     );
   }, [commits, commitFilter]);
 
   // Calculate minimum graph width based on max columns
   const minGraphWidth = useMemo(() => {
     if (!graph) return MIN_GRAPH_WIDTH;
-    return Math.max(MIN_GRAPH_WIDTH, (graph.max_columns + 2) * COLUMN_WIDTH + 40); // +40 for avatar
+    return Math.max(MIN_GRAPH_WIDTH, (graph.maxColumns + 2) * COLUMN_WIDTH + 40); // +40 for avatar
   }, [graph]);
 
   // Handle column resize
@@ -212,7 +212,7 @@ export function GraphTableView() {
   }
 
   // Create an empty graph if data isn't loaded yet
-  const effectiveGraph: CommitGraphType = graph || { nodes: [], max_columns: 0 };
+  const effectiveGraph: CommitGraphType = graph || { nodes: [], maxColumns: 0 };
 
   return (
     <div className="flex flex-col h-full">

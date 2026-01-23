@@ -34,7 +34,7 @@ export function CreateWorktreeDialog({ open, onOpenChange, onSuccess }: CreateWo
 
   // Filter to local branches only
   const localBranches = useMemo(
-    () => branches.filter((b) => !b.is_remote),
+    () => branches.filter((b) => !b.isRemote),
     [branches]
   );
 
@@ -204,7 +204,7 @@ export function CreateWorktreeDialog({ open, onOpenChange, onSuccess }: CreateWo
                     <option value="">Select a branch...</option>
                     {localBranches.map((branch) => (
                       <option key={branch.name} value={branch.name}>
-                        {branch.name} {branch.is_head ? '(current)' : ''}
+                        {branch.name} {branch.isHead ? '(current)' : ''}
                       </option>
                     ))}
                   </select>

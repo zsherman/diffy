@@ -215,8 +215,8 @@ export function CommandPalette() {
       // Filter to local branches only (can't merge remote directly)
       setBranchesForMerge(
         branches
-          .filter((b) => !b.is_remote)
-          .map((b) => ({ name: b.name, isHead: b.is_head }))
+          .filter((b) => !b.isRemote)
+          .map((b) => ({ name: b.name, isHead: b.isHead }))
       );
       setSearch('');
       setPages([...pages, 'merge-branch']);

@@ -48,12 +48,12 @@ function getIncomingLines(
     if (!prevNode) continue;
 
     for (const conn of prevNode.connections) {
-      if (conn.to_row === rowIndex) {
+      if (conn.toRow === rowIndex) {
         lines.push({
-          column: conn.to_column,
-          fromColumn: conn.from_column,
-          color: COLORS[conn.from_column % COLORS.length],
-          isMerge: conn.is_merge || conn.from_column !== conn.to_column,
+          column: conn.toColumn,
+          fromColumn: conn.fromColumn,
+          color: COLORS[conn.fromColumn % COLORS.length],
+          isMerge: conn.isMerge || conn.fromColumn !== conn.toColumn,
         });
       }
     }
@@ -77,13 +77,13 @@ function getPassThroughLines(
 
     for (const conn of prevNode.connections) {
       // If connection goes past this row (to a later row), it passes through
-      if (conn.to_row > rowIndex) {
+      if (conn.toRow > rowIndex) {
         // For straight vertical lines only
-        if (conn.from_column === conn.to_column && !seen.has(conn.from_column)) {
-          seen.add(conn.from_column);
+        if (conn.fromColumn === conn.toColumn && !seen.has(conn.fromColumn)) {
+          seen.add(conn.fromColumn);
           lines.push({
-            column: conn.from_column,
-            color: COLORS[conn.from_column % COLORS.length],
+            column: conn.fromColumn,
+            color: COLORS[conn.fromColumn % COLORS.length],
           });
         }
       }
@@ -112,7 +112,7 @@ export const GraphCell = memo(function GraphCell({
   );
 
   const nodeColor = node ? COLORS[node.column % COLORS.length] : COLORS[0];
-  const graphWidth = (graph.max_columns + 1) * COLUMN_WIDTH;
+  const graphWidth = (graph.maxColumns + 1) * COLUMN_WIDTH;
   const centerY = rowHeight / 2;
 
   // Find the rightmost element for avatar positioning
@@ -192,9 +192,9 @@ export const GraphCell = memo(function GraphCell({
         {/* Outgoing lines (from node center to bottom) */}
         {node?.connections.map((conn, connIdx) => {
           const x = node.column * COLUMN_WIDTH + COLUMN_WIDTH / 2;
-          const targetX = conn.to_column * COLUMN_WIDTH + COLUMN_WIDTH / 2;
+          const targetX = conn.toColumn * COLUMN_WIDTH + COLUMN_WIDTH / 2;
 
-          if (conn.is_merge || conn.from_column !== conn.to_column) {
+          if (conn.isMerge || conn.fromColumn !== conn.toColumn) {
             // Curved line for merges or diagonal connections
             const path = `M ${x} ${centerY} C ${x} ${centerY + rowHeight * 0.3}, ${targetX} ${rowHeight * 0.7}, ${targetX} ${rowHeight}`;
             return (
@@ -202,7 +202,7 @@ export const GraphCell = memo(function GraphCell({
                 key={`out-${connIdx}`}
                 d={path}
                 fill="none"
-                stroke={conn.is_merge ? COLORS[conn.to_column % COLORS.length] : nodeColor}
+                stroke={conn.isMerge ? COLORS[conn.toColumn % COLORS.length] : nodeColor}
                 strokeWidth={2}
                 strokeOpacity={0.7}
               />

@@ -17,14 +17,14 @@ function getBranchInfo(refName: string, branches: BranchInfo[]): BranchInfo | un
 }
 
 function getRefColor(ref: RefInfo): string {
-  if (ref.is_head) return 'bg-accent-green/20 text-accent-green border-accent-green/40';
+  if (ref.isHead) return 'bg-accent-green/20 text-accent-green border-accent-green/40';
   if (ref.type === 'remote') return 'bg-accent-purple/20 text-accent-purple border-accent-purple/40';
   if (ref.type === 'tag') return 'bg-accent-yellow/20 text-accent-yellow border-accent-yellow/40';
   return 'bg-accent-blue/20 text-accent-blue border-accent-blue/40';
 }
 
 function getRefIcon(ref: RefInfo, branch: BranchInfo | undefined) {
-  if (ref.is_head) {
+  if (ref.isHead) {
     return <CheckCircle size={12} weight="fill" className="shrink-0" />;
   }
   if (ref.type === 'branch' && branch?.upstream) {

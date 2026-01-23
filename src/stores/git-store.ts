@@ -23,7 +23,7 @@ export const gitStore = createStore({
     setHeadBranch: (ctx, event: { branch: string }) =>
       produce(ctx, (draft) => {
         if (draft.repository) {
-          draft.repository.head_branch = event.branch;
+          draft.repository.headBranch = event.branch;
         }
       }),
     setIsLoading: (ctx, event: { isLoading: boolean }) =>

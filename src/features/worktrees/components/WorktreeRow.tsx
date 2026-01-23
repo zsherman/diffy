@@ -26,8 +26,8 @@ export const WorktreeRow = memo(function WorktreeRow({
       onDoubleClick={onDoubleClick}
     >
       {/* Icon */}
-      <span className={`mr-2 ${worktree.is_main ? 'text-accent-green' : 'text-text-muted'}`}>
-        {worktree.is_main ? (
+      <span className={`mr-2 ${worktree.isMain ? 'text-accent-green' : 'text-text-muted'}`}>
+        {worktree.isMain ? (
           <FolderOpen size={14} weight="fill" />
         ) : (
           <FolderOpen size={14} />
@@ -39,14 +39,14 @@ export const WorktreeRow = memo(function WorktreeRow({
         <div className="flex items-center gap-1.5">
           <span
             className={`truncate ${
-              worktree.is_main ? 'text-accent-green font-medium' : 'text-text-primary'
+              worktree.isMain ? 'text-accent-green font-medium' : 'text-text-primary'
             }`}
           >
             {worktree.name}
           </span>
-          {worktree.head_branch && (
+          {worktree.headBranch && (
             <span className="text-xs text-text-muted truncate">
-              ({worktree.head_branch})
+              ({worktree.headBranch})
             </span>
           )}
         </div>
@@ -55,17 +55,17 @@ export const WorktreeRow = memo(function WorktreeRow({
 
       {/* Status indicators */}
       <div className="flex items-center gap-1 ml-2">
-        {worktree.is_dirty && (
+        {worktree.isDirty && (
           <span title="Has uncommitted changes">
             <Circle size={8} weight="fill" className="text-accent-yellow" />
           </span>
         )}
-        {worktree.is_locked && (
-          <span title={worktree.lock_reason || 'Locked'}>
+        {worktree.isLocked && (
+          <span title={worktree.lockReason || 'Locked'}>
             <Lock size={14} className="text-accent-orange" />
           </span>
         )}
-        {worktree.is_prunable && (
+        {worktree.isPrunable && (
           <span title="Invalid worktree (prunable)">
             <Warning size={14} className="text-accent-red" />
           </span>

@@ -26,22 +26,22 @@ export const CommitMessageCell = memo(function CommitMessageCell({
     <div className="flex-1 min-w-0 px-2 py-1">
       <div className="flex items-center gap-2 min-w-0">
         <span className="text-accent-yellow font-mono text-xs shrink-0">
-          {commit.short_id}
+          {commit.shortId}
         </span>
         <span className="text-text-primary text-sm truncate">
           {commit.summary}
         </span>
       </div>
       <div className="flex items-center gap-2 text-xs text-text-muted">
-        <span className="truncate max-w-[120px]">{commit.author_name}</span>
+        <span className="truncate max-w-[120px]">{commit.authorName}</span>
         <span>•</span>
         <span>{formatTimeAgo(commit.time)}</span>
-        {commit.files_changed > 0 && (
+        {commit.filesChanged > 0 && (
           <>
             <span>•</span>
             <span className="flex items-center gap-1">
               <PencilSimple size={12} weight="bold" />
-              {commit.files_changed}
+              {commit.filesChanged}
             </span>
             {commit.additions > 0 && (
               <span className="text-accent-green">+{commit.additions}</span>

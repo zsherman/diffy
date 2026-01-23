@@ -23,6 +23,7 @@ impl serde::Serialize for GitError {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct RepositoryInfo {
     pub path: String,
     pub name: String,
@@ -31,6 +32,7 @@ pub struct RepositoryInfo {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct BranchInfo {
     pub name: String,
     pub is_head: bool,
@@ -41,6 +43,7 @@ pub struct BranchInfo {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct CommitInfo {
     pub id: String,
     pub short_id: String,
@@ -56,6 +59,7 @@ pub struct CommitInfo {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct FileStatus {
     pub path: String,
     pub status: String,
@@ -63,6 +67,7 @@ pub struct FileStatus {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct StatusInfo {
     pub staged: Vec<FileStatus>,
     pub unstaged: Vec<FileStatus>,
@@ -537,6 +542,7 @@ pub fn git_push(repo_path: &str) -> Result<String, GitError> {
 
 // Worktree types and functions
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct WorktreeInfo {
     pub name: String,
     pub path: String,
@@ -639,6 +645,7 @@ fn check_worktree_dirty(repo: &Repository) -> bool {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct WorktreeCreateOptions {
     pub name: String,
     pub path: String,

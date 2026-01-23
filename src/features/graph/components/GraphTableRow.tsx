@@ -48,7 +48,7 @@ export const GraphTableRow = memo(function GraphTableRow({
         rowIndex={rowIndex}
         rowHeight={rowHeight}
         width={graphWidth}
-        authorEmail={commit.author_email}
+        authorEmail={commit.authorEmail}
       />
       <CommitMessageCell commit={commit} />
     </div>

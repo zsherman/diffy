@@ -10,6 +10,7 @@ import { openRepository, discoverRepository } from './lib/tauri';
 import { useGitStore } from './stores/git-store';
 import { useUIStore } from './stores/ui-store';
 import { useKeyboardNavigation } from './hooks/useKeyboardNavigation';
+import { useRepoWatcher } from './hooks/useRepoWatcher';
 import {
   getRecentRepositories,
   addRecentRepository,
@@ -40,6 +41,9 @@ function AppContent() {
 
   // Set up keyboard navigation
   useKeyboardNavigation();
+
+  // Set up file watcher for automatic refresh
+  useRepoWatcher(repository?.path ?? null);
 
   // Load recent repos on mount
   useEffect(() => {

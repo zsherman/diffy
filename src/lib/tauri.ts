@@ -18,6 +18,99 @@ import type {
   AIResolveConflictResponse,
 } from '../features/merge-conflict/types';
 
+// ============================================================================
+// Structured Error Handling
+// ============================================================================
+
+/**
+ * Error codes returned by the Rust backend.
+ * Use these to branch on specific error types in the UI.
+ */
+export type ErrorCode =
+  | 'errors.unknown'
+  | 'errors.validation'
+  | 'errors.repo_not_found'
+  | 'errors.git_auth'
+  | 'errors.merge_conflict'
+  | 'errors.network'
+  | 'errors.io'
+  | 'errors.parse'
+  | 'errors.git'
+  | 'errors.ai'
+  | 'errors.skill';
+
+/**
+ * Structured error shape from the backend.
+ */
+export interface AppError {
+  code: ErrorCode;
+  message: string;
+}
+
+/**
+ * Type guard to check if an error is a structured AppError.
+ */
+export function isAppError(error: unknown): error is AppError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    'message' in error &&
+    typeof (error as AppError).code === 'string' &&
+    typeof (error as AppError).message === 'string'
+  );
+}
+
+/**
+ * Normalize any error (from Tauri invoke or elsewhere) into a consistent shape.
+ * Returns an AppError-like object with code and message.
+ */
+export function normalizeError(error: unknown): AppError {
+  // Already a structured error from Rust
+  if (isAppError(error)) {
+    return error;
+  }
+
+  // Plain string error
+  if (typeof error === 'string') {
+    return { code: 'errors.unknown', message: error };
+  }
+
+  // Error with message property
+  if (error instanceof Error) {
+    return { code: 'errors.unknown', message: error.message };
+  }
+
+  // Object with message property
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const msg = (error as { message: unknown }).message;
+    return { code: 'errors.unknown', message: String(msg) };
+  }
+
+  // Fallback
+  return { code: 'errors.unknown', message: String(error) };
+}
+
+/**
+ * Get a user-friendly message for an error code.
+ */
+export function getErrorMessage(error: AppError): string {
+  switch (error.code) {
+    case 'errors.repo_not_found':
+      return `Repository not found: ${error.message}`;
+    case 'errors.git_auth':
+      return `Authentication required: ${error.message}`;
+    case 'errors.network':
+      return `Network error: ${error.message}`;
+    case 'errors.validation':
+      return error.message;
+    case 'errors.ai':
+      return `AI error: ${error.message}`;
+    default:
+      return error.message;
+  }
+}
+
 // Repository
 export async function openRepository(path: string): Promise<RepositoryInfo> {
   return invoke<RepositoryInfo>('open_repository', { path });
@@ -135,41 +228,11 @@ export async function generateAIReview(
   commitId?: string,
   skillIds?: string[]
 ): Promise<AIReviewData> {
-  const result = await invoke<{
-    overview: string;
-    potential_bugs: Array<{ title: string; description: string; severity: string }>;
-    file_comments: Array<{ file_path: string; severity: string; title: string; explanation: string }>;
-    generated_at: number;
-  }>('generate_ai_review', { repoPath, commitId, skillIds });
-
-  // Transform snake_case to camelCase
-  return {
-    overview: result.overview,
-    potentialBugs: result.potential_bugs.map((bug) => ({
-      title: bug.title,
-      description: bug.description,
-      severity: bug.severity as 'low' | 'medium' | 'high',
-    })),
-    fileComments: result.file_comments.map((comment) => ({
-      filePath: comment.file_path,
-      severity: comment.severity as 'info' | 'warning' | 'error',
-      title: comment.title,
-      explanation: comment.explanation,
-    })),
-    generatedAt: result.generated_at,
-  };
+  return invoke<AIReviewData>('generate_ai_review', { repoPath, commitId, skillIds });
 }
 
 export async function fixAIReviewIssues(repoPath: string, issues: IssueToFix[]): Promise<string> {
-  // Transform camelCase to snake_case for Rust
-  const transformedIssues = issues.map((issue) => ({
-    issue_type: issue.issueType,
-    title: issue.title,
-    description: issue.description,
-    file_path: issue.filePath,
-  }));
-
-  return invoke<string>('fix_ai_review_issues', { repoPath, issues: transformedIssues });
+  return invoke<string>('fix_ai_review_issues', { repoPath, issues });
 }
 
 // Worktrees
@@ -216,33 +279,11 @@ export async function getSkillsDir(): Promise<string> {
 }
 
 export async function listSkills(): Promise<SkillMetadata[]> {
-  const result = await invoke<
-    Array<{ id: string; name: string; description: string; source_url?: string }>
-  >('list_skills');
-
-  // Transform snake_case to camelCase
-  return result.map((skill) => ({
-    id: skill.id,
-    name: skill.name,
-    description: skill.description,
-    sourceUrl: skill.source_url,
-  }));
+  return invoke<SkillMetadata[]>('list_skills');
 }
 
 export async function installSkillFromUrl(url: string): Promise<SkillMetadata> {
-  const result = await invoke<{
-    id: string;
-    name: string;
-    description: string;
-    source_url?: string;
-  }>('install_skill_from_url', { url });
-
-  return {
-    id: result.id,
-    name: result.name,
-    description: result.description,
-    sourceUrl: result.source_url,
-  };
+  return invoke<SkillMetadata>('install_skill_from_url', { url });
 }
 
 export async function deleteSkill(skillId: string): Promise<void> {
@@ -262,65 +303,19 @@ export async function updateSkill(
   content: string,
   newId?: string
 ): Promise<SkillMetadata> {
-  const result = await invoke<{
-    id: string;
-    name: string;
-    description: string;
-    source_url?: string;
-  }>('update_skill', { skillId, content, newId });
-
-  return {
-    id: result.id,
-    name: result.name,
-    description: result.description,
-    sourceUrl: result.source_url,
-  };
+  return invoke<SkillMetadata>('update_skill', { skillId, content, newId });
 }
 
 // Merge conflict operations
 export async function getMergeStatus(repoPath: string): Promise<MergeStatus> {
-  const result = await invoke<{
-    in_merge: boolean;
-    conflicting_files: string[];
-    their_branch: string | null;
-  }>('get_merge_status', { repoPath });
-
-  return {
-    inMerge: result.in_merge,
-    conflictingFiles: result.conflicting_files,
-    theirBranch: result.their_branch,
-  };
+  return invoke<MergeStatus>('get_merge_status', { repoPath });
 }
 
 export async function parseFileConflicts(
   repoPath: string,
   filePath: string
 ): Promise<FileConflictInfo> {
-  const result = await invoke<{
-    file_path: string;
-    conflicts: Array<{
-      start_line: number;
-      end_line: number;
-      ours_content: string;
-      theirs_content: string;
-    }>;
-    ours_full: string;
-    theirs_full: string;
-    original_content: string;
-  }>('parse_file_conflicts', { repoPath, filePath });
-
-  return {
-    filePath: result.file_path,
-    conflicts: result.conflicts.map((c) => ({
-      startLine: c.start_line,
-      endLine: c.end_line,
-      oursContent: c.ours_content,
-      theirsContent: c.theirs_content,
-    })),
-    oursFull: result.ours_full,
-    theirsFull: result.theirs_full,
-    originalContent: result.original_content,
-  };
+  return invoke<FileConflictInfo>('parse_file_conflicts', { repoPath, filePath });
 }
 
 export async function saveResolvedFile(
@@ -365,4 +360,31 @@ export async function aiResolveConflict(
     theirsContent,
     instructions,
   });
+}
+
+// =============================================================================
+// File Watcher
+// =============================================================================
+
+/**
+ * Start watching a repository for file changes.
+ * The watcher will emit 'repo_changed' events to the frontend.
+ */
+export async function startWatching(repoPath: string): Promise<void> {
+  return invoke<void>('start_watching', { repoPath });
+}
+
+/**
+ * Stop watching the current repository.
+ */
+export async function stopWatching(): Promise<void> {
+  return invoke<void>('stop_watching');
+}
+
+/**
+ * Event payload for repo_changed events.
+ */
+export interface RepoChangedEvent {
+  repoPath: string;
+  fileCount: number;
 }

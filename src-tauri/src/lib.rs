@@ -1,14 +1,32 @@
 pub mod commands;
+pub mod error;
 pub mod git;
+pub mod watcher;
 
 #[cfg(debug_assertions)]
 use tauri::Manager;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use watcher::WatcherState;
+
+/// Initialize tracing for structured logging and performance debugging.
+fn init_tracing() {
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "diffy=info,warn".into()),
+        )
+        .with(tracing_subscriber::fmt::layer())
+        .init();
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    init_tracing();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
+        .manage(WatcherState::new())
         .invoke_handler(tauri::generate_handler![
             commands::open_repository,
             commands::discover_repository,
@@ -54,6 +72,9 @@ pub fn run() {
             commands::continue_merge,
             commands::merge_branch,
             commands::ai_resolve_conflict,
+            // Watcher commands
+            commands::start_watching,
+            commands::stop_watching,
         ])
         .setup(|_app| {
             #[cfg(debug_assertions)]

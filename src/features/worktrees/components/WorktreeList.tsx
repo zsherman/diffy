@@ -77,7 +77,7 @@ export function WorktreeList() {
       (w) =>
         w.name.toLowerCase().includes(lower) ||
         w.path.toLowerCase().includes(lower) ||
-        w.head_branch?.toLowerCase().includes(lower)
+        w.headBranch?.toLowerCase().includes(lower)
     );
   }, [worktrees, worktreeFilter]);
 
@@ -108,16 +108,16 @@ export function WorktreeList() {
 
   const handleRemove = useCallback(
     (worktree: WorktreeInfo) => {
-      if (worktree.is_main) {
+      if (worktree.isMain) {
         toast.error('Cannot remove', 'Cannot remove the main worktree');
         return;
       }
-      const force = worktree.is_dirty || worktree.is_locked;
+      const force = worktree.isDirty || worktree.isLocked;
       if (force) {
         const confirmed = window.confirm(
-          `This worktree ${worktree.is_dirty ? 'has uncommitted changes' : ''}${
-            worktree.is_dirty && worktree.is_locked ? ' and ' : ''
-          }${worktree.is_locked ? 'is locked' : ''}. Are you sure you want to remove it?`
+          `This worktree ${worktree.isDirty ? 'has uncommitted changes' : ''}${
+            worktree.isDirty && worktree.isLocked ? ' and ' : ''
+          }${worktree.isLocked ? 'is locked' : ''}. Are you sure you want to remove it?`
         );
         if (!confirmed) return;
       }
@@ -151,8 +151,8 @@ export function WorktreeList() {
       } else if (e.key === 'l' && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         const worktree = filteredWorktrees[focusedIndex];
-        if (worktree && !worktree.is_main) {
-          if (worktree.is_locked) {
+        if (worktree && !worktree.isMain) {
+          if (worktree.isLocked) {
             unlockMutation.mutate(worktree.name);
           } else {
             lockMutation.mutate({ name: worktree.name });
@@ -161,7 +161,7 @@ export function WorktreeList() {
       } else if (e.key === 'd' && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         const worktree = filteredWorktrees[focusedIndex];
-        if (worktree && !worktree.is_main) {
+        if (worktree && !worktree.isMain) {
           handleRemove(worktree);
         }
       }
@@ -227,21 +227,21 @@ export function WorktreeList() {
                 onDoubleClick={() => handleWorktreeSwitch(worktree)}
               />
               {/* Action buttons on hover */}
-              {!worktree.is_main && (
+              {!worktree.isMain && (
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 hidden group-hover:flex items-center gap-1">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (worktree.is_locked) {
+                      if (worktree.isLocked) {
                         unlockMutation.mutate(worktree.name);
                       } else {
                         lockMutation.mutate({ name: worktree.name });
                       }
                     }}
                     className="p-1 rounded hover:bg-bg-tertiary text-text-muted hover:text-text-primary"
-                    title={worktree.is_locked ? 'Unlock worktree (l)' : 'Lock worktree (l)'}
+                    title={worktree.isLocked ? 'Unlock worktree (l)' : 'Lock worktree (l)'}
                   >
-                    {worktree.is_locked ? <LockOpen size={14} /> : <Lock size={14} />}
+                    {worktree.isLocked ? <LockOpen size={14} /> : <Lock size={14} />}
                   </button>
                   <button
                     onClick={(e) => {

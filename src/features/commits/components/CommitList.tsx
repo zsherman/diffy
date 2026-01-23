@@ -49,22 +49,22 @@ const CommitRow = memo(function CommitRow({
       <div className="flex-1 min-w-0 px-2 py-1 overflow-hidden">
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-accent-yellow font-mono text-xs shrink-0">
-            {commit.short_id}
+            {commit.shortId}
           </span>
           <span className="text-text-primary text-sm truncate">
             {commit.summary}
           </span>
         </div>
         <div className="flex items-center gap-1.5 text-xs text-text-muted whitespace-nowrap overflow-hidden">
-          <span className="truncate max-w-[100px]">{commit.author_name}</span>
+          <span className="truncate max-w-[100px]">{commit.authorName}</span>
           <span className="shrink-0">•</span>
           <span className="shrink-0">{formatTimeAgo(commit.time)}</span>
-          {commit.files_changed > 0 && (
+          {commit.filesChanged > 0 && (
             <>
               <span className="shrink-0">•</span>
               <span className="flex items-center gap-0.5 shrink-0">
                 <PencilSimple size={10} weight="bold" />
-                {commit.files_changed}
+                {commit.filesChanged}
               </span>
               {commit.additions > 0 && (
                 <span className="text-accent-green shrink-0">+{commit.additions}</span>
@@ -125,8 +125,8 @@ export function CommitList() {
     return commits.filter(
       (c) =>
         c.summary.toLowerCase().includes(lower) ||
-        c.author_name.toLowerCase().includes(lower) ||
-        c.short_id.toLowerCase().includes(lower)
+        c.authorName.toLowerCase().includes(lower) ||
+        c.shortId.toLowerCase().includes(lower)
     );
   }, [commits, commitFilter]);
 
