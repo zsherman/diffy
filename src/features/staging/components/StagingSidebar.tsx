@@ -614,9 +614,9 @@ export function StagingSidebar() {
 
         <Panel defaultSize={30} minSize={15}>
           {/* Commit form */}
-          <div className="h-full overflow-auto p-3 space-y-2">
+          <div className="h-full flex flex-col p-3 gap-2">
             {/* Amend checkbox */}
-            <label className="flex items-center gap-2 text-text-muted cursor-pointer" style={{ fontSize: `${panelFontSize}px` }}>
+            <label className="flex items-center gap-2 text-text-muted cursor-pointer shrink-0" style={{ fontSize: `${panelFontSize}px` }}>
               <input
                 type="checkbox"
                 checked={amendPreviousCommit}
@@ -627,7 +627,7 @@ export function StagingSidebar() {
             </label>
 
             {/* Commit message with AI generate button */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 shrink-0">
               <input
                 type="text"
                 placeholder="Commit message (title)"
@@ -657,8 +657,7 @@ export function StagingSidebar() {
               value={commitDescription}
               onChange={(e) => setCommitDescription(e.target.value)}
               onKeyDown={handleKeyDown}
-              rows={3}
-              className="w-full px-2 py-1.5 bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none resize-none"
+              className="flex-1 min-h-0 w-full px-2 py-1.5 bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none resize-none"
               style={{ fontSize: `${panelFontSize}px` }}
             />
 
@@ -668,7 +667,7 @@ export function StagingSidebar() {
               disabled={
                 !commitMessage.trim() || stagedFiles.length === 0 || isCommitting
               }
-              className="w-full py-2 px-4 bg-accent-green text-white rounded font-medium hover:bg-accent-green/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
+              className="w-full py-2 px-4 bg-accent-green text-white rounded font-medium hover:bg-accent-green/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors shrink-0"
               style={{ fontSize: `${panelFontSize}px` }}
             >
               {isCommitting
