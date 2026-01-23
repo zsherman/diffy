@@ -911,10 +911,12 @@ export function useActiveTabAIReview() {
   const aiReview = useSelector(
     tabsStore,
     (s) => selectActiveTab(s)?.aiReview ?? null,
-    // Shallow equality for aiReview object
+    // Shallow equality for aiReview object - compare overview and issues array length
     (a, b) =>
       a === b ||
-      (a?.summary === b?.summary && a?.bugs?.length === b?.bugs?.length),
+      (a?.overview === b?.overview &&
+        a?.issues?.length === b?.issues?.length &&
+        a?.generatedAt === b?.generatedAt),
   );
   const aiReviewLoading = useSelector(
     tabsStore,

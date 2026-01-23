@@ -1,6 +1,7 @@
 import type { DockviewApi } from "dockview-react";
 import { setApplyingLayoutPreset } from "../components/layout/DockviewLayout";
 import { tabsStore } from "../stores/tabs-store";
+import { isPerfTracingEnabled } from "../stores/ui-store";
 
 export interface LayoutPreset {
   id: string;
@@ -15,6 +16,185 @@ function clearLayout(api: DockviewApi) {
   panels.forEach((panel) => {
     api.removePanel(panel);
   });
+}
+
+/**
+ * Apply the "standard" (History) layout incrementally.
+ * Keeps the diff panel if it exists, only adds/removes what's needed.
+ * Target layout: [commits] | [files] | [diff]
+ */
+function applyStandardLayoutIncremental(api: DockviewApi) {
+  const start = isPerfTracingEnabled() ? performance.now() : 0;
+
+  // Check what panels exist
+  const hasCommits = api.getPanel("commits") !== undefined;
+  const hasFiles = api.getPanel("files") !== undefined;
+  const hasDiff = api.getPanel("diff") !== undefined;
+  const hasStaging = api.getPanel("staging") !== undefined;
+
+  // Remove panels that shouldn't be in standard layout
+  if (hasStaging) {
+    const stagingPanel = api.getPanel("staging");
+    if (stagingPanel) api.removePanel(stagingPanel);
+  }
+
+  // If we already have the standard layout, just resize
+  if (hasCommits && hasFiles && hasDiff) {
+    const groups = api.groups;
+    if (groups.length >= 3) {
+      groups[0].api.setSize({ width: 300 });
+      groups[1].api.setSize({ width: 300 });
+      groups[2].api.setSize({ width: 600 });
+    }
+    if (isPerfTracingEnabled()) {
+      console.log(`[perf] applyStandardLayoutIncremental (resize only): ${(performance.now() - start).toFixed(2)}ms`);
+    }
+    return;
+  }
+
+  // Build up the layout, preserving diff if it exists
+  if (!hasDiff) {
+    // No diff - need to create everything from scratch
+    const commitsPanel = api.addPanel({
+      id: "commits",
+      component: "commits",
+      title: "Commits",
+      minimumWidth: 300,
+    });
+
+    const filesPanel = api.addPanel({
+      id: "files",
+      component: "files",
+      title: "Files",
+      position: { referencePanel: commitsPanel, direction: "right" },
+      minimumWidth: 300,
+    });
+
+    api.addPanel({
+      id: "diff",
+      component: "diff",
+      title: "Diff",
+      position: { referencePanel: filesPanel, direction: "right" },
+      minimumWidth: 300,
+    });
+  } else {
+    // Diff exists - add commits and files to the left of it
+    const diffPanel = api.getPanel("diff")!;
+
+    if (!hasFiles) {
+      api.addPanel({
+        id: "files",
+        component: "files",
+        title: "Files",
+        position: { referencePanel: diffPanel, direction: "left" },
+        minimumWidth: 300,
+      });
+    }
+
+    const filesPanel = api.getPanel("files")!;
+    if (!hasCommits) {
+      api.addPanel({
+        id: "commits",
+        component: "commits",
+        title: "Commits",
+        position: { referencePanel: filesPanel, direction: "left" },
+        minimumWidth: 300,
+      });
+    }
+  }
+
+  // Set sizes: 25% commits, 25% files, 50% diff
+  const groups = api.groups;
+  if (groups.length >= 3) {
+    groups[0].api.setSize({ width: 300 });
+    groups[1].api.setSize({ width: 300 });
+    groups[2].api.setSize({ width: 600 });
+  }
+
+  if (isPerfTracingEnabled()) {
+    console.log(`[perf] applyStandardLayoutIncremental: ${(performance.now() - start).toFixed(2)}ms`);
+  }
+}
+
+/**
+ * Apply the "changes" layout incrementally.
+ * Keeps the diff panel if it exists, only adds/removes what's needed.
+ * Target layout: [staging] | [diff]
+ */
+function applyChangesLayoutIncremental(api: DockviewApi) {
+  const start = isPerfTracingEnabled() ? performance.now() : 0;
+
+  // Check what panels exist
+  const hasCommits = api.getPanel("commits") !== undefined;
+  const hasFiles = api.getPanel("files") !== undefined;
+  const hasDiff = api.getPanel("diff") !== undefined;
+  const hasStaging = api.getPanel("staging") !== undefined;
+
+  // Remove panels that shouldn't be in changes layout
+  if (hasCommits) {
+    const commitsPanel = api.getPanel("commits");
+    if (commitsPanel) api.removePanel(commitsPanel);
+  }
+  if (hasFiles) {
+    const filesPanel = api.getPanel("files");
+    if (filesPanel) api.removePanel(filesPanel);
+  }
+
+  // If we already have the changes layout, just resize
+  if (hasStaging && hasDiff && !hasCommits && !hasFiles) {
+    const groups = api.groups;
+    if (groups.length >= 2) {
+      groups[0].api.setSize({ width: 330 });
+      groups[1].api.setSize({ width: 770 });
+    }
+    if (isPerfTracingEnabled()) {
+      console.log(`[perf] applyChangesLayoutIncremental (resize only): ${(performance.now() - start).toFixed(2)}ms`);
+    }
+    return;
+  }
+
+  // Build up the layout, preserving diff if it exists
+  if (!hasDiff) {
+    // No diff - need to create everything from scratch
+    const stagingPanel = api.addPanel({
+      id: "staging",
+      component: "staging",
+      title: "Changes",
+      minimumWidth: 250,
+    });
+
+    api.addPanel({
+      id: "diff",
+      component: "diff",
+      title: "Diff",
+      position: { referencePanel: stagingPanel, direction: "right" },
+      minimumWidth: 300,
+    });
+  } else {
+    // Diff exists - add staging to the left of it
+    const diffPanel = api.getPanel("diff")!;
+
+    if (!hasStaging) {
+      api.addPanel({
+        id: "staging",
+        component: "staging",
+        title: "Changes",
+        position: { referencePanel: diffPanel, direction: "left" },
+        minimumWidth: 250,
+      });
+    }
+  }
+
+  // Set sizes: 30% staging, 70% diff
+  const groups = api.groups;
+  if (groups.length >= 2) {
+    groups[0].api.setSize({ width: 330 });
+    groups[1].api.setSize({ width: 770 });
+  }
+
+  if (isPerfTracingEnabled()) {
+    console.log(`[perf] applyChangesLayoutIncremental: ${(performance.now() - start).toFixed(2)}ms`);
+  }
 }
 
 export const layoutPresets: LayoutPreset[] = [
@@ -340,13 +520,49 @@ export const layoutPresets: LayoutPreset[] = [
   },
 ];
 
+/**
+ * Check if current layout can be incrementally transitioned to target.
+ * Returns true if we're switching between "standard" and "changes" layouts
+ * (the most common view toggle in the UI).
+ */
+function canApplyIncrementally(api: DockviewApi, layoutId: string): boolean {
+  if (layoutId !== "standard" && layoutId !== "changes") {
+    return false;
+  }
+
+  // Check current layout shape - we can apply incrementally if:
+  // - We have diff panel (the common panel between both layouts)
+  // - We have either standard-like or changes-like layout
+  const hasDiff = api.getPanel("diff") !== undefined;
+  const hasStaging = api.getPanel("staging") !== undefined;
+  const hasCommits = api.getPanel("commits") !== undefined;
+  const hasFiles = api.getPanel("files") !== undefined;
+
+  // Standard layout: commits, files, diff
+  const isStandardLike = hasDiff && hasCommits && hasFiles && !hasStaging;
+  // Changes layout: staging, diff
+  const isChangesLike = hasDiff && hasStaging && !hasCommits && !hasFiles;
+
+  return isStandardLike || isChangesLike;
+}
+
 export function applyLayout(api: DockviewApi, layoutId: string) {
   const preset = layoutPresets.find((p) => p.id === layoutId);
   if (preset) {
     // Set flag to prevent removal handlers from interfering
     setApplyingLayoutPreset(true);
     try {
-      preset.apply(api);
+      // Use incremental layout switching for standard <-> changes transitions
+      if (canApplyIncrementally(api, layoutId)) {
+        if (layoutId === "standard") {
+          applyStandardLayoutIncremental(api);
+        } else {
+          applyChangesLayoutIncremental(api);
+        }
+      } else {
+        // Fall back to full layout rebuild for other presets or non-incremental cases
+        preset.apply(api);
+      }
 
       // Sync store state based on which panels are in the layout - batched in one action
       tabsStore.send({

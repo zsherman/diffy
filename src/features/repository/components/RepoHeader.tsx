@@ -163,20 +163,28 @@ export function RepoHeader() {
   const handleViewChange = useCallback(
     (view: ViewMode) => {
       // Allow switching when coming FROM overlay views (statistics or changelog)
-      const isOverlayView = mainView === "statistics" || mainView === "changelog";
+      const isOverlayView =
+        mainView === "statistics" || mainView === "changelog";
       if (view === currentView && !isOverlayView) return;
 
+      // Update state immediately so the tab selection paints first
       setMainView(view);
-
-      const dockApi = getDockviewApi();
-      if (dockApi) {
-        if (view === "history") {
-          applyLayout(dockApi, "standard");
-        } else if (view === "changes") {
-          setSelectedCommit(null);
-          applyLayout(dockApi, "changes");
-        }
+      if (view === "changes") {
+        setSelectedCommit(null);
       }
+
+      // Schedule layout mutations after the pressed state can paint
+      // This makes the tab switch feel more responsive
+      requestAnimationFrame(() => {
+        const dockApi = getDockviewApi();
+        if (dockApi) {
+          if (view === "history") {
+            applyLayout(dockApi, "standard");
+          } else if (view === "changes") {
+            applyLayout(dockApi, "changes");
+          }
+        }
+      });
     },
     [setMainView, setSelectedCommit, currentView, mainView],
   );
@@ -204,7 +212,10 @@ export function RepoHeader() {
     setIsPulling(true);
     try {
       const result = await gitPull(repository.path);
-      toast.success("Pull complete", result || "Successfully pulled from remote");
+      toast.success(
+        "Pull complete",
+        result || "Successfully pulled from remote",
+      );
       queryClient.invalidateQueries({ queryKey: ["branches"] });
       queryClient.invalidateQueries({ queryKey: ["commits"] });
       queryClient.invalidateQueries({ queryKey: ["status"] });
@@ -225,6 +236,7 @@ export function RepoHeader() {
       toast.success("Push complete", "Successfully pushed to remote");
       queryClient.invalidateQueries({ queryKey: ["branches"] });
       queryClient.invalidateQueries({ queryKey: ["commits"] });
+      queryClient.invalidateQueries({ queryKey: ["status"] });
       queryClient.invalidateQueries({ queryKey: ["aheadBehind"] });
     } catch (error) {
       console.error("Push failed:", error);
@@ -296,7 +308,11 @@ export function RepoHeader() {
             disabled={isFetching}
           >
             {isFetching ? (
-              <ArrowsClockwise size={14} weight="bold" className="animate-spin" />
+              <ArrowsClockwise
+                size={14}
+                weight="bold"
+                className="animate-spin"
+              />
             ) : (
               <CloudArrowDown size={14} weight="bold" />
             )}
@@ -309,7 +325,11 @@ export function RepoHeader() {
             disabled={isPulling}
           >
             {isPulling ? (
-              <ArrowsClockwise size={14} weight="bold" className="animate-spin" />
+              <ArrowsClockwise
+                size={14}
+                weight="bold"
+                className="animate-spin"
+              />
             ) : (
               <ArrowDown size={14} weight="bold" />
             )}
@@ -327,7 +347,11 @@ export function RepoHeader() {
             disabled={isPushing}
           >
             {isPushing ? (
-              <ArrowsClockwise size={14} weight="bold" className="animate-spin" />
+              <ArrowsClockwise
+                size={14}
+                weight="bold"
+                className="animate-spin"
+              />
             ) : (
               <ArrowUp size={14} weight="bold" />
             )}
@@ -341,7 +365,7 @@ export function RepoHeader() {
         </Toolbar.Root>
       </div>
 
-      {/* Center: View mode buttons */}
+      {/* Center: View mode buttons + Layout switcher */}
       <div className="flex items-center border border-border-primary rounded bg-bg-secondary">
         <button
           onClick={() => handleViewChange("history")}
@@ -379,18 +403,21 @@ export function RepoHeader() {
           onClick={() => handleViewChange("changelog")}
           aria-label="Changelog view"
           aria-pressed={currentView === "changelog"}
-          className={`${toggleButtonClass} rounded-r ${currentView === "changelog" ? "bg-bg-hover text-text-primary" : ""}`}
+          className={`${toggleButtonClass} ${currentView === "changelog" ? "bg-bg-hover text-text-primary" : ""}`}
         >
           <ListBullets size={14} weight="bold" />
           <span className="hidden sm:inline">Changelog</span>
         </button>
-      </div>
 
-      {/* Right: Layout switcher */}
-      <div className="flex items-center justify-end gap-2">
+        {/* Separator */}
+        <div className="w-px h-4 bg-border-primary" />
+
+        {/* Layout switcher inline */}
         <LayoutSwitcher />
       </div>
+
+      {/* Right: empty for grid balance */}
+      <div />
     </div>
   );
 }
-

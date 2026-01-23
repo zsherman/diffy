@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { VList } from "virtua";
 import { parsePatchFiles } from "@pierre/diffs";
 import { FileDiff } from "@pierre/diffs/react";
-import { CaretRight, CaretDown, File, Warning } from "@phosphor-icons/react";
+import { CaretRight, CaretDown, File, Warning, FolderOpen, GitDiff } from "@phosphor-icons/react";
 import { getFileDiff, getWorkingDiff, getCommitDiff } from "../../../lib/tauri";
 import { useTabsStore, useActiveTabState } from "../../../stores/tabs-store";
 import { useDiffSettings } from "../../../stores/ui-store";
@@ -345,9 +345,30 @@ export function DiffViewer() {
   }
 
   if (workingFilesToShow.length === 0) {
+    // Determine the appropriate empty state message
+    const isFolder = selectedFile?.endsWith("/");
+    
+    let icon = <GitDiff size={48} weight="duotone" className="text-text-muted mb-3" />;
+    let title = "No working changes";
+    let subtitle = "Make changes to files to see them here";
+    
+    if (selectedFile) {
+      if (isFolder) {
+        icon = <FolderOpen size={48} weight="duotone" className="text-text-muted mb-3" />;
+        title = "Folder selected";
+        subtitle = "Select a file to view its changes";
+      } else {
+        icon = <File size={48} weight="duotone" className="text-text-muted mb-3" />;
+        title = "No changes in this file";
+        subtitle = "This file has no uncommitted changes";
+      }
+    }
+    
     return (
-      <div className="flex items-center justify-center h-full text-text-muted">
-        {selectedFile ? `No changes in selected file` : "No working changes"}
+      <div className="flex flex-col items-center justify-center h-full text-center px-4">
+        {icon}
+        <p className="text-text-primary font-medium mb-1">{title}</p>
+        <p className="text-text-muted text-sm">{subtitle}</p>
       </div>
     );
   }

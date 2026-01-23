@@ -632,7 +632,7 @@ export function StagingSidebar() {
               <div className="min-h-0 flex-1 overflow-auto">
                 {unstagedFiles.map((file) => (
                   <StagingFileRow
-                    key={file.path}
+                    key={`unstaged-${file.path}`}
                     file={file}
                     isStaged={false}
                     isSelected={selectedFile === file.path}
@@ -662,7 +662,7 @@ export function StagingSidebar() {
               <div className="min-h-0 flex-1 overflow-auto">
                 {stagedFiles.map((file) => (
                   <StagingFileRow
-                    key={file.path}
+                    key={`staged-${file.path}`}
                     file={file}
                     isStaged={true}
                     isSelected={selectedFile === file.path}

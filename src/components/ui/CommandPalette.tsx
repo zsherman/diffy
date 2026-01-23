@@ -1,6 +1,6 @@
-import { Command } from 'cmdk';
-import { useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState, useEffect } from 'react';
+import { Command } from "cmdk";
+import { useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState, useEffect } from "react";
 import {
   GitBranch,
   GitMerge,
@@ -36,16 +36,38 @@ import {
   GitDiff,
   ChartBar,
   ListBullets,
-} from '@phosphor-icons/react';
-import { useUIStore, getDockviewApi, isReactScanEnabled, toggleReactScanAndReload } from '../../stores/ui-store';
-import { useTabsStore, useActiveTabView } from '../../stores/tabs-store';
-import { useMergeConflictStore } from '../../stores/merge-conflict-store';
-import { useToast } from './Toast';
-import { gitFetch, gitPull, gitPush, openRepository, discoverRepository, getMergeStatus, parseFileConflicts, listBranches, mergeBranch } from '../../lib/tauri';
-import { getErrorMessage } from '../../lib/errors';
-import { applyLayout, layoutPresets } from '../../lib/layouts';
-import { clearAllSavedLayouts, LAYOUT_STORAGE_PREFIX, encodeRepoPath } from '../layout/DockviewLayout';
-import { getRecentRepositories, type RecentRepository } from '../../lib/recent-repos';
+} from "@phosphor-icons/react";
+import {
+  useUIStore,
+  getDockviewApi,
+  isReactScanEnabled,
+  toggleReactScanAndReload,
+} from "../../stores/ui-store";
+import { useTabsStore, useActiveTabView } from "../../stores/tabs-store";
+import { useMergeConflictStore } from "../../stores/merge-conflict-store";
+import { useToast } from "./Toast";
+import {
+  gitFetch,
+  gitPull,
+  gitPush,
+  openRepository,
+  discoverRepository,
+  getMergeStatus,
+  parseFileConflicts,
+  listBranches,
+  mergeBranch,
+} from "../../lib/tauri";
+import { getErrorMessage } from "../../lib/errors";
+import { applyLayout, layoutPresets } from "../../lib/layouts";
+import {
+  clearAllSavedLayouts,
+  LAYOUT_STORAGE_PREFIX,
+  encodeRepoPath,
+} from "../layout/DockviewLayout";
+import {
+  getRecentRepositories,
+  type RecentRepository,
+} from "../../lib/recent-repos";
 
 export function CommandPalette() {
   const {
@@ -88,16 +110,18 @@ export function CommandPalette() {
   const queryClient = useQueryClient();
 
   // Nested pages state
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
   const [pages, setPages] = useState<string[]>([]);
   const page = pages[pages.length - 1];
-  const [branchesForMerge, setBranchesForMerge] = useState<Array<{ name: string; isHead: boolean }>>([]);
+  const [branchesForMerge, setBranchesForMerge] = useState<
+    Array<{ name: string; isHead: boolean }>
+  >([]);
 
   // Reset pages and search when dialog closes
   useEffect(() => {
     if (!showCommandPalette) {
       setPages([]);
-      setSearch('');
+      setSearch("");
     }
   }, [showCommandPalette]);
 
@@ -118,11 +142,11 @@ export function CommandPalette() {
     if (!repository) return;
     try {
       await gitFetch(repository.path);
-      toast.success('Fetch complete', 'Successfully fetched from remote');
-      queryClient.invalidateQueries({ queryKey: ['branches'] });
-      queryClient.invalidateQueries({ queryKey: ['commits'] });
+      toast.success("Fetch complete", "Successfully fetched from remote");
+      queryClient.invalidateQueries({ queryKey: ["branches"] });
+      queryClient.invalidateQueries({ queryKey: ["commits"] });
     } catch (error) {
-      toast.error('Fetch failed', getErrorMessage(error));
+      toast.error("Fetch failed", getErrorMessage(error));
     }
   };
 
@@ -130,12 +154,15 @@ export function CommandPalette() {
     if (!repository) return;
     try {
       const result = await gitPull(repository.path);
-      toast.success('Pull complete', result || 'Successfully pulled from remote');
-      queryClient.invalidateQueries({ queryKey: ['branches'] });
-      queryClient.invalidateQueries({ queryKey: ['commits'] });
-      queryClient.invalidateQueries({ queryKey: ['status'] });
+      toast.success(
+        "Pull complete",
+        result || "Successfully pulled from remote",
+      );
+      queryClient.invalidateQueries({ queryKey: ["branches"] });
+      queryClient.invalidateQueries({ queryKey: ["commits"] });
+      queryClient.invalidateQueries({ queryKey: ["status"] });
     } catch (error) {
-      toast.error('Pull failed', getErrorMessage(error));
+      toast.error("Pull failed", getErrorMessage(error));
     }
   };
 
@@ -143,11 +170,12 @@ export function CommandPalette() {
     if (!repository) return;
     try {
       await gitPush(repository.path);
-      toast.success('Push complete', 'Successfully pushed to remote');
-      queryClient.invalidateQueries({ queryKey: ['branches'] });
-      queryClient.invalidateQueries({ queryKey: ['commits'] });
+      toast.success("Push complete", "Successfully pushed to remote");
+      queryClient.invalidateQueries({ queryKey: ["branches"] });
+      queryClient.invalidateQueries({ queryKey: ["commits"] });
+      queryClient.invalidateQueries({ queryKey: ["status"] });
     } catch (error) {
-      toast.error('Push failed', getErrorMessage(error));
+      toast.error("Push failed", getErrorMessage(error));
     }
   };
 
@@ -181,7 +209,7 @@ export function CommandPalette() {
         const opened = await discoverRepository(repo.path);
         openTab(opened);
       } catch (e) {
-        toast.error('Failed to open repository', getErrorMessage(e));
+        toast.error("Failed to open repository", getErrorMessage(e));
       }
     }
   };
@@ -191,24 +219,27 @@ export function CommandPalette() {
     try {
       const mergeStatus = await getMergeStatus(repository.path);
       if (!mergeStatus.inMerge || mergeStatus.conflictingFiles.length === 0) {
-        toast.info('No merge conflicts', 'There are no merge conflicts to resolve');
+        toast.info(
+          "No merge conflicts",
+          "There are no merge conflicts to resolve",
+        );
         return;
       }
       const fileInfos = await Promise.all(
         mergeStatus.conflictingFiles.map((filePath) =>
-          parseFileConflicts(repository.path, filePath)
-        )
+          parseFileConflicts(repository.path, filePath),
+        ),
       );
       enterMergeMode(fileInfos, mergeStatus.theirBranch);
       setShowMergeConflictPanel(true);
-      setActivePanel('merge-conflict');
+      setActivePanel("merge-conflict");
       // Switch to merge conflict layout
       const api = getDockviewApi();
       if (api) {
-        applyLayout(api, 'merge-conflict');
+        applyLayout(api, "merge-conflict");
       }
     } catch (error) {
-      toast.error('Failed to load conflicts', getErrorMessage(error));
+      toast.error("Failed to load conflicts", getErrorMessage(error));
     }
   };
 
@@ -220,12 +251,12 @@ export function CommandPalette() {
       setBranchesForMerge(
         branches
           .filter((b) => !b.isRemote)
-          .map((b) => ({ name: b.name, isHead: b.isHead }))
+          .map((b) => ({ name: b.name, isHead: b.isHead })),
       );
-      setSearch('');
-      setPages([...pages, 'merge-branch']);
+      setSearch("");
+      setPages([...pages, "merge-branch"]);
     } catch (error) {
-      toast.error('Failed to load branches', getErrorMessage(error));
+      toast.error("Failed to load branches", getErrorMessage(error));
     }
   };
 
@@ -234,37 +265,43 @@ export function CommandPalette() {
     setShowCommandPalette(false);
     try {
       await mergeBranch(repository.path, branchName);
-      toast.success('Merge successful', `Merged ${branchName} into current branch`);
-      queryClient.invalidateQueries({ queryKey: ['branches'] });
-      queryClient.invalidateQueries({ queryKey: ['commits'] });
-      queryClient.invalidateQueries({ queryKey: ['status'] });
+      toast.success(
+        "Merge successful",
+        `Merged ${branchName} into current branch`,
+      );
+      queryClient.invalidateQueries({ queryKey: ["branches"] });
+      queryClient.invalidateQueries({ queryKey: ["commits"] });
+      queryClient.invalidateQueries({ queryKey: ["status"] });
     } catch (error) {
       const errorMsg = getErrorMessage(error);
-      if (errorMsg.includes('conflicts')) {
-        toast.warning('Merge conflicts', 'The merge has conflicts that need to be resolved');
+      if (errorMsg.includes("conflicts")) {
+        toast.warning(
+          "Merge conflicts",
+          "The merge has conflicts that need to be resolved",
+        );
         // Open the merge conflict panel
         try {
           const mergeStatus = await getMergeStatus(repository.path);
           if (mergeStatus.conflictingFiles.length > 0) {
             const fileInfos = await Promise.all(
               mergeStatus.conflictingFiles.map((filePath) =>
-                parseFileConflicts(repository.path, filePath)
-              )
+                parseFileConflicts(repository.path, filePath),
+              ),
             );
             enterMergeMode(fileInfos, mergeStatus.theirBranch);
             setShowMergeConflictPanel(true);
             // Switch to merge conflict layout
             const api = getDockviewApi();
             if (api) {
-              applyLayout(api, 'merge-conflict');
+              applyLayout(api, "merge-conflict");
             }
           }
         } catch (e) {
-          console.error('Failed to load conflict info:', e);
+          console.error("Failed to load conflict info:", e);
         }
-        queryClient.invalidateQueries({ queryKey: ['merge-status'] });
+        queryClient.invalidateQueries({ queryKey: ["merge-status"] });
       } else {
-        toast.error('Merge failed', errorMsg);
+        toast.error("Merge failed", errorMsg);
       }
     }
   };
@@ -277,7 +314,7 @@ export function CommandPalette() {
       className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh]"
       onKeyDown={(e) => {
         // Escape goes to previous page, or closes if on root
-        if (e.key === 'Escape') {
+        if (e.key === "Escape") {
           e.preventDefault();
           if (pages.length > 0) {
             setPages((pages) => pages.slice(0, -1));
@@ -286,7 +323,7 @@ export function CommandPalette() {
           }
         }
         // Backspace goes to previous page when search is empty
-        if (e.key === 'Backspace' && !search && pages.length > 0) {
+        if (e.key === "Backspace" && !search && pages.length > 0) {
           e.preventDefault();
           setPages((pages) => pages.slice(0, -1));
         }
@@ -310,8 +347,8 @@ export function CommandPalette() {
               <ArrowLeft size={14} className="text-text-muted" />
             </button>
             <span className="text-sm text-text-muted">
-              {page === 'recent' && 'Recent Repositories'}
-              {page === 'merge-branch' && 'Merge Branch'}
+              {page === "recent" && "Recent Repositories"}
+              {page === "merge-branch" && "Merge Branch"}
             </span>
           </div>
         )}
@@ -319,7 +356,13 @@ export function CommandPalette() {
         <Command.Input
           value={search}
           onValueChange={setSearch}
-          placeholder={page === 'recent' ? 'Search repositories...' : page === 'merge-branch' ? 'Search branches...' : 'Type a command...'}
+          placeholder={
+            page === "recent"
+              ? "Search repositories..."
+              : page === "merge-branch"
+                ? "Search branches..."
+                : "Type a command..."
+          }
           className="w-full px-4 py-3 bg-transparent border-b border-border-primary text-text-primary placeholder-text-muted outline-none focus:outline-none focus-visible:outline-none focus:ring-0 text-sm"
         />
 
@@ -329,12 +372,14 @@ export function CommandPalette() {
           </Command.Empty>
 
           {/* Recent Repositories Page */}
-          {page === 'recent' && (
+          {page === "recent" && (
             <>
               {recentRepos.map((repo) => (
                 <Command.Item
                   key={repo.path}
-                  onSelect={() => runCommand(() => handleSwitchRepository(repo))}
+                  onSelect={() =>
+                    runCommand(() => handleSwitchRepository(repo))
+                  }
                   className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   <FolderOpen size={16} className="text-text-muted" />
@@ -353,7 +398,7 @@ export function CommandPalette() {
           )}
 
           {/* Merge Branch Page */}
-          {page === 'merge-branch' && (
+          {page === "merge-branch" && (
             <>
               {branchesForMerge
                 .filter((b) => !b.isHead) // Don't show current branch
@@ -393,7 +438,7 @@ export function CommandPalette() {
                   <GitBranch size={16} className="text-text-muted" />
                   <span className="flex-1">Toggle Branches Panel</span>
                   <span className="text-xs text-text-muted">
-                    {showBranchesPanel ? 'Hide' : 'Show'}
+                    {showBranchesPanel ? "Hide" : "Show"}
                   </span>
                   <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
                     1
@@ -401,13 +446,15 @@ export function CommandPalette() {
                 </Command.Item>
 
                 <Command.Item
-                  onSelect={() => runCommand(() => setShowFilesPanel(!showFilesPanel))}
+                  onSelect={() =>
+                    runCommand(() => setShowFilesPanel(!showFilesPanel))
+                  }
                   className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   <Files size={16} className="text-text-muted" />
                   <span className="flex-1">Toggle Files Panel</span>
                   <span className="text-xs text-text-muted">
-                    {showFilesPanel ? 'Hide' : 'Show'}
+                    {showFilesPanel ? "Hide" : "Show"}
                   </span>
                   <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
                     3
@@ -415,13 +462,15 @@ export function CommandPalette() {
                 </Command.Item>
 
                 <Command.Item
-                  onSelect={() => runCommand(() => setShowDiffPanel(!showDiffPanel))}
+                  onSelect={() =>
+                    runCommand(() => setShowDiffPanel(!showDiffPanel))
+                  }
                   className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   <Code size={16} className="text-text-muted" />
                   <span className="flex-1">Toggle Diff Panel</span>
                   <span className="text-xs text-text-muted">
-                    {showDiffPanel ? 'Hide' : 'Show'}
+                    {showDiffPanel ? "Hide" : "Show"}
                   </span>
                   <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
                     4
@@ -435,7 +484,7 @@ export function CommandPalette() {
                   <Stack size={16} className="text-text-muted" />
                   <span className="flex-1">Toggle Staging Sidebar</span>
                   <span className="text-xs text-text-muted">
-                    {showStagingSidebar ? 'Hide' : 'Show'}
+                    {showStagingSidebar ? "Hide" : "Show"}
                   </span>
                   <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
                     Cmd+Shift+S
@@ -443,13 +492,15 @@ export function CommandPalette() {
                 </Command.Item>
 
                 <Command.Item
-                  onSelect={() => runCommand(() => setShowAIReviewPanel(!showAIReviewPanel))}
+                  onSelect={() =>
+                    runCommand(() => setShowAIReviewPanel(!showAIReviewPanel))
+                  }
                   className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   <Robot size={16} className="text-text-muted" />
                   <span className="flex-1">Toggle AI Review Panel</span>
                   <span className="text-xs text-text-muted">
-                    {showAIReviewPanel ? 'Hide' : 'Show'}
+                    {showAIReviewPanel ? "Hide" : "Show"}
                   </span>
                 </Command.Item>
 
@@ -460,7 +511,7 @@ export function CommandPalette() {
                   <TreeStructure size={16} className="text-text-muted" />
                   <span className="flex-1">Toggle Worktrees Panel</span>
                   <span className="text-xs text-text-muted">
-                    {showWorktreesPanel ? 'Hide' : 'Show'}
+                    {showWorktreesPanel ? "Hide" : "Show"}
                   </span>
                 </Command.Item>
               </Command.Group>
@@ -472,11 +523,11 @@ export function CommandPalette() {
               >
                 <Command.Item
                   onSelect={() => {
-                    setSearch('');
-                    setPages([...pages, 'recent']);
+                    setSearch("");
+                    setPages([...pages, "recent"]);
                   }}
                   className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-                  keywords={['switch', 'recent', 'open']}
+                  keywords={["switch", "recent", "open"]}
                 >
                   <FolderOpen size={16} className="text-text-muted" />
                   <span className="flex-1">Open Recent...</span>
@@ -487,7 +538,7 @@ export function CommandPalette() {
                   <Command.Item
                     onSelect={() => runCommand(handleCloseRepository)}
                     className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-                    keywords={['close', 'exit', 'quit']}
+                    keywords={["close", "exit", "quit"]}
                   >
                     <SignOut size={16} className="text-text-muted" />
                     <span className="flex-1">Close Repository</span>
@@ -504,72 +555,87 @@ export function CommandPalette() {
                   <Command.Item
                     onSelect={() =>
                       runCommand(() => {
-                        setMainView('history');
+                        setMainView("history");
                         const api = getDockviewApi();
                         if (api) {
-                          applyLayout(api, 'standard');
+                          applyLayout(api, "standard");
                         }
                       })
                     }
                     className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-                    keywords={['history', 'commits', 'log']}
+                    keywords={["history", "commits", "log"]}
                   >
-                    <ClockCounterClockwise size={16} className="text-text-muted" />
+                    <ClockCounterClockwise
+                      size={16}
+                      className="text-text-muted"
+                    />
                     <span className="flex-1">Go to History</span>
                     <span className="text-xs text-text-muted">
-                      {mainView === 'history' ? 'Active' : ''}
+                      {mainView === "history" ? "Active" : ""}
                     </span>
                   </Command.Item>
 
                   <Command.Item
                     onSelect={() =>
                       runCommand(() => {
-                        setMainView('changes');
+                        setMainView("changes");
                         const api = getDockviewApi();
                         if (api) {
-                          applyLayout(api, 'changes');
+                          applyLayout(api, "changes");
                         }
                       })
                     }
                     className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-                    keywords={['changes', 'working', 'staged', 'unstaged']}
+                    keywords={["changes", "working", "staged", "unstaged"]}
                   >
                     <GitDiff size={16} className="text-text-muted" />
                     <span className="flex-1">Go to Changes</span>
                     <span className="text-xs text-text-muted">
-                      {mainView === 'changes' ? 'Active' : ''}
+                      {mainView === "changes" ? "Active" : ""}
                     </span>
                   </Command.Item>
 
                   <Command.Item
                     onSelect={() =>
                       runCommand(() => {
-                        setMainView('statistics');
+                        setMainView("statistics");
                       })
                     }
                     className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-                    keywords={['statistics', 'stats', 'contributions', 'calendar', 'heatmap']}
+                    keywords={[
+                      "statistics",
+                      "stats",
+                      "contributions",
+                      "calendar",
+                      "heatmap",
+                    ]}
                   >
                     <ChartBar size={16} className="text-text-muted" />
                     <span className="flex-1">Go to Statistics</span>
                     <span className="text-xs text-text-muted">
-                      {mainView === 'statistics' ? 'Active' : ''}
+                      {mainView === "statistics" ? "Active" : ""}
                     </span>
                   </Command.Item>
 
                   <Command.Item
                     onSelect={() =>
                       runCommand(() => {
-                        setMainView('changelog');
+                        setMainView("changelog");
                       })
                     }
                     className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-                    keywords={['changelog', 'release', 'notes', 'weekly', 'summary']}
+                    keywords={[
+                      "changelog",
+                      "release",
+                      "notes",
+                      "weekly",
+                      "summary",
+                    ]}
                   >
                     <ListBullets size={16} className="text-text-muted" />
                     <span className="flex-1">Go to Changelog</span>
                     <span className="text-xs text-text-muted">
-                      {mainView === 'changelog' ? 'Active' : ''}
+                      {mainView === "changelog" ? "Active" : ""}
                     </span>
                   </Command.Item>
                 </Command.Group>
@@ -583,8 +649,8 @@ export function CommandPalette() {
                 <Command.Item
                   onSelect={() =>
                     runCommand(() => {
-                      setActivePanel('branches');
-                      focusPanel('branches');
+                      setActivePanel("branches");
+                      focusPanel("branches");
                     })
                   }
                   className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
@@ -599,8 +665,8 @@ export function CommandPalette() {
                 <Command.Item
                   onSelect={() =>
                     runCommand(() => {
-                      setActivePanel('commits');
-                      focusPanel('commits');
+                      setActivePanel("commits");
+                      focusPanel("commits");
                     })
                   }
                   className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
@@ -615,8 +681,8 @@ export function CommandPalette() {
                 <Command.Item
                   onSelect={() =>
                     runCommand(() => {
-                      setActivePanel('files');
-                      focusPanel('files');
+                      setActivePanel("files");
+                      focusPanel("files");
                     })
                   }
                   className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
@@ -631,8 +697,8 @@ export function CommandPalette() {
                 <Command.Item
                   onSelect={() =>
                     runCommand(() => {
-                      setActivePanel('diff');
-                      focusPanel('diff');
+                      setActivePanel("diff");
+                      focusPanel("diff");
                     })
                   }
                   className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
@@ -647,8 +713,8 @@ export function CommandPalette() {
                 <Command.Item
                   onSelect={() =>
                     runCommand(() => {
-                      setActivePanel('staging');
-                      focusPanel('staging');
+                      setActivePanel("staging");
+                      focusPanel("staging");
                     })
                   }
                   className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
@@ -664,8 +730,8 @@ export function CommandPalette() {
                   onSelect={() =>
                     runCommand(() => {
                       setShowWorktreesPanel(true);
-                      setActivePanel('worktrees');
-                      focusPanel('worktrees');
+                      setActivePanel("worktrees");
+                      focusPanel("worktrees");
                     })
                   }
                   className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
@@ -709,8 +775,8 @@ export function CommandPalette() {
                     onSelect={() =>
                       runCommand(() => {
                         setShowWorktreesPanel(true);
-                        setActivePanel('worktrees');
-                        focusPanel('worktrees');
+                        setActivePanel("worktrees");
+                        focusPanel("worktrees");
                       })
                     }
                     className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
@@ -722,7 +788,7 @@ export function CommandPalette() {
                   <Command.Item
                     onSelect={() => runCommand(handleResolveMergeConflicts)}
                     className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-                    keywords={['merge', 'conflict', 'resolve']}
+                    keywords={["merge", "conflict", "resolve"]}
                   >
                     <Warning size={16} className="text-accent-yellow" />
                     <span className="flex-1">Resolve Merge Conflicts</span>
@@ -731,7 +797,7 @@ export function CommandPalette() {
                   <Command.Item
                     onSelect={() => handleOpenMergePage()}
                     className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-                    keywords={['merge', 'branch', 'combine']}
+                    keywords={["merge", "branch", "combine"]}
                   >
                     <GitMerge size={16} className="text-text-muted" />
                     <span className="flex-1">Merge Branch...</span>
@@ -748,38 +814,48 @@ export function CommandPalette() {
                 <Command.Item
                   onSelect={() =>
                     runCommand(() =>
-                      setTheme(theme === 'pierre-dark' ? 'pierre-light' : 'pierre-dark')
+                      setTheme(
+                        theme === "pierre-dark"
+                          ? "pierre-light"
+                          : "pierre-dark",
+                      ),
                     )
                   }
                   className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
-                  {theme === 'pierre-dark' ? (
+                  {theme === "pierre-dark" ? (
                     <Sun size={16} className="text-text-muted" />
                   ) : (
                     <Moon size={16} className="text-text-muted" />
                   )}
                   <span className="flex-1">Toggle Theme</span>
                   <span className="text-xs text-text-muted">
-                    {theme === 'pierre-dark' ? 'Switch to Light' : 'Switch to Dark'}
+                    {theme === "pierre-dark"
+                      ? "Switch to Light"
+                      : "Switch to Dark"}
                   </span>
                 </Command.Item>
 
                 <Command.Item
                   onSelect={() =>
                     runCommand(() =>
-                      setDiffViewMode(diffViewMode === 'split' ? 'unified' : 'split')
+                      setDiffViewMode(
+                        diffViewMode === "split" ? "unified" : "split",
+                      ),
                     )
                   }
                   className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
-                  {diffViewMode === 'split' ? (
+                  {diffViewMode === "split" ? (
                     <Rows size={16} className="text-text-muted" />
                   ) : (
                     <SplitVertical size={16} className="text-text-muted" />
                   )}
                   <span className="flex-1">Toggle Diff View Mode</span>
                   <span className="text-xs text-text-muted">
-                    {diffViewMode === 'split' ? 'Switch to Unified' : 'Switch to Split'}
+                    {diffViewMode === "split"
+                      ? "Switch to Unified"
+                      : "Switch to Split"}
                   </span>
                   <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
                     V
@@ -788,24 +864,32 @@ export function CommandPalette() {
 
                 <Command.Item
                   onSelect={() =>
-                    runCommand(() => setDiffFontSize(Math.min(diffFontSize + 1, 24)))
+                    runCommand(() =>
+                      setDiffFontSize(Math.min(diffFontSize + 1, 24)),
+                    )
                   }
                   className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   <TextAa size={16} className="text-text-muted" />
                   <span className="flex-1">Increase Font Size</span>
-                  <span className="text-xs text-text-muted">{diffFontSize}px</span>
+                  <span className="text-xs text-text-muted">
+                    {diffFontSize}px
+                  </span>
                 </Command.Item>
 
                 <Command.Item
                   onSelect={() =>
-                    runCommand(() => setDiffFontSize(Math.max(diffFontSize - 1, 10)))
+                    runCommand(() =>
+                      setDiffFontSize(Math.max(diffFontSize - 1, 10)),
+                    )
                   }
                   className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   <TextAa size={16} className="text-text-muted" />
                   <span className="flex-1">Decrease Font Size</span>
-                  <span className="text-xs text-text-muted">{diffFontSize}px</span>
+                  <span className="text-xs text-text-muted">
+                    {diffFontSize}px
+                  </span>
                 </Command.Item>
               </Command.Group>
 
@@ -822,11 +906,18 @@ export function CommandPalette() {
                     })
                   }
                   className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-                  keywords={['reset', 'default', 'clear']}
+                  keywords={["reset", "default", "clear"]}
                 >
-                  <ArrowCounterClockwise size={16} className="text-text-muted shrink-0" />
-                  <span className="shrink-0 whitespace-nowrap">Reset Layout</span>
-                  <span className="flex-1 text-xs text-text-muted text-right">Restore default layout</span>
+                  <ArrowCounterClockwise
+                    size={16}
+                    className="text-text-muted shrink-0"
+                  />
+                  <span className="shrink-0 whitespace-nowrap">
+                    Reset Layout
+                  </span>
+                  <span className="flex-1 text-xs text-text-muted text-right">
+                    Restore default layout
+                  </span>
                 </Command.Item>
 
                 {layoutPresets.map((preset) => (
@@ -843,8 +934,12 @@ export function CommandPalette() {
                     className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                   >
                     <Layout size={16} className="text-text-muted shrink-0" />
-                    <span className="shrink-0 whitespace-nowrap">Layout: {preset.name}</span>
-                    <span className="flex-1 text-xs text-text-muted text-right truncate">{preset.description}</span>
+                    <span className="shrink-0 whitespace-nowrap">
+                      Layout: {preset.name}
+                    </span>
+                    <span className="flex-1 text-xs text-text-muted text-right truncate">
+                      {preset.description}
+                    </span>
                   </Command.Item>
                 ))}
               </Command.Group>
@@ -882,26 +977,28 @@ export function CommandPalette() {
                 className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
               >
                 <Command.Item
-                  onSelect={() => runCommand(() => setPerfTracingEnabled(!perfTracingEnabled))}
+                  onSelect={() =>
+                    runCommand(() => setPerfTracingEnabled(!perfTracingEnabled))
+                  }
                   className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-                  keywords={['performance', 'debug', 'trace', 'log']}
+                  keywords={["performance", "debug", "trace", "log"]}
                 >
                   <Timer size={16} className="text-text-muted" />
                   <span className="flex-1">Toggle Perf Tracing</span>
                   <span className="text-xs text-text-muted">
-                    {perfTracingEnabled ? 'On' : 'Off'}
+                    {perfTracingEnabled ? "On" : "Off"}
                   </span>
                 </Command.Item>
 
                 <Command.Item
                   onSelect={() => runCommand(toggleReactScanAndReload)}
                   className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-                  keywords={['react', 'scan', 'render', 'debug', 'highlight']}
+                  keywords={["react", "scan", "render", "debug", "highlight"]}
                 >
                   <MagnifyingGlass size={16} className="text-text-muted" />
                   <span className="flex-1">Toggle React Scan</span>
                   <span className="text-xs text-text-muted">
-                    {isReactScanEnabled() ? 'On (reload)' : 'Off (reload)'}
+                    {isReactScanEnabled() ? "On (reload)" : "Off (reload)"}
                   </span>
                 </Command.Item>
               </Command.Group>
@@ -929,7 +1026,6 @@ export function CommandPalette() {
                     ?
                   </kbd>
                 </Command.Item>
-
               </Command.Group>
             </>
           )}

@@ -377,30 +377,49 @@ pub async fn generate_commit_message(repo_path: String) -> Result<String> {
     Ok(message)
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct AIReviewBug {
-    pub title: String,
-    pub description: String,
-    pub severity: String,
-}
-
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AIReviewFileComment {
-    pub file_path: String,
+pub struct AIReviewIssue {
+    pub id: String,
+    pub category: String,
     pub severity: String,
     pub title: String,
-    pub explanation: String,
+    pub problem: String,
+    pub why: String,
+    pub suggestion: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file_path: Option<String>,
 }
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AIReviewData {
     pub overview: String,
-    pub potential_bugs: Vec<AIReviewBug>,
-    pub file_comments: Vec<AIReviewFileComment>,
+    pub issues: Vec<AIReviewIssue>,
     pub generated_at: u64,
+}
+
+/// Normalize a category string to a known value, defaulting to "other".
+fn normalize_category(cat: &str) -> String {
+    match cat.to_lowercase().as_str() {
+        "logic_bugs" | "logic" | "bugs" | "bug" => "logic_bugs".to_string(),
+        "edge_cases" | "edge" | "edge_case" => "edge_cases".to_string(),
+        "security" | "sec" => "security".to_string(),
+        "performance" | "perf" => "performance".to_string(),
+        "accidental_code" | "accidental" | "cleanup" => "accidental_code".to_string(),
+        _ => "other".to_string(),
+    }
+}
+
+/// Normalize a severity string to a known value, defaulting to "medium".
+fn normalize_severity(sev: &str) -> String {
+    match sev.to_lowercase().as_str() {
+        "low" | "info" => "low".to_string(),
+        "medium" | "warning" | "warn" => "medium".to_string(),
+        "high" | "error" => "high".to_string(),
+        "critical" | "crit" => "critical".to_string(),
+        _ => "medium".to_string(),
+    }
 }
 
 #[tauri::command]
@@ -456,22 +475,36 @@ pub async fn generate_ai_review(
     };
 
     let prompt = format!(
-        r#"You are a code reviewer.{skills_context}
+        r#"You are an expert code reviewer. Your goal is to provide actionable feedback.{skills_context}
 
-Analyze this git diff and provide a PR-style review.
+Analyze this git diff and provide a PR-style review with specific, actionable issues.
 
-Respond ONLY with valid JSON in this exact format (no markdown, no code blocks, just raw JSON):
+For each issue you find, explain:
+- **problem**: What is wrong or concerning
+- **why**: Why it matters (impact on correctness, security, performance, maintainability)
+- **suggestion**: A concrete fix or improvement
+
+Categories: logic_bugs, edge_cases, security, performance, accidental_code, other
+Severities: low, medium, high, critical
+
+Respond ONLY with valid JSON (no markdown, no code blocks):
 {{
   "overview": "1-2 sentence summary of the changes",
-  "potentialBugs": [
-    {{"title": "brief title", "description": "explanation", "severity": "low|medium|high"}}
-  ],
-  "fileComments": [
-    {{"filePath": "path/to/file", "severity": "info|warning|error", "title": "brief title", "explanation": "detailed explanation"}}
+  "issues": [
+    {{
+      "id": "issue-1",
+      "category": "logic_bugs",
+      "severity": "high",
+      "title": "brief title",
+      "problem": "what is wrong",
+      "why": "why it matters",
+      "suggestion": "how to fix it",
+      "filePath": "path/to/file.ts"
+    }}
   ]
 }}
 
-If there are no bugs or comments, use empty arrays.
+If there are no issues, use an empty array for "issues".
 
 Diff to review:
 {diff}"#,
@@ -493,40 +526,76 @@ Diff to review:
 
     let response = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
+    if response.is_empty() {
+        return Err(AppError::ai("Claude returned an empty response"));
+    }
+
+    // Try to extract JSON from the response (Claude sometimes includes explanation text)
+    let json_str = extract_json_object(&response)
+        .ok_or_else(|| AppError::parse(format!("Could not find valid JSON in response: {}", response)))?;
+
     // Parse the JSON response
-    let json: serde_json::Value = serde_json::from_str(&response)
-        .map_err(|e| AppError::parse(format!("Failed to parse AI response as JSON: {}. Response was: {}", e, response)))?;
+    let json: serde_json::Value = serde_json::from_str(json_str)
+        .map_err(|e| AppError::parse(format!("Failed to parse AI response as JSON: {}. JSON was: {}", e, json_str)))?;
 
     let overview = json["overview"]
         .as_str()
         .unwrap_or("Unable to generate overview")
         .to_string();
 
-    let potential_bugs: Vec<AIReviewBug> = json["potentialBugs"]
+    // Parse issues with graceful defaulting
+    let issues: Vec<AIReviewIssue> = json["issues"]
         .as_array()
         .map(|arr| {
             arr.iter()
-                .filter_map(|bug| {
-                    Some(AIReviewBug {
-                        title: bug["title"].as_str()?.to_string(),
-                        description: bug["description"].as_str()?.to_string(),
-                        severity: bug["severity"].as_str().unwrap_or("medium").to_string(),
-                    })
-                })
-                .collect()
-        })
-        .unwrap_or_default();
+                .enumerate()
+                .filter_map(|(idx, issue)| {
+                    // Require at least a title or problem to be valid
+                    let title = issue["title"].as_str()
+                        .or_else(|| issue["problem"].as_str().map(|p| &p[..p.len().min(50)]))
+                        .map(|s| s.to_string())?;
 
-    let file_comments: Vec<AIReviewFileComment> = json["fileComments"]
-        .as_array()
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|comment| {
-                    Some(AIReviewFileComment {
-                        file_path: comment["filePath"].as_str()?.to_string(),
-                        severity: comment["severity"].as_str().unwrap_or("info").to_string(),
-                        title: comment["title"].as_str()?.to_string(),
-                        explanation: comment["explanation"].as_str()?.to_string(),
+                    let id = issue["id"].as_str()
+                        .map(|s| s.to_string())
+                        .unwrap_or_else(|| format!("issue-{}", idx + 1));
+
+                    let category = issue["category"].as_str()
+                        .map(normalize_category)
+                        .unwrap_or_else(|| "other".to_string());
+
+                    let severity = issue["severity"].as_str()
+                        .map(normalize_severity)
+                        .unwrap_or_else(|| "medium".to_string());
+
+                    let problem = issue["problem"].as_str()
+                        .or_else(|| issue["description"].as_str())
+                        .unwrap_or("")
+                        .to_string();
+
+                    let why = issue["why"].as_str()
+                        .or_else(|| issue["explanation"].as_str())
+                        .unwrap_or("")
+                        .to_string();
+
+                    let suggestion = issue["suggestion"].as_str()
+                        .or_else(|| issue["fix"].as_str())
+                        .unwrap_or("")
+                        .to_string();
+
+                    let file_path = issue["filePath"].as_str()
+                        .or_else(|| issue["file_path"].as_str())
+                        .or_else(|| issue["file"].as_str())
+                        .map(|s| s.to_string());
+
+                    Some(AIReviewIssue {
+                        id,
+                        category,
+                        severity,
+                        title,
+                        problem,
+                        why,
+                        suggestion,
+                        file_path,
                     })
                 })
                 .collect()
@@ -540,8 +609,7 @@ Diff to review:
 
     Ok(AIReviewData {
         overview,
-        potential_bugs,
-        file_comments,
+        issues,
         generated_at,
     })
 }

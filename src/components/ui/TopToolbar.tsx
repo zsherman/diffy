@@ -68,6 +68,7 @@ export function TopToolbar() {
       toast.success('Push complete', 'Successfully pushed to remote');
       queryClient.invalidateQueries({ queryKey: ['branches'] });
       queryClient.invalidateQueries({ queryKey: ['commits'] });
+      queryClient.invalidateQueries({ queryKey: ['status'] });
       queryClient.invalidateQueries({ queryKey: ['aheadBehind'] });
     } catch (error) {
       console.error('Push failed:', error);

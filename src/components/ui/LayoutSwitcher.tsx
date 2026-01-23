@@ -19,8 +19,8 @@ export function LayoutSwitcher() {
 
   return (
     <Select.Root value={selectedLayout} onValueChange={handleLayoutChange}>
-      <Select.Trigger className="flex items-center gap-1.5 px-2 py-0.5 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded transition-colors cursor-pointer">
-        <SquaresFour size={12} weight="bold" />
+      <Select.Trigger className="flex items-center gap-1.5 px-3 py-1 text-text-muted hover:text-text-primary transition-colors cursor-pointer text-xs rounded-r">
+        <SquaresFour size={14} weight="bold" />
         <span className="hidden sm:inline">{currentLayout?.name ?? 'Layout'}</span>
         <CaretUpDown size={10} />
       </Select.Trigger>

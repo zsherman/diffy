@@ -89,33 +89,49 @@ export interface FileDiff {
   patch: string;
 }
 
-export type PanelId = 'branches' | 'commits' | 'files' | 'diff' | 'staging' | 'ai-review' | 'worktrees' | 'graph' | 'merge-conflict';
+export type PanelId =
+  | "branches"
+  | "commits"
+  | "files"
+  | "diff"
+  | "staging"
+  | "ai-review"
+  | "worktrees"
+  | "graph"
+  | "merge-conflict";
 
 export interface RefInfo {
   name: string;
-  type: 'branch' | 'tag' | 'remote';
+  type: "branch" | "tag" | "remote";
   isHead: boolean;
 }
 
-export type ViewMode = 'working' | 'commit';
+export type ViewMode = "working" | "commit";
 
-export interface AIReviewBug {
-  title: string;
-  description: string;
-  severity: 'low' | 'medium' | 'high';
-}
+export type AIReviewCategory =
+  | "logic_bugs"
+  | "edge_cases"
+  | "security"
+  | "performance"
+  | "accidental_code"
+  | "other";
 
-export interface AIReviewFileComment {
-  filePath: string;
-  severity: 'info' | 'warning' | 'error';
+export type AIReviewSeverity = "low" | "medium" | "high" | "critical";
+
+export interface AIReviewIssue {
+  id: string;
+  category: AIReviewCategory;
+  severity: AIReviewSeverity;
   title: string;
-  explanation: string;
+  problem: string;
+  why: string;
+  suggestion: string;
+  filePath?: string;
 }
 
 export interface AIReviewData {
   overview: string;
-  potentialBugs: AIReviewBug[];
-  fileComments: AIReviewFileComment[];
+  issues: AIReviewIssue[];
   generatedAt: number;
 }
 
