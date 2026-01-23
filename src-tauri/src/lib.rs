@@ -78,6 +78,8 @@ pub fn run() {
             commands::continue_merge,
             commands::merge_branch,
             commands::ai_resolve_conflict,
+            // Ahead/behind
+            commands::get_ahead_behind,
             // Watcher commands
             commands::start_watching,
             commands::stop_watching,

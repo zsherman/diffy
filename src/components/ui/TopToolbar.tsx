@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Toolbar } from '@base-ui/react/toolbar';
 import { ArrowDown, ArrowUp, ArrowsClockwise, CloudArrowDown } from '@phosphor-icons/react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useGitStore } from '../../stores/git-store';
 import { useToast } from './Toast';
-import { gitFetch, gitPull, gitPush } from '../../lib/tauri';
+import { gitFetch, gitPull, gitPush, getAheadBehind } from '../../lib/tauri';
 import { getErrorMessage } from '../../lib/errors';
 import { BranchSwitcher } from './BranchSwitcher';
 import { LayoutSwitcher } from './LayoutSwitcher';
@@ -18,6 +18,13 @@ export function TopToolbar() {
   const [isPulling, setIsPulling] = useState(false);
   const [isPushing, setIsPushing] = useState(false);
 
+  const { data: aheadBehind } = useQuery({
+    queryKey: ['aheadBehind', repository?.path],
+    queryFn: () => getAheadBehind(repository!.path),
+    enabled: !!repository,
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
   const handleFetch = async () => {
     if (!repository || isFetching) return;
     setIsFetching(true);
@@ -26,6 +33,7 @@ export function TopToolbar() {
       toast.success('Fetch complete', 'Successfully fetched from remote');
       queryClient.invalidateQueries({ queryKey: ['branches'] });
       queryClient.invalidateQueries({ queryKey: ['commits'] });
+      queryClient.invalidateQueries({ queryKey: ['aheadBehind'] });
     } catch (error) {
       console.error('Fetch failed:', error);
       toast.error('Fetch failed', getErrorMessage(error));
@@ -43,6 +51,7 @@ export function TopToolbar() {
       queryClient.invalidateQueries({ queryKey: ['branches'] });
       queryClient.invalidateQueries({ queryKey: ['commits'] });
       queryClient.invalidateQueries({ queryKey: ['status'] });
+      queryClient.invalidateQueries({ queryKey: ['aheadBehind'] });
     } catch (error) {
       console.error('Pull failed:', error);
       toast.error('Pull failed', getErrorMessage(error));
@@ -59,6 +68,7 @@ export function TopToolbar() {
       toast.success('Push complete', 'Successfully pushed to remote');
       queryClient.invalidateQueries({ queryKey: ['branches'] });
       queryClient.invalidateQueries({ queryKey: ['commits'] });
+      queryClient.invalidateQueries({ queryKey: ['aheadBehind'] });
     } catch (error) {
       console.error('Push failed:', error);
       toast.error('Push failed', getErrorMessage(error));
@@ -99,11 +109,18 @@ export function TopToolbar() {
             onClick={handlePull}
             disabled={isPulling}
           >
-            {isPulling ? (
-              <ArrowsClockwise size={14} weight="bold" className="animate-spin" />
-            ) : (
-              <ArrowDown size={14} weight="bold" />
-            )}
+            <span className="relative">
+              {isPulling ? (
+                <ArrowsClockwise size={14} weight="bold" className="animate-spin" />
+              ) : (
+                <ArrowDown size={14} weight="bold" />
+              )}
+              {aheadBehind && aheadBehind.behind > 0 && !isPulling && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] px-0.5 flex items-center justify-center text-[9px] font-medium bg-accent-orange text-white rounded-full">
+                  {aheadBehind.behind > 99 ? '99+' : aheadBehind.behind}
+                </span>
+              )}
+            </span>
             <span className="hidden sm:inline">Pull</span>
           </Toolbar.Button>
 
@@ -112,11 +129,18 @@ export function TopToolbar() {
             onClick={handlePush}
             disabled={isPushing}
           >
-            {isPushing ? (
-              <ArrowsClockwise size={14} weight="bold" className="animate-spin" />
-            ) : (
-              <ArrowUp size={14} weight="bold" />
-            )}
+            <span className="relative">
+              {isPushing ? (
+                <ArrowsClockwise size={14} weight="bold" className="animate-spin" />
+              ) : (
+                <ArrowUp size={14} weight="bold" />
+              )}
+              {aheadBehind && aheadBehind.ahead > 0 && !isPushing && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] px-0.5 flex items-center justify-center text-[9px] font-medium bg-accent-blue text-white rounded-full">
+                  {aheadBehind.ahead > 99 ? '99+' : aheadBehind.ahead}
+                </span>
+              )}
+            </span>
             <span className="hidden sm:inline">Push</span>
           </Toolbar.Button>
         </Toolbar.Root>

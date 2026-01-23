@@ -11,6 +11,7 @@ import type {
   WorktreeInfo,
   WorktreeCreateOptions,
   StashEntry,
+  AheadBehind,
 } from '../types/git';
 import type { SkillMetadata } from '../types/skills';
 import type {
@@ -293,6 +294,11 @@ export async function popStash(repoPath: string, stashIndex: number): Promise<vo
 
 export async function dropStash(repoPath: string, stashIndex: number): Promise<void> {
   return invoke<void>('drop_stash', { repoPath, stashIndex });
+}
+
+// Ahead/Behind
+export async function getAheadBehind(repoPath: string): Promise<AheadBehind | null> {
+  return invoke<AheadBehind | null>('get_ahead_behind', { repoPath });
 }
 
 // Skills

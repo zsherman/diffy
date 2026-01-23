@@ -144,3 +144,8 @@ export interface StashEntry {
   oid: string;
   time: number;
 }
+
+export interface AheadBehind {
+  ahead: number;
+  behind: number;
+}
