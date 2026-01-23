@@ -761,3 +761,92 @@ pub fn unlock_worktree(repo_path: &str, worktree_name: &str) -> Result<(), GitEr
 
     Ok(())
 }
+
+// Stash types and functions
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct StashEntry {
+    pub stash_index: usize,
+    pub message: String,
+    pub oid: String,
+    pub time: i64,
+}
+
+/// List all stashes in the repository
+pub fn list_stashes(repo: &mut Repository) -> Result<Vec<StashEntry>, GitError> {
+    // First pass: collect basic stash info (stash_foreach needs mutable borrow)
+    let mut stash_info: Vec<(usize, String, git2::Oid)> = Vec::new();
+
+    repo.stash_foreach(|index, message, oid| {
+        stash_info.push((index, message.to_string(), *oid));
+        true // continue iteration
+    })?;
+
+    // Second pass: look up commit times (immutable borrow)
+    let stashes = stash_info
+        .into_iter()
+        .map(|(index, message, oid)| {
+            let time = repo.find_commit(oid)
+                .map(|c| c.time().seconds())
+                .unwrap_or(0);
+
+            StashEntry {
+                stash_index: index,
+                message,
+                oid: oid.to_string(),
+                time,
+            }
+        })
+        .collect();
+
+    Ok(stashes)
+}
+
+/// Create a new stash with an optional message
+/// If no message is provided, generates one like git: "WIP on branch: shortid message"
+pub fn create_stash(repo: &mut Repository, message: Option<&str>) -> Result<(), GitError> {
+    let signature = repo.signature()?;
+
+    // Generate default message if none provided (like git does)
+    let stash_message = if let Some(msg) = message {
+        if msg.trim().is_empty() {
+            generate_stash_message(repo)?
+        } else {
+            msg.to_string()
+        }
+    } else {
+        generate_stash_message(repo)?
+    };
+
+    repo.stash_save(&signature, &stash_message, None)?;
+    Ok(())
+}
+
+/// Generate a stash message like git: "WIP on branch: shortid commit message"
+fn generate_stash_message(repo: &Repository) -> Result<String, GitError> {
+    let head = repo.head()?;
+    let branch_name = head.shorthand().unwrap_or("HEAD");
+    let commit = head.peel_to_commit()?;
+    let short_id = &commit.id().to_string()[..7];
+    let summary = commit.summary().unwrap_or("");
+
+    Ok(format!("WIP on {}: {} {}", branch_name, short_id, summary))
+}
+
+/// Apply a stash by index without removing it
+pub fn apply_stash(repo: &mut Repository, stash_index: usize) -> Result<(), GitError> {
+    repo.stash_apply(stash_index, None)?;
+    Ok(())
+}
+
+/// Pop a stash by index (apply and remove)
+pub fn pop_stash(repo: &mut Repository, stash_index: usize) -> Result<(), GitError> {
+    repo.stash_pop(stash_index, None)?;
+    Ok(())
+}
+
+/// Drop a stash by index without applying
+pub fn drop_stash(repo: &mut Repository, stash_index: usize) -> Result<(), GitError> {
+    repo.stash_drop(stash_index)?;
+    Ok(())
+}

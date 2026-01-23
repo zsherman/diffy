@@ -1,5 +1,5 @@
 use crate::error::{AppError, Result};
-use crate::git::{self, BranchInfo, CommitGraph, CommitInfo, FileDiff, RepositoryInfo, StatusInfo, UnifiedDiff, WorktreeInfo, WorktreeCreateOptions, MergeStatus, FileConflictInfo};
+use crate::git::{self, BranchInfo, CommitGraph, CommitInfo, FileDiff, RepositoryInfo, StatusInfo, UnifiedDiff, WorktreeInfo, WorktreeCreateOptions, MergeStatus, FileConflictInfo, StashEntry};
 use std::process::Command;
 use std::path::PathBuf;
 use std::fs;
@@ -974,6 +974,69 @@ pub async fn lock_worktree(repo_path: String, worktree_name: String, reason: Opt
 #[tauri::command]
 pub async fn unlock_worktree(repo_path: String, worktree_name: String) -> Result<()> {
     Ok(git::unlock_worktree(&repo_path, &worktree_name)?)
+}
+
+// Stash commands
+#[tauri::command]
+#[instrument(skip_all, err(Debug))]
+pub async fn list_stashes(repo_path: String) -> Result<Vec<StashEntry>> {
+    let mut repo = git::open_repo(&repo_path)?;
+    Ok(git::list_stashes(&mut repo)?)
+}
+
+#[tauri::command]
+#[instrument(skip_all, fields(message = ?message), err(Debug))]
+pub async fn create_stash(repo_path: String, message: Option<String>) -> Result<()> {
+    let mut repo = git::open_repo(&repo_path)?;
+
+    // Check if there are any changes to stash
+    let status = git::get_status(&repo)?;
+    if status.staged.is_empty() && status.unstaged.is_empty() {
+        return Err(AppError::validation("No local changes to stash"));
+    }
+
+    git::create_stash(&mut repo, message.as_deref())?;
+    Ok(())
+}
+
+#[tauri::command]
+#[instrument(skip_all, fields(stash_index), err(Debug))]
+pub async fn apply_stash(repo_path: String, stash_index: usize) -> Result<()> {
+    let mut repo = git::open_repo(&repo_path)?;
+    git::apply_stash(&mut repo, stash_index).map_err(|e| {
+        // Check if the error is due to conflicts
+        let err_msg = e.to_string();
+        if err_msg.contains("conflict") || err_msg.contains("CONFLICT") {
+            AppError::validation("Stash apply failed due to conflicts. Resolve conflicts in the affected files and stage them.")
+        } else {
+            AppError::from(e)
+        }
+    })?;
+    Ok(())
+}
+
+#[tauri::command]
+#[instrument(skip_all, fields(stash_index), err(Debug))]
+pub async fn pop_stash(repo_path: String, stash_index: usize) -> Result<()> {
+    let mut repo = git::open_repo(&repo_path)?;
+    git::pop_stash(&mut repo, stash_index).map_err(|e| {
+        // Check if the error is due to conflicts
+        let err_msg = e.to_string();
+        if err_msg.contains("conflict") || err_msg.contains("CONFLICT") {
+            AppError::validation("Stash pop failed due to conflicts. Resolve conflicts in the affected files and stage them.")
+        } else {
+            AppError::from(e)
+        }
+    })?;
+    Ok(())
+}
+
+#[tauri::command]
+#[instrument(skip_all, fields(stash_index), err(Debug))]
+pub async fn drop_stash(repo_path: String, stash_index: usize) -> Result<()> {
+    let mut repo = git::open_repo(&repo_path)?;
+    git::drop_stash(&mut repo, stash_index)?;
+    Ok(())
 }
 
 // Merge conflict commands

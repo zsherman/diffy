@@ -55,6 +55,12 @@ pub fn run() {
             commands::remove_worktree,
             commands::lock_worktree,
             commands::unlock_worktree,
+            // Stash commands
+            commands::list_stashes,
+            commands::create_stash,
+            commands::apply_stash,
+            commands::pop_stash,
+            commands::drop_stash,
             // Skills commands
             commands::get_skills_dir,
             commands::list_skills,

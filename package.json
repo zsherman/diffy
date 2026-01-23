@@ -42,6 +42,7 @@
     "react": "^19.2.0",
     "react-content-loader": "^7.1.1",
     "react-dom": "^19.2.0",
+    "react-resizable-panels": "^4.4.1",
     "virtua": "^0.48.3"
   },
   "devDependencies": {

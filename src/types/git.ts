@@ -137,3 +137,10 @@ export interface WorktreeCreateOptions {
   branch?: string;
   newBranch?: string;
 }
+
+export interface StashEntry {
+  stashIndex: number;
+  message: string;
+  oid: string;
+  time: number;
+}

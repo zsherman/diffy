@@ -10,6 +10,7 @@ import type {
   AIReviewData,
   WorktreeInfo,
   WorktreeCreateOptions,
+  StashEntry,
 } from '../types/git';
 import type { SkillMetadata } from '../types/skills';
 import type {
@@ -271,6 +272,27 @@ export async function lockWorktree(
 
 export async function unlockWorktree(repoPath: string, worktreeName: string): Promise<void> {
   return invoke<void>('unlock_worktree', { repoPath, worktreeName });
+}
+
+// Stash operations
+export async function listStashes(repoPath: string): Promise<StashEntry[]> {
+  return invoke<StashEntry[]>('list_stashes', { repoPath });
+}
+
+export async function createStash(repoPath: string, message?: string): Promise<void> {
+  return invoke<void>('create_stash', { repoPath, message });
+}
+
+export async function applyStash(repoPath: string, stashIndex: number): Promise<void> {
+  return invoke<void>('apply_stash', { repoPath, stashIndex });
+}
+
+export async function popStash(repoPath: string, stashIndex: number): Promise<void> {
+  return invoke<void>('pop_stash', { repoPath, stashIndex });
+}
+
+export async function dropStash(repoPath: string, stashIndex: number): Promise<void> {
+  return invoke<void>('drop_stash', { repoPath, stashIndex });
 }
 
 // Skills

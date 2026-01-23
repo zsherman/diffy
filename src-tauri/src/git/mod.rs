@@ -7,3 +7,6 @@ pub use repository::*;
 pub use graph::*;
 pub use diff::*;
 pub use merge::*;
+
+// Re-export stash types
+pub use repository::StashEntry;

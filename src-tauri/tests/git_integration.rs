@@ -1157,6 +1157,203 @@ mod diff_metadata {
 }
 
 // =============================================================================
+// Stash Tests
+// =============================================================================
+
+mod stash {
+    use super::*;
+
+    #[test]
+    fn test_list_stashes_empty() {
+        let (_tmp, path) = create_test_repo();
+
+        let mut repo = git::open_repo(&path).unwrap();
+        let stashes = git::list_stashes(&mut repo).expect("should list stashes");
+
+        assert!(stashes.is_empty());
+    }
+
+    #[test]
+    fn test_create_and_list_stash() {
+        let (_tmp, path) = create_test_repo();
+
+        // Create a working change
+        std::fs::write(path.join("README.md"), "modified content\n").unwrap();
+
+        let mut repo = git::open_repo(&path).unwrap();
+
+        // Create a stash with a message
+        git::create_stash(&mut repo, Some("Test stash message")).expect("should create stash");
+
+        // Verify the change is gone
+        let repo = git::open_repo(&path).unwrap();
+        let status = git::get_status(&repo).unwrap();
+        assert!(status.unstaged.is_empty(), "working directory should be clean after stash");
+
+        // Verify stash was created
+        let mut repo = git::open_repo(&path).unwrap();
+        let stashes = git::list_stashes(&mut repo).unwrap();
+        assert_eq!(stashes.len(), 1);
+        assert_eq!(stashes[0].stash_index, 0);
+        assert!(stashes[0].message.contains("Test stash message"));
+    }
+
+    #[test]
+    fn test_create_stash_auto_message() {
+        let (_tmp, path) = create_test_repo();
+
+        // Create a working change
+        std::fs::write(path.join("README.md"), "modified\n").unwrap();
+
+        let mut repo = git::open_repo(&path).unwrap();
+
+        // Create stash without message (should auto-generate)
+        git::create_stash(&mut repo, None).expect("should create stash");
+
+        let mut repo = git::open_repo(&path).unwrap();
+        let stashes = git::list_stashes(&mut repo).unwrap();
+        assert_eq!(stashes.len(), 1);
+        // Auto-generated message should contain "WIP on main"
+        assert!(stashes[0].message.contains("WIP on main"), "auto-message should contain branch info");
+    }
+
+    #[test]
+    fn test_pop_stash() {
+        let (_tmp, path) = create_test_repo();
+
+        // Create a working change
+        std::fs::write(path.join("README.md"), "modified for stash\n").unwrap();
+
+        let mut repo = git::open_repo(&path).unwrap();
+        git::create_stash(&mut repo, Some("to be popped")).expect("should create stash");
+
+        // Verify clean
+        let repo = git::open_repo(&path).unwrap();
+        let status = git::get_status(&repo).unwrap();
+        assert!(status.unstaged.is_empty());
+
+        // Pop the stash
+        let mut repo = git::open_repo(&path).unwrap();
+        git::pop_stash(&mut repo, 0).expect("should pop stash");
+
+        // Verify change is restored
+        let repo = git::open_repo(&path).unwrap();
+        let status = git::get_status(&repo).unwrap();
+        assert_eq!(status.unstaged.len(), 1);
+        assert_eq!(status.unstaged[0].path, "README.md");
+
+        // Verify stash is removed
+        let mut repo = git::open_repo(&path).unwrap();
+        let stashes = git::list_stashes(&mut repo).unwrap();
+        assert!(stashes.is_empty(), "stash should be removed after pop");
+    }
+
+    #[test]
+    fn test_apply_stash() {
+        let (_tmp, path) = create_test_repo();
+
+        // Create a working change
+        std::fs::write(path.join("README.md"), "modified for apply\n").unwrap();
+
+        let mut repo = git::open_repo(&path).unwrap();
+        git::create_stash(&mut repo, Some("to be applied")).expect("should create stash");
+
+        // Apply the stash (without removing)
+        let mut repo = git::open_repo(&path).unwrap();
+        git::apply_stash(&mut repo, 0).expect("should apply stash");
+
+        // Verify change is restored
+        let repo = git::open_repo(&path).unwrap();
+        let status = git::get_status(&repo).unwrap();
+        assert_eq!(status.unstaged.len(), 1);
+
+        // Verify stash is still present
+        let mut repo = git::open_repo(&path).unwrap();
+        let stashes = git::list_stashes(&mut repo).unwrap();
+        assert_eq!(stashes.len(), 1, "stash should remain after apply");
+    }
+
+    #[test]
+    fn test_drop_stash() {
+        let (_tmp, path) = create_test_repo();
+
+        // Create a working change
+        std::fs::write(path.join("README.md"), "modified for drop\n").unwrap();
+
+        let mut repo = git::open_repo(&path).unwrap();
+        git::create_stash(&mut repo, Some("to be dropped")).expect("should create stash");
+
+        // Verify stash exists
+        let mut repo = git::open_repo(&path).unwrap();
+        let stashes = git::list_stashes(&mut repo).unwrap();
+        assert_eq!(stashes.len(), 1);
+
+        // Drop the stash
+        let mut repo = git::open_repo(&path).unwrap();
+        git::drop_stash(&mut repo, 0).expect("should drop stash");
+
+        // Verify stash is removed
+        let mut repo = git::open_repo(&path).unwrap();
+        let stashes = git::list_stashes(&mut repo).unwrap();
+        assert!(stashes.is_empty(), "stash should be removed after drop");
+
+        // Verify working directory is still clean (change not restored)
+        let status = git::get_status(&repo).unwrap();
+        assert!(status.unstaged.is_empty(), "working directory should still be clean");
+    }
+
+    #[test]
+    fn test_multiple_stashes() {
+        let (_tmp, path) = create_test_repo();
+
+        // Create and stash first change (modify existing tracked file)
+        std::fs::write(path.join("README.md"), "first modification\n").unwrap();
+        let mut repo = git::open_repo(&path).unwrap();
+        git::create_stash(&mut repo, Some("First stash")).expect("should create first stash");
+
+        // Create and stash second change (modify existing tracked file again)
+        std::fs::write(path.join("README.md"), "second modification\n").unwrap();
+        let mut repo = git::open_repo(&path).unwrap();
+        git::create_stash(&mut repo, Some("Second stash")).expect("should create second stash");
+
+        // List stashes
+        let mut repo = git::open_repo(&path).unwrap();
+        let stashes = git::list_stashes(&mut repo).unwrap();
+        assert_eq!(stashes.len(), 2);
+
+        // Most recent should be at index 0
+        assert_eq!(stashes[0].stash_index, 0);
+        assert!(stashes[0].message.contains("Second stash"));
+        assert_eq!(stashes[1].stash_index, 1);
+        assert!(stashes[1].message.contains("First stash"));
+    }
+
+    #[test]
+    fn test_stash_includes_staged_changes() {
+        let (_tmp, path) = create_test_repo();
+
+        // Create and stage a change
+        std::fs::write(path.join("staged.txt"), "staged content\n").unwrap();
+        run_git(&path, &["add", "staged.txt"]);
+
+        let mut repo = git::open_repo(&path).unwrap();
+
+        // Verify staged
+        let status = git::get_status(&repo).unwrap();
+        assert_eq!(status.staged.len(), 1);
+
+        // Create stash
+        git::create_stash(&mut repo, Some("includes staged")).expect("should create stash");
+
+        // Verify clean
+        let repo = git::open_repo(&path).unwrap();
+        let status = git::get_status(&repo).unwrap();
+        assert!(status.staged.is_empty(), "staged changes should be stashed");
+        assert!(status.unstaged.is_empty());
+    }
+}
+
+// =============================================================================
 // Edge Cases & Regressions
 // =============================================================================
 
