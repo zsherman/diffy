@@ -211,6 +211,7 @@ function isInLayoutTransaction() {
 // Returns the panel state for updating lastReconcileRef
 function syncPanelsFromDockview(api: DockviewApi): PanelVisibility {
   const panels: PanelVisibility = {
+    showCommitsPanel: api.getPanel("commits") !== undefined,
     showBranchesPanel: api.getPanel("branches") !== undefined,
     showFilesPanel: api.getPanel("files") !== undefined,
     showDiffPanel: api.getPanel("diff") !== undefined,
@@ -241,6 +242,19 @@ function reconcilePanels(api: DockviewApi, desired: PanelVisibility) {
         }
       | { direction: string };
   }> = [
+    {
+      id: "commits",
+      component: "commits",
+      title: "Commits",
+      showKey: "showCommitsPanel",
+      getPosition: () => {
+        const files = api.getPanel("files");
+        const diff = api.getPanel("diff");
+        if (files) return { referencePanel: files, direction: "left" };
+        if (diff) return { referencePanel: diff, direction: "left" };
+        return { direction: "left" };
+      },
+    },
     {
       id: "branches",
       component: "branches",
@@ -282,7 +296,7 @@ function reconcilePanels(api: DockviewApi, desired: PanelVisibility) {
     {
       id: "staging",
       component: "staging",
-      title: "Staging",
+      title: "Local Changes",
       showKey: "showStagingSidebar",
       getPosition: () => ({ direction: "right" }),
     },
@@ -379,6 +393,7 @@ export const DockviewLayout = memo(function DockviewLayout() {
   const activeTabPath = useActiveTabPath();
   // Use focused hook for panel state only - avoids subscribing to unrelated state
   const {
+    showCommitsPanel,
     showBranchesPanel,
     showFilesPanel,
     showDiffPanel,
@@ -452,6 +467,7 @@ export const DockviewLayout = memo(function DockviewLayout() {
 
   // Store panel visibility in ref for reconciliation comparison
   const desiredPanels: PanelVisibility = {
+    showCommitsPanel,
     showBranchesPanel,
     showFilesPanel,
     showDiffPanel,
@@ -552,12 +568,6 @@ export const DockviewLayout = memo(function DockviewLayout() {
           );
         currentRepoPathRef.current = ctx.activeTabPath;
 
-        // Get mainView from the active tab
-        const activeTab = ctx.tabs.find(
-          (t) => t.repository.path === ctx.activeTabPath,
-        );
-        const mainView = activeTab?.mainView ?? "history";
-
         setApplyingLayoutPreset(true);
         let syncedPanels: PanelVisibility;
         try {
@@ -577,21 +587,13 @@ export const DockviewLayout = memo(function DockviewLayout() {
                 "Failed to restore layout in onReady (fresh), creating default:",
                 e,
               );
-              // Apply layout based on mainView
-              if (mainView === "changes") {
-                applyLayoutPreset(api, "changes");
-              } else {
-                applyLayoutPreset(api, "standard");
-              }
+              // Apply standard layout as default
+              applyLayoutPreset(api, "standard");
               syncedPanels = syncPanelsFromDockview(api);
             }
           } else {
-            // No saved layout - apply based on mainView
-            if (mainView === "changes") {
-              applyLayoutPreset(api, "changes");
-            } else {
-              applyLayoutPreset(api, "standard");
-            }
+            // No saved layout - apply standard layout
+            applyLayoutPreset(api, "standard");
             syncedPanels = syncPanelsFromDockview(api);
           }
           api.groups.forEach((g) => {
@@ -706,6 +708,7 @@ export const DockviewLayout = memo(function DockviewLayout() {
     const lastPanels = lastReconcileRef.current;
     if (
       lastPanels &&
+      lastPanels.showCommitsPanel === desiredPanels.showCommitsPanel &&
       lastPanels.showBranchesPanel === desiredPanels.showBranchesPanel &&
       lastPanels.showFilesPanel === desiredPanels.showFilesPanel &&
       lastPanels.showDiffPanel === desiredPanels.showDiffPanel &&
@@ -723,6 +726,10 @@ export const DockviewLayout = memo(function DockviewLayout() {
     // Log what changed
     if (isPerfTracingEnabled() && lastPanels) {
       const changes: string[] = [];
+      if (lastPanels.showCommitsPanel !== desiredPanels.showCommitsPanel)
+        changes.push(
+          `commits: ${lastPanels.showCommitsPanel} -> ${desiredPanels.showCommitsPanel}`,
+        );
       if (lastPanels.showBranchesPanel !== desiredPanels.showBranchesPanel)
         changes.push(
           `branches: ${lastPanels.showBranchesPanel} -> ${desiredPanels.showBranchesPanel}`,
@@ -772,6 +779,7 @@ export const DockviewLayout = memo(function DockviewLayout() {
     reconcilePanels(api, desiredPanels);
   }, [
     activeTabPath,
+    showCommitsPanel,
     showBranchesPanel,
     showFilesPanel,
     showDiffPanel,

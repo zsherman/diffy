@@ -33,7 +33,6 @@ import {
   Timer,
   MagnifyingGlass,
   ClockCounterClockwise,
-  GitDiff,
   ChartBar,
   ListBullets,
 } from "@phosphor-icons/react";
@@ -482,7 +481,7 @@ export function CommandPalette() {
                   className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   <Stack size={16} className="text-text-muted" />
-                  <span className="flex-1">Toggle Staging Sidebar</span>
+                  <span className="flex-1">Toggle Local Changes</span>
                   <span className="text-xs text-text-muted">
                     {showStagingSidebar ? "Hide" : "Show"}
                   </span>
@@ -555,43 +554,19 @@ export function CommandPalette() {
                   <Command.Item
                     onSelect={() =>
                       runCommand(() => {
-                        setMainView("history");
-                        const api = getDockviewApi();
-                        if (api) {
-                          applyLayout(api, "standard");
-                        }
+                        setMainView("repository");
                       })
                     }
                     className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-                    keywords={["history", "commits", "log"]}
+                    keywords={["repository", "history", "commits", "log", "changes", "working", "staged"]}
                   >
                     <ClockCounterClockwise
                       size={16}
                       className="text-text-muted"
                     />
-                    <span className="flex-1">Go to History</span>
+                    <span className="flex-1">Go to Repository</span>
                     <span className="text-xs text-text-muted">
-                      {mainView === "history" ? "Active" : ""}
-                    </span>
-                  </Command.Item>
-
-                  <Command.Item
-                    onSelect={() =>
-                      runCommand(() => {
-                        setMainView("changes");
-                        const api = getDockviewApi();
-                        if (api) {
-                          applyLayout(api, "changes");
-                        }
-                      })
-                    }
-                    className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
-                    keywords={["changes", "working", "staged", "unstaged"]}
-                  >
-                    <GitDiff size={16} className="text-text-muted" />
-                    <span className="flex-1">Go to Changes</span>
-                    <span className="text-xs text-text-muted">
-                      {mainView === "changes" ? "Active" : ""}
+                      {mainView === "repository" ? "Active" : ""}
                     </span>
                   </Command.Item>
 
@@ -720,7 +695,7 @@ export function CommandPalette() {
                   className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   <Stack size={16} className="text-text-muted" />
-                  <span className="flex-1">Go to Staging</span>
+                  <span className="flex-1">Go to Local Changes</span>
                   <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
                     5
                   </kbd>

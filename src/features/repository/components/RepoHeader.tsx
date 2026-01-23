@@ -4,8 +4,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Toolbar } from "@base-ui/react/toolbar";
 import {
   Warning,
-  ClockCounterClockwise,
-  GitDiff,
+  Folders,
   ChartBar,
   ArrowDown,
   ArrowUp,
@@ -29,13 +28,13 @@ import { useToast } from "../../../components/ui/Toast";
 import { applyLayout } from "../../../lib/layouts";
 import { getErrorMessage } from "../../../lib/errors";
 import { BranchSwitcher } from "../../../components/ui/BranchSwitcher";
-import { LayoutSwitcher } from "../../../components/ui/LayoutSwitcher";
+import { PanelSelector } from "../../../components/ui/PanelSelector";
 
-type ViewMode = "history" | "changes" | "statistics" | "changelog";
+type MainView = "repository" | "statistics" | "changelog";
 
 export function RepoHeader() {
   const { repository } = useTabsStore();
-  const { mainView, setMainView, setSelectedCommit } = useActiveTabState();
+  const { mainView, setMainView } = useActiveTabState();
   const { showMergeConflictPanel, setShowMergeConflictPanel } = useUIStore();
   const { enterMergeMode, isActive: isMergeActive } = useMergeConflictStore();
   const toast = useToast();
@@ -147,46 +146,13 @@ export function RepoHeader() {
     updateTitle();
   }, [repository]);
 
-  // Determine current view
-  const api = getDockviewApi();
-  const currentView: ViewMode = (() => {
-    if (mainView === "statistics") return "statistics";
-    if (mainView === "changelog") return "changelog";
-    if (!api) return mainView;
-    const hasStaging = api.getPanel("staging") !== undefined;
-    const hasCommits = api.getPanel("commits") !== undefined;
-    if (hasStaging && !hasCommits) return "changes";
-    if (hasCommits && !hasStaging) return "history";
-    return mainView;
-  })();
-
-  const handleViewChange = useCallback(
-    (view: ViewMode) => {
-      // Allow switching when coming FROM overlay views (statistics or changelog)
-      const isOverlayView =
-        mainView === "statistics" || mainView === "changelog";
-      if (view === currentView && !isOverlayView) return;
-
-      // Update state immediately so the tab selection paints first
-      setMainView(view);
-      if (view === "changes") {
-        setSelectedCommit(null);
-      }
-
-      // Schedule layout mutations after the pressed state can paint
-      // This makes the tab switch feel more responsive
-      requestAnimationFrame(() => {
-        const dockApi = getDockviewApi();
-        if (dockApi) {
-          if (view === "history") {
-            applyLayout(dockApi, "standard");
-          } else if (view === "changes") {
-            applyLayout(dockApi, "changes");
-          }
-        }
-      });
+  // Handle mode changes (repository/statistics/changelog)
+  const handleModeChange = useCallback(
+    (mode: MainView) => {
+      if (mode === mainView) return;
+      setMainView(mode);
     },
-    [setMainView, setSelectedCommit, currentView, mainView],
+    [setMainView, mainView],
   );
 
   // Git action handlers
@@ -365,59 +331,46 @@ export function RepoHeader() {
         </Toolbar.Root>
       </div>
 
-      {/* Center: View mode buttons + Layout switcher */}
+      {/* Center: Mode selector */}
       <div className="flex items-center border border-border-primary rounded bg-bg-secondary">
         <button
-          onClick={() => handleViewChange("history")}
-          aria-label="History view"
-          aria-pressed={currentView === "history"}
-          className={`${toggleButtonClass} rounded-l ${currentView === "history" ? "bg-bg-hover text-text-primary" : ""}`}
+          onClick={() => handleModeChange("repository")}
+          aria-label="Repository view"
+          aria-pressed={mainView === "repository"}
+          className={`${toggleButtonClass} rounded-l ${mainView === "repository" ? "bg-bg-hover text-text-primary" : ""}`}
         >
-          <ClockCounterClockwise size={14} weight="bold" />
-          <span className="hidden sm:inline">History</span>
-        </button>
-        <button
-          onClick={() => handleViewChange("changes")}
-          aria-label="Changes view"
-          aria-pressed={currentView === "changes"}
-          className={`${toggleButtonClass} ${currentView === "changes" ? "bg-bg-hover text-text-primary" : ""}`}
-        >
-          <GitDiff size={14} weight="bold" />
-          <span className="hidden sm:inline">Changes</span>
-          {uncommittedCount > 0 && (
+          <Folders size={14} weight="bold" />
+          <span className="hidden sm:inline">Repository</span>
+          {uncommittedCount > 0 && mainView !== "repository" && (
             <span className="px-1.5 py-0.5 bg-accent-blue text-white text-[10px] rounded-full leading-none">
               {uncommittedCount}
             </span>
           )}
         </button>
         <button
-          onClick={() => handleViewChange("statistics")}
+          onClick={() => handleModeChange("statistics")}
           aria-label="Statistics view"
-          aria-pressed={currentView === "statistics"}
-          className={`${toggleButtonClass} ${currentView === "statistics" ? "bg-bg-hover text-text-primary" : ""}`}
+          aria-pressed={mainView === "statistics"}
+          className={`${toggleButtonClass} ${mainView === "statistics" ? "bg-bg-hover text-text-primary" : ""}`}
         >
           <ChartBar size={14} weight="bold" />
           <span className="hidden sm:inline">Statistics</span>
         </button>
         <button
-          onClick={() => handleViewChange("changelog")}
+          onClick={() => handleModeChange("changelog")}
           aria-label="Changelog view"
-          aria-pressed={currentView === "changelog"}
-          className={`${toggleButtonClass} ${currentView === "changelog" ? "bg-bg-hover text-text-primary" : ""}`}
+          aria-pressed={mainView === "changelog"}
+          className={`${toggleButtonClass} rounded-r ${mainView === "changelog" ? "bg-bg-hover text-text-primary" : ""}`}
         >
           <ListBullets size={14} weight="bold" />
           <span className="hidden sm:inline">Changelog</span>
         </button>
-
-        {/* Separator */}
-        <div className="w-px h-4 bg-border-primary" />
-
-        {/* Layout switcher inline */}
-        <LayoutSwitcher />
       </div>
 
-      {/* Right: empty for grid balance */}
-      <div />
+      {/* Right: Panel selector (only visible in repository mode) */}
+      <div className="flex items-center justify-end">
+        {mainView === "repository" && <PanelSelector />}
+      </div>
     </div>
   );
 }

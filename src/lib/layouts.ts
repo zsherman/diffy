@@ -159,7 +159,7 @@ function applyChangesLayoutIncremental(api: DockviewApi) {
     const stagingPanel = api.addPanel({
       id: "staging",
       component: "staging",
-      title: "Changes",
+      title: "Local Changes",
       minimumWidth: 250,
     });
 
@@ -178,7 +178,7 @@ function applyChangesLayoutIncremental(api: DockviewApi) {
       api.addPanel({
         id: "staging",
         component: "staging",
-        title: "Changes",
+        title: "Local Changes",
         position: { referencePanel: diffPanel, direction: "left" },
         minimumWidth: 250,
       });
@@ -568,6 +568,7 @@ export function applyLayout(api: DockviewApi, layoutId: string) {
       tabsStore.send({
         type: "syncPanels",
         panels: {
+          showCommitsPanel: api.getPanel("commits") !== undefined,
           showBranchesPanel: api.getPanel("branches") !== undefined,
           showFilesPanel: api.getPanel("files") !== undefined,
           showDiffPanel: api.getPanel("diff") !== undefined,

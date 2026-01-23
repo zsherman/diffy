@@ -6,6 +6,7 @@ import type { RepositoryInfo, ViewMode, AIReviewData } from "../types/git";
 
 // Panel visibility state (per-tab)
 export interface PanelVisibility {
+  showCommitsPanel: boolean;
   showBranchesPanel: boolean;
   showFilesPanel: boolean;
   showDiffPanel: boolean;
@@ -37,7 +38,7 @@ export interface RepoTabState {
   amendPreviousCommit: boolean;
 
   // View mode
-  mainView: "history" | "changes" | "statistics" | "changelog";
+  mainView: "repository" | "statistics" | "changelog";
   viewMode: ViewMode;
   selectedWorktree: string | null;
 
@@ -100,6 +101,7 @@ function saveTabs(tabs: RepoTabState[], activeTabPath: string | null) {
 
 // Default panel visibility
 const DEFAULT_PANELS: PanelVisibility = {
+  showCommitsPanel: true,
   showBranchesPanel: false,
   showFilesPanel: true,
   showDiffPanel: true,
@@ -123,7 +125,7 @@ function createTabState(repository: RepositoryInfo): RepoTabState {
     commitMessage: "",
     commitDescription: "",
     amendPreviousCommit: false,
-    mainView: "history",
+    mainView: "repository",
     viewMode: "working",
     selectedWorktree: null,
     statisticsContributorEmail: null,
@@ -261,6 +263,22 @@ export const tabsStore = createStore({
       }),
 
     // Individual panel toggles
+    setShowCommitsPanel: (ctx, event: { show: boolean }) =>
+      produce(ctx, (draft) => {
+        const tab = draft.tabs.find(
+          (t) => t.repository.path === draft.activeTabPath,
+        );
+        if (tab) tab.panels.showCommitsPanel = event.show;
+      }),
+
+    toggleCommitsPanel: (ctx) =>
+      produce(ctx, (draft) => {
+        const tab = draft.tabs.find(
+          (t) => t.repository.path === draft.activeTabPath,
+        );
+        if (tab) tab.panels.showCommitsPanel = !tab.panels.showCommitsPanel;
+      }),
+
     setShowBranchesPanel: (ctx, event: { show: boolean }) =>
       produce(ctx, (draft) => {
         const tab = draft.tabs.find(
@@ -529,6 +547,7 @@ function selectActiveTab(s: TabsState): RepoTabState | null {
 
 // Default panel state for when no tab is active
 const DEFAULT_PANEL_STATE: PanelVisibility = {
+  showCommitsPanel: true,
   showBranchesPanel: false,
   showFilesPanel: true,
   showDiffPanel: true,
@@ -542,6 +561,7 @@ const DEFAULT_PANEL_STATE: PanelVisibility = {
 // Shallow equality check for panel visibility
 function panelsEqual(a: PanelVisibility, b: PanelVisibility): boolean {
   return (
+    a.showCommitsPanel === b.showCommitsPanel &&
     a.showBranchesPanel === b.showBranchesPanel &&
     a.showFilesPanel === b.showFilesPanel &&
     a.showDiffPanel === b.showDiffPanel &&
@@ -565,6 +585,7 @@ export function useActiveTabPanels() {
 
   // Destructure for convenient access
   const {
+    showCommitsPanel,
     showBranchesPanel,
     showFilesPanel,
     showDiffPanel,
@@ -579,6 +600,14 @@ export function useActiveTabPanels() {
   const syncPanels = useCallback(
     (panels: Partial<PanelVisibility>) =>
       tabsStore.send({ type: "syncPanels", panels }),
+    [],
+  );
+  const setShowCommitsPanel = useCallback(
+    (show: boolean) => tabsStore.send({ type: "setShowCommitsPanel", show }),
+    [],
+  );
+  const toggleCommitsPanel = useCallback(
+    () => tabsStore.send({ type: "toggleCommitsPanel" }),
     [],
   );
   const setShowBranchesPanel = useCallback(
@@ -636,6 +665,7 @@ export function useActiveTabPanels() {
   );
 
   return {
+    showCommitsPanel,
     showBranchesPanel,
     showFilesPanel,
     showDiffPanel,
@@ -645,6 +675,8 @@ export function useActiveTabPanels() {
     showGraphPanel,
     showMergeConflictPanel,
     syncPanels,
+    setShowCommitsPanel,
+    toggleCommitsPanel,
     setShowBranchesPanel,
     toggleBranchesPanel,
     setShowFilesPanel,
@@ -663,11 +695,11 @@ export function useActiveTabPanels() {
 
 // View state type for single selector
 type ViewState = {
-  mainView: "history" | "changes" | "statistics" | "changelog";
+  mainView: "repository" | "statistics" | "changelog";
   viewMode: ViewMode;
 };
 const DEFAULT_VIEW_STATE: ViewState = {
-  mainView: "history",
+  mainView: "repository",
   viewMode: "working",
 };
 
@@ -691,7 +723,7 @@ export function useActiveTabView() {
     [],
   );
   const setMainView = useCallback(
-    (view: "history" | "changes" | "statistics" | "changelog") =>
+    (view: "repository" | "statistics" | "changelog") =>
       updateActiveTab({ mainView: view }),
     [updateActiveTab],
   );
@@ -1034,6 +1066,7 @@ export function useActiveTabState() {
     clearAIReview: aiReview.clearAIReview,
 
     // Panel visibility state
+    showCommitsPanel: panels.showCommitsPanel,
     showBranchesPanel: panels.showBranchesPanel,
     showFilesPanel: panels.showFilesPanel,
     showDiffPanel: panels.showDiffPanel,
@@ -1043,6 +1076,8 @@ export function useActiveTabState() {
     showGraphPanel: panels.showGraphPanel,
     showMergeConflictPanel: panels.showMergeConflictPanel,
     syncPanels: panels.syncPanels,
+    setShowCommitsPanel: panels.setShowCommitsPanel,
+    toggleCommitsPanel: panels.toggleCommitsPanel,
     setShowBranchesPanel: panels.setShowBranchesPanel,
     toggleBranchesPanel: panels.toggleBranchesPanel,
     setShowFilesPanel: panels.setShowFilesPanel,
