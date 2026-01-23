@@ -105,43 +105,39 @@ export function TopToolbar() {
           </Toolbar.Button>
 
           <Toolbar.Button
-            className={toolbarButtonClass}
+            className={`${toolbarButtonClass} relative`}
             onClick={handlePull}
             disabled={isPulling}
           >
-            <span className="relative">
-              {isPulling ? (
-                <ArrowsClockwise size={14} weight="bold" className="animate-spin" />
-              ) : (
-                <ArrowDown size={14} weight="bold" />
-              )}
-              {aheadBehind && aheadBehind.behind > 0 && !isPulling && (
-                <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] px-0.5 flex items-center justify-center text-[9px] font-medium bg-accent-orange text-white rounded-full">
-                  {aheadBehind.behind > 99 ? '99+' : aheadBehind.behind}
-                </span>
-              )}
-            </span>
+            {isPulling ? (
+              <ArrowsClockwise size={14} weight="bold" className="animate-spin" />
+            ) : (
+              <ArrowDown size={14} weight="bold" />
+            )}
             <span className="hidden sm:inline">Pull</span>
+            {aheadBehind && aheadBehind.behind > 0 && !isPulling && (
+              <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 flex items-center justify-center text-[9px] font-medium bg-accent-orange text-white rounded-full">
+                {aheadBehind.behind > 99 ? '99+' : aheadBehind.behind}
+              </span>
+            )}
           </Toolbar.Button>
 
           <Toolbar.Button
-            className={toolbarButtonClass}
+            className={`${toolbarButtonClass} relative`}
             onClick={handlePush}
             disabled={isPushing}
           >
-            <span className="relative">
-              {isPushing ? (
-                <ArrowsClockwise size={14} weight="bold" className="animate-spin" />
-              ) : (
-                <ArrowUp size={14} weight="bold" />
-              )}
-              {aheadBehind && aheadBehind.ahead > 0 && !isPushing && (
-                <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] px-0.5 flex items-center justify-center text-[9px] font-medium bg-accent-blue text-white rounded-full">
-                  {aheadBehind.ahead > 99 ? '99+' : aheadBehind.ahead}
-                </span>
-              )}
-            </span>
+            {isPushing ? (
+              <ArrowsClockwise size={14} weight="bold" className="animate-spin" />
+            ) : (
+              <ArrowUp size={14} weight="bold" />
+            )}
             <span className="hidden sm:inline">Push</span>
+            {aheadBehind && aheadBehind.ahead > 0 && !isPushing && (
+              <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 flex items-center justify-center text-[9px] font-medium bg-accent-blue text-white rounded-full">
+                {aheadBehind.ahead > 99 ? '99+' : aheadBehind.ahead}
+              </span>
+            )}
           </Toolbar.Button>
         </Toolbar.Root>
       </div>
