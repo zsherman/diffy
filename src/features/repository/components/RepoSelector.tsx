@@ -45,6 +45,7 @@ export function RepoSelector() {
     enabled: !!repository?.path,
     refetchInterval: 60000, // Safety refetch every 60s
     staleTime: 10000,
+    refetchOnMount: false, // Don't refetch on tab switch
   });
 
   // Show toast when merge conflicts are detected

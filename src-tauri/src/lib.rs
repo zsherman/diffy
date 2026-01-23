@@ -50,6 +50,7 @@ pub fn run() {
             commands::git_push,
             commands::generate_commit_message,
             commands::generate_ai_review,
+            commands::generate_contributor_review,
             commands::fix_ai_review_issues,
             commands::list_worktrees,
             commands::create_worktree,

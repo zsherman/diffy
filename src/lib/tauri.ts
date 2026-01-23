@@ -315,6 +315,31 @@ export async function fixAIReviewIssues(
   return invoke<string>("fix_ai_review_issues", { repoPath, issues });
 }
 
+// Contributor Review
+export interface ContributorReviewRequest {
+  contributorName: string;
+  contributorEmail: string;
+  timeRangeLabel: string;
+  commitSummaries: string[];
+  totalCommits: number;
+  totalFilesChanged: number;
+  totalAdditions: number;
+  totalDeletions: number;
+}
+
+export interface ContributorReviewData {
+  grade: string;
+  commentary: string;
+  highlights: string[];
+  generatedAt: number;
+}
+
+export async function generateContributorReview(
+  request: ContributorReviewRequest,
+): Promise<ContributorReviewData> {
+  return invoke<ContributorReviewData>("generate_contributor_review", { request });
+}
+
 // Worktrees
 export async function listWorktrees(repoPath: string): Promise<WorktreeInfo[]> {
   return invoke<WorktreeInfo[]>("list_worktrees", { repoPath });

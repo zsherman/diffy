@@ -68,10 +68,19 @@ export function useContributionData({
   months = 12,
   contributorEmail,
 }: UseContributionDataOptions): ContributionData {
-  // Calculate time range (last N months)
+  // Calculate time range (last N months, or 1 week if months < 1)
   const { since, until } = useMemo(() => {
     const end = getEndOfToday();
-    const start = addMonths(getStartOfToday(), -months);
+    let start: Date;
+    
+    if (months < 1) {
+      // Handle week case (0.25 = 1 week = 7 days)
+      start = new Date(getStartOfToday());
+      start.setDate(start.getDate() - 7);
+    } else {
+      start = addMonths(getStartOfToday(), -months);
+    }
+    
     return {
       since: Math.floor(start.getTime() / 1000),
       until: Math.floor(end.getTime() / 1000),

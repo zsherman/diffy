@@ -173,18 +173,6 @@ function trace(label: string, fn: () => void): void {
   console.log(`[perf] ${label}: ${elapsed.toFixed(2)}ms`);
 }
 
-function _traceAsync<T>(label: string, fn: () => Promise<T>): Promise<T> {
-  if (!isPerfTracingEnabled()) {
-    return fn();
-  }
-  const start = performance.now();
-  return fn().then((result) => {
-    const elapsed = performance.now() - start;
-    console.log(`[perf] ${label}: ${elapsed.toFixed(2)}ms`);
-    return result;
-  });
-}
-
 function traceStart(label: string): () => void {
   if (!isPerfTracingEnabled()) return () => {};
   const start = performance.now();

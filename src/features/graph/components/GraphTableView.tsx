@@ -29,6 +29,7 @@ import type {
   CommitGraph as CommitGraphType,
 } from "../../../types/git";
 import { createMountLogger } from "../../../lib/perf";
+import { isPerfTracingEnabled } from "../../../stores/ui-store";
 
 const ROW_HEIGHT = 48;
 const MIN_BRANCH_TAG_WIDTH = 80;
@@ -84,19 +85,23 @@ export function GraphTableView() {
     initialPageParam: 0,
     enabled: !!repository?.path,
     staleTime: 30000,
+    refetchOnMount: false, // Don't refetch on tab switch - watcher handles updates
+    placeholderData: (prev) => prev, // Keep showing previous data during transitions
   });
 
   // Flatten pages into single array
   const commits = useMemo(() => commitsData?.pages.flat() ?? [], [commitsData]);
 
-  // Debug log
+  // Debug log (only when perf tracing enabled)
   useEffect(() => {
-    console.log("[GraphTableView] Commits loaded:", {
-      totalCommits: commits.length,
-      hasNextPage,
-      isFetchingNextPage,
-      pages: commitsData?.pages.length,
-    });
+    if (isPerfTracingEnabled()) {
+      console.log("[GraphTableView] Commits loaded:", {
+        totalCommits: commits.length,
+        hasNextPage,
+        isFetchingNextPage,
+        pages: commitsData?.pages.length,
+      });
+    }
   }, [
     commits.length,
     hasNextPage,
@@ -110,6 +115,7 @@ export function GraphTableView() {
     queryFn: () => listBranches(repository!.path),
     enabled: !!repository?.path,
     staleTime: 30000,
+    refetchOnMount: false, // Don't refetch on tab switch
   });
 
   // Build commit refs map
@@ -132,6 +138,7 @@ export function GraphTableView() {
       ),
     enabled: !!repository?.path && commits.length > 0,
     staleTime: 30000,
+    refetchOnMount: false, // Don't refetch on tab switch
   });
 
   // Defer filter value to keep typing responsive while filtering large lists
@@ -236,10 +243,12 @@ export function GraphTableView() {
 
     // Load more when within 15 items of the end
     if (endIndex >= commits.length - 15) {
-      console.log("[GraphTableView] Loading more commits...", {
-        endIndex,
-        total: commits.length,
-      });
+      if (isPerfTracingEnabled()) {
+        console.log("[GraphTableView] Loading more commits...", {
+          endIndex,
+          total: commits.length,
+        });
+      }
       fetchNextPage();
     }
   }, [hasNextPage, isFetchingNextPage, commits.length, fetchNextPage]);

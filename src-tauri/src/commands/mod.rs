@@ -1246,6 +1246,142 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks, 
 
 use crate::watcher::WatcherState;
 
+// Contributor review types
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContributorReviewData {
+    pub grade: String,
+    pub commentary: String,
+    pub highlights: Vec<String>,
+    pub generated_at: i64,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContributorReviewRequest {
+    pub contributor_name: String,
+    pub contributor_email: String,
+    pub time_range_label: String,
+    pub commit_summaries: Vec<String>,
+    pub total_commits: usize,
+    pub total_files_changed: usize,
+    pub total_additions: usize,
+    pub total_deletions: usize,
+}
+
+#[tauri::command]
+#[instrument(skip_all, fields(contributor = %request.contributor_email, commits = request.total_commits), err(Debug))]
+pub async fn generate_contributor_review(
+    request: ContributorReviewRequest,
+) -> Result<ContributorReviewData> {
+    if request.commit_summaries.is_empty() {
+        return Err(AppError::validation("No commits to review"));
+    }
+
+    // Build commit list for prompt (limit to avoid token overflow)
+    let max_commits = 50;
+    let commit_list: String = request.commit_summaries
+        .iter()
+        .take(max_commits)
+        .map(|s| format!("- {}", s))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let truncation_note = if request.commit_summaries.len() > max_commits {
+        format!("\n(showing {} of {} commits)", max_commits, request.commit_summaries.len())
+    } else {
+        String::new()
+    };
+
+    let prompt = format!(
+        r#"You are a engineering manager reviewing a contributor's work.
+
+Analyze this contributor's activity and provide a performance assessment.
+
+Contributor: {name} ({email})
+Time Period: {time_range}
+Statistics:
+- Total Commits: {total_commits}
+- Files Changed: {files_changed}
+- Lines Added: {additions}
+- Lines Deleted: {deletions}
+
+Recent Commit Messages:
+{commits}{truncation}
+
+Respond ONLY with valid JSON in this exact format (no markdown, no code blocks, just raw JSON):
+{{
+  "grade": "A|A-|B+|B|B-|C+|C|C-|D|F",
+  "commentary": "2-3 sentences summarizing their contributions, work patterns, and impact. Be specific about what they worked on based on the commit messages.",
+  "highlights": ["up to 3 notable contributions or patterns observed"]
+}}
+
+Grading guidelines:
+- A/A-: Exceptional productivity, clear impactful features, consistent quality
+- B+/B/B-: Good productivity, meaningful contributions
+- C+/C/C-: Average activity, routine maintenance work
+- D/F: Minimal activity or unclear contributions
+
+Be constructive and professional. Focus on the work, not the person."#,
+        name = request.contributor_name,
+        email = request.contributor_email,
+        time_range = request.time_range_label,
+        total_commits = request.total_commits,
+        files_changed = request.total_files_changed,
+        additions = request.total_additions,
+        deletions = request.total_deletions,
+        commits = commit_list,
+        truncation = truncation_note,
+    );
+
+    // Call claude CLI
+    let claude_path = find_claude_binary()?;
+    let output = Command::new(&claude_path)
+        .args(["-p", &prompt])
+        .output()
+        .map_err(|e| AppError::ai(format!("Failed to run claude at {:?}: {}", claude_path, e)))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(AppError::ai(format!("Claude failed: {}", stderr)));
+    }
+
+    let response = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+    // Parse the JSON response
+    let json: serde_json::Value = serde_json::from_str(&response)
+        .map_err(|e| AppError::parse(format!("Failed to parse AI response as JSON: {}. Response was: {}", e, response)))?;
+
+    let grade = json["grade"]
+        .as_str()
+        .unwrap_or("N/A")
+        .to_string();
+
+    let commentary = json["commentary"]
+        .as_str()
+        .unwrap_or("Unable to generate commentary")
+        .to_string();
+
+    let highlights: Vec<String> = json["highlights"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|h| h.as_str().map(|s| s.to_string()))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    Ok(ContributorReviewData {
+        grade,
+        commentary,
+        highlights,
+        generated_at: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64,
+    })
+}
+
 #[tauri::command]
 #[instrument(skip_all, fields(repo_path = %repo_path), err(Debug))]
 pub async fn start_watching(

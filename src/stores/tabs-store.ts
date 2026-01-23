@@ -43,6 +43,7 @@ export interface RepoTabState {
 
   // Statistics view (per-repo)
   statisticsContributorEmail: string | null;
+  statisticsTimeRange: 0.25 | 1 | 3 | 6 | 12; // 0.25 = 1 week
 
   // AI Review (per-repo)
   aiReview: AIReviewData | null;
@@ -126,6 +127,7 @@ function createTabState(repository: RepositoryInfo): RepoTabState {
     viewMode: "working",
     selectedWorktree: null,
     statisticsContributorEmail: null,
+    statisticsTimeRange: 1,
     aiReview: null,
     aiReviewLoading: false,
     aiReviewError: null,
@@ -875,6 +877,10 @@ export function useActiveTabStatistics() {
     tabsStore,
     (s) => selectActiveTab(s)?.statisticsContributorEmail ?? null,
   );
+  const statisticsTimeRange = useSelector(
+    tabsStore,
+    (s) => selectActiveTab(s)?.statisticsTimeRange ?? 1,
+  );
 
   const updateActiveTab = useCallback(
     (updates: Partial<Omit<RepoTabState, "repository">>) =>
@@ -886,10 +892,17 @@ export function useActiveTabStatistics() {
       updateActiveTab({ statisticsContributorEmail: email }),
     [updateActiveTab],
   );
+  const setStatisticsTimeRange = useCallback(
+    (range: 0.25 | 1 | 3 | 6 | 12) =>
+      updateActiveTab({ statisticsTimeRange: range }),
+    [updateActiveTab],
+  );
 
   return {
     statisticsContributorEmail,
     setStatisticsContributorEmail,
+    statisticsTimeRange,
+    setStatisticsTimeRange,
   };
 }
 

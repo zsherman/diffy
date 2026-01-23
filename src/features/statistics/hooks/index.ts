@@ -5,4 +5,5 @@ export type {
   ContributionData,
   ChartData,
 } from "./useContributionData";
+export { useContributorReview } from "./useContributorReview";
 

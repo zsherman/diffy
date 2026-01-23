@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   ChartBar,
   CalendarBlank,
@@ -12,9 +13,12 @@ import { useActiveRepository } from "../../../stores/tabs-store";
 import { useActiveTabStatistics } from "../../../stores/tabs-store";
 import { useTheme } from "../../../stores/ui-store";
 import { useContributionData } from "../hooks/useContributionData";
+import { useContributorReview } from "../hooks/useContributorReview";
 import { ContributionCalendar } from "./ContributionCalendar";
 import { CalendarLegend } from "./CalendarLegend";
 import { ContributorFilter } from "./ContributorFilter";
+import { TimeRangeSelector } from "./TimeRangeSelector";
+import { ContributorReview } from "./ContributorReview";
 import {
   CommitsOverTimeChart,
   CommitsByDayChart,
@@ -23,12 +27,25 @@ import {
 } from "./charts";
 
 /**
+ * Get time range description text
+ */
+function getTimeRangeText(months: number): string {
+  if (months < 1) return "Last week";
+  if (months === 1) return "Last month";
+  return `Last ${months} months`;
+}
+
+/**
  * Main statistics view showing contribution calendar, summary metrics, and charts
  */
 export function StatisticsView() {
   const repository = useActiveRepository();
-  const { statisticsContributorEmail, setStatisticsContributorEmail } =
-    useActiveTabStatistics();
+  const {
+    statisticsContributorEmail,
+    setStatisticsContributorEmail,
+    statisticsTimeRange,
+    setStatisticsTimeRange,
+  } = useActiveTabStatistics();
   const { theme } = useTheme();
 
   const {
@@ -42,9 +59,32 @@ export function StatisticsView() {
     error,
   } = useContributionData({
     repoPath: repository?.path ?? "",
-    months: 12,
+    months: statisticsTimeRange,
     contributorEmail: statisticsContributorEmail,
   });
+
+  // Get the selected contributor's name for the review component
+  const selectedContributor = contributors.find(
+    (c) => c.email === statisticsContributorEmail
+  );
+
+  // Contributor review hook
+  const {
+    review,
+    isGenerating,
+    error: reviewError,
+    generateReview,
+    clearReview,
+  } = useContributorReview({
+    repoPath: repository?.path ?? "",
+    contributorEmail: statisticsContributorEmail,
+    timeRangeMonths: statisticsTimeRange,
+  });
+
+  // Clear review when contributor or time range changes
+  useEffect(() => {
+    clearReview();
+  }, [statisticsContributorEmail, statisticsTimeRange, clearReview]);
 
   // Loading state
   if (isLoading) {
@@ -101,7 +141,9 @@ export function StatisticsView() {
 
   // Empty state (no commits in range)
   const hasData = summary.totalCommits > 0;
-  const showTopContributors = !statisticsContributorEmail && chartData.topContributors.length > 1;
+  const showTopContributors =
+    !statisticsContributorEmail && chartData.topContributors.length > 1;
+  const showContributorReview = !!statisticsContributorEmail && hasData;
 
   return (
     <div className="flex-1 flex flex-col bg-bg-primary overflow-auto">
@@ -114,18 +156,24 @@ export function StatisticsView() {
                 Contribution Activity
               </h2>
               <p className="text-sm text-text-muted">
-                Last 12 months of commit activity
+                {getTimeRangeText(statisticsTimeRange)} of commit activity
               </p>
             </div>
 
-            {/* Contributor filter */}
-            {contributors.length > 0 && (
-              <ContributorFilter
-                contributors={contributors}
-                selectedEmail={statisticsContributorEmail}
-                onSelect={setStatisticsContributorEmail}
+            {/* Filters */}
+            <div className="flex items-center gap-3">
+              <TimeRangeSelector
+                value={statisticsTimeRange}
+                onChange={setStatisticsTimeRange}
               />
-            )}
+              {contributors.length > 0 && (
+                <ContributorFilter
+                  contributors={contributors}
+                  selectedEmail={statisticsContributorEmail}
+                  onSelect={setStatisticsContributorEmail}
+                />
+              )}
+            </div>
           </div>
 
           {/* Summary stats */}
@@ -182,6 +230,18 @@ export function StatisticsView() {
             </div>
           </div>
 
+          {/* AI Contributor Review - only when a contributor is selected */}
+          {showContributorReview && selectedContributor && (
+            <ContributorReview
+              contributorName={selectedContributor.name}
+              review={review}
+              isGenerating={isGenerating}
+              error={reviewError}
+              onGenerate={generateReview}
+              onClear={clearReview}
+            />
+          )}
+
           {/* Calendar */}
           <div className="bg-bg-secondary rounded-lg p-6 border border-border-primary">
             {hasData ? (
@@ -190,7 +250,7 @@ export function StatisticsView() {
                   <ContributionCalendar
                     contributionsByDay={contributionsByDay}
                     maxCount={maxCount}
-                    months={12}
+                    months={statisticsTimeRange}
                   />
                 </div>
 
@@ -211,8 +271,8 @@ export function StatisticsView() {
                 </p>
                 <p className="text-text-muted text-sm">
                   {statisticsContributorEmail
-                    ? "This contributor has no commits in the last 12 months"
-                    : "This repository has no commits in the last 12 months"}
+                    ? `This contributor has no commits in the ${getTimeRangeText(statisticsTimeRange).toLowerCase()}`
+                    : `This repository has no commits in the ${getTimeRangeText(statisticsTimeRange).toLowerCase()}`}
                 </p>
               </div>
             )}
@@ -230,7 +290,7 @@ export function StatisticsView() {
               </div>
               <div className="h-48">
                 <CommitsOverTimeChart
-                  key={`commits-time-${theme}`}
+                  key={`commits-time-${theme}-${statisticsTimeRange}`}
                   weeklyBuckets={chartData.weeklyBuckets}
                 />
               </div>

@@ -7,6 +7,7 @@ import {
   openRepository,
   discoverRepository,
   getCommitHistory,
+  getCommitHistoryAllBranches,
   getStatus,
 } from "../../lib/tauri";
 import { useToast } from "./Toast";
@@ -65,6 +66,14 @@ export function TabBar() {
         queryKey: ["status", repoPath],
         queryFn: () => getStatus(repoPath),
         staleTime: 30000, // 30s - watcher invalidates on changes
+      });
+
+      // Prefetch graph commits (needed for graph panel)
+      queryClient.prefetchInfiniteQuery({
+        queryKey: ["graph-commits", repoPath],
+        queryFn: () => getCommitHistoryAllBranches(repoPath, 100, 0),
+        staleTime: 30000,
+        initialPageParam: 0,
       });
     },
     [queryClient, activeTabPath],
