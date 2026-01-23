@@ -124,9 +124,12 @@ export function RepoSelector() {
     updateTitle();
   }, [repository]);
 
-  // Determine current view based on actual panels in the layout
+  // Determine current view - use mainView as source of truth
+  // When not on statistics, we can also check Dockview panel state for visual indicator accuracy
   const api = getDockviewApi();
   const currentView: ViewMode = (() => {
+    // Always respect mainView for statistics
+    if (mainView === "statistics") return "statistics";
     if (!api) return mainView;
     const hasStaging = api.getPanel("staging") !== undefined;
     const hasCommits = api.getPanel("commits") !== undefined;
@@ -137,7 +140,8 @@ export function RepoSelector() {
 
   const handleViewChange = useCallback(
     (view: ViewMode) => {
-      if (view === currentView) return;
+      // Always allow switching when coming FROM statistics (mainView is the truth)
+      if (view === currentView && mainView !== "statistics") return;
 
       setMainView(view);
 
@@ -151,7 +155,7 @@ export function RepoSelector() {
         }
       }
     },
-    [setMainView, setSelectedCommit, currentView],
+    [setMainView, setSelectedCommit, currentView, mainView],
   );
 
   const toggleButtonClass =
