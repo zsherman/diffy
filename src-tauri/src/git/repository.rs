@@ -650,6 +650,130 @@ pub struct WorktreeInfo {
     pub is_dirty: bool,
 }
 
+/// List all worktrees using `git worktree list --porcelain`.
+/// This works correctly regardless of which worktree you're currently in,
+/// always returning the complete list including the main worktree.
+pub fn list_worktrees_cli(repo_path: &str) -> Result<Vec<WorktreeInfo>, GitError> {
+    // Run `git worktree list --porcelain` to get all worktrees
+    let output = git_command()
+        .args(["worktree", "list", "--porcelain"])
+        .current_dir(repo_path)
+        .output()
+        .map_err(|e| git2::Error::from_str(&format!("Failed to run git worktree list: {}", e)))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(git2::Error::from_str(&format!("git worktree list failed: {}", stderr)).into());
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    parse_worktree_porcelain(&stdout)
+}
+
+/// Parse the porcelain output from `git worktree list --porcelain`.
+/// Format:
+/// ```
+/// worktree /path/to/worktree
+/// HEAD <commit>
+/// branch refs/heads/branch-name
+/// [locked [reason]]
+/// [prunable [reason]]
+///
+/// worktree /path/to/next
+/// ...
+/// ```
+fn parse_worktree_porcelain(output: &str) -> Result<Vec<WorktreeInfo>, GitError> {
+    let mut worktrees = Vec::new();
+    
+    // Split into blocks separated by blank lines
+    let blocks: Vec<&str> = output.split("\n\n").filter(|b| !b.trim().is_empty()).collect();
+    
+    for block in blocks {
+        let mut path: Option<String> = None;
+        let mut head_commit: Option<String> = None;
+        let mut head_branch: Option<String> = None;
+        let mut is_locked = false;
+        let mut lock_reason: Option<String> = None;
+        let mut is_prunable = false;
+        let mut is_bare = false;
+        
+        for line in block.lines() {
+            if let Some(p) = line.strip_prefix("worktree ") {
+                path = Some(p.to_string());
+            } else if let Some(h) = line.strip_prefix("HEAD ") {
+                // Store short commit (first 7 chars)
+                head_commit = Some(h[..7.min(h.len())].to_string());
+            } else if let Some(b) = line.strip_prefix("branch ") {
+                // Strip refs/heads/ prefix if present
+                let branch_name = b.strip_prefix("refs/heads/").unwrap_or(b);
+                head_branch = Some(branch_name.to_string());
+            } else if line == "detached" {
+                // Detached HEAD - no branch
+                head_branch = None;
+            } else if line == "bare" {
+                is_bare = true;
+            } else if line == "locked" {
+                is_locked = true;
+            } else if let Some(reason) = line.strip_prefix("locked ") {
+                is_locked = true;
+                lock_reason = Some(reason.to_string());
+            } else if line == "prunable" || line.starts_with("prunable ") {
+                is_prunable = true;
+            }
+        }
+        
+        // Skip bare repos and blocks without a path
+        if is_bare {
+            continue;
+        }
+        
+        let Some(wt_path) = path else {
+            continue;
+        };
+        
+        // Determine if this is the main worktree by checking if .git is a directory
+        // Main worktree has .git as a directory, linked worktrees have .git as a file
+        let git_path = Path::new(&wt_path).join(".git");
+        let is_main = git_path.is_dir();
+        
+        // Derive name from path (last component) or "main" for main worktree
+        let name = if is_main {
+            "main".to_string()
+        } else {
+            Path::new(&wt_path)
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| "unknown".to_string())
+        };
+        
+        // Check if worktree is dirty by opening the repo
+        let is_dirty = if let Ok(wt_repo) = Repository::open(&wt_path) {
+            check_worktree_dirty(&wt_repo)
+        } else {
+            false
+        };
+        
+        worktrees.push(WorktreeInfo {
+            name,
+            path: wt_path,
+            head_branch,
+            head_commit,
+            is_main,
+            is_locked,
+            lock_reason,
+            is_prunable,
+            is_dirty,
+        });
+    }
+    
+    // Sort so main worktree comes first
+    worktrees.sort_by(|a, b| b.is_main.cmp(&a.is_main));
+    
+    Ok(worktrees)
+}
+
+/// Legacy list_worktrees using libgit2 - kept for reference but not used
+#[allow(dead_code)]
 pub fn list_worktrees(repo: &Repository) -> Result<Vec<WorktreeInfo>, GitError> {
     let mut worktrees = Vec::new();
 

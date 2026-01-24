@@ -1368,8 +1368,8 @@ pub async fn update_skill(
 // Worktree commands
 #[tauri::command]
 pub async fn list_worktrees(repo_path: String) -> Result<Vec<WorktreeInfo>> {
-    let repo = git::open_repo(&repo_path)?;
-    Ok(git::list_worktrees(&repo)?)
+    // Use CLI-based listing which works correctly from any worktree
+    Ok(git::list_worktrees_cli(&repo_path)?)
 }
 
 #[tauri::command]

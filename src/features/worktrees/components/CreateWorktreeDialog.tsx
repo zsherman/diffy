@@ -3,7 +3,7 @@ import { Dialog } from '@base-ui/react/dialog';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { X, FolderOpen, GitBranch } from '@phosphor-icons/react';
-import { createWorktree, listBranches } from '../../../lib/tauri';
+import { createWorktree, listBranches, openRepository } from '../../../lib/tauri';
 import { useTabsStore } from '../../../stores/tabs-store';
 import { useToast } from '../../../components/ui/Toast';
 
@@ -16,14 +16,28 @@ interface CreateWorktreeDialogProps {
 type BranchMode = 'existing' | 'new';
 
 export function CreateWorktreeDialog({ open, onOpenChange, onSuccess }: CreateWorktreeDialogProps) {
-  const { repository } = useTabsStore();
+  const { repository, openTab } = useTabsStore();
   const toast = useToast();
 
   const [name, setName] = useState('');
-  const [path, setPath] = useState('');
-  const [branchMode, setBranchMode] = useState<BranchMode>('existing');
+  const [pathOverride, setPathOverride] = useState(''); // Only set if user manually changes it
+  const [branchMode, setBranchMode] = useState<BranchMode>('new'); // Default to new branch
   const [selectedBranch, setSelectedBranch] = useState('');
-  const [newBranchName, setNewBranchName] = useState('');
+  const [branchOverride, setBranchOverride] = useState(''); // Only set if user manually changes it
+
+  // Auto-generate path from name: {repo-parent}/{repo-name}-{name}
+  const autoPath = useMemo(() => {
+    if (!repository?.path || !name.trim()) return '';
+    const repoPath = repository.path.replace(/\/$/, ''); // Remove trailing slash
+    const parentDir = repoPath.substring(0, repoPath.lastIndexOf('/'));
+    const repoName = repoPath.substring(repoPath.lastIndexOf('/') + 1);
+    const safeName = name.trim().replace(/\s+/g, '-').toLowerCase();
+    return `${parentDir}/${repoName}-${safeName}`;
+  }, [repository?.path, name]);
+
+  // Use override if set, otherwise use auto-generated
+  const path = pathOverride || autoPath;
+  const newBranchName = branchOverride || name.trim().replace(/\s+/g, '-').toLowerCase();
 
   // Fetch branches
   const { data: branches = [] } = useQuery({
@@ -51,11 +65,19 @@ export function CreateWorktreeDialog({ open, onOpenChange, onSuccess }: CreateWo
 
       return createWorktree(repository.path, options);
     },
-    onSuccess: () => {
-      toast.success('Worktree created', 'Successfully created new worktree');
+    onSuccess: async (worktreeInfo) => {
+      toast.success('Worktree created', `Opening ${worktreeInfo.name}...`);
       onSuccess();
       onOpenChange(false);
       resetForm();
+      
+      // Automatically open the new worktree in a new tab
+      try {
+        const repoInfo = await openRepository(worktreeInfo.path);
+        openTab(repoInfo);
+      } catch (error) {
+        console.error('Failed to open new worktree:', error);
+      }
     },
     onError: (error: Error) => {
       toast.error('Failed to create worktree', error.message);
@@ -64,10 +86,10 @@ export function CreateWorktreeDialog({ open, onOpenChange, onSuccess }: CreateWo
 
   const resetForm = () => {
     setName('');
-    setPath('');
-    setBranchMode('existing');
+    setPathOverride('');
+    setBranchMode('new');
     setSelectedBranch('');
-    setNewBranchName('');
+    setBranchOverride('');
   };
 
   const handleSelectPath = async () => {
@@ -78,7 +100,7 @@ export function CreateWorktreeDialog({ open, onOpenChange, onSuccess }: CreateWo
         title: 'Select worktree location',
       });
       if (selected && typeof selected === 'string') {
-        setPath(selected);
+        setPathOverride(selected);
         // Auto-fill name from folder name if empty
         if (!name) {
           const folderName = selected.split('/').pop();
@@ -91,11 +113,12 @@ export function CreateWorktreeDialog({ open, onOpenChange, onSuccess }: CreateWo
   };
 
   const canSubmit = useMemo(() => {
+    if (!name.trim()) return false; // Name is now required (drives everything else)
     if (!path) return false;
     if (branchMode === 'existing' && !selectedBranch) return false;
     if (branchMode === 'new' && !newBranchName) return false;
     return true;
-  }, [path, branchMode, selectedBranch, newBranchName]);
+  }, [name, path, branchMode, selectedBranch, newBranchName]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,7 +145,7 @@ export function CreateWorktreeDialog({ open, onOpenChange, onSuccess }: CreateWo
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="p-4 space-y-4">
-            {/* Name */}
+            {/* Name - Primary input that drives defaults */}
             <div>
               <label className="block text-sm text-text-primary mb-1.5">
                 Worktree Name
@@ -132,14 +155,15 @@ export function CreateWorktreeDialog({ open, onOpenChange, onSuccess }: CreateWo
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g., feature-work"
+                autoFocus
                 className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
               />
               <p className="text-xs text-text-muted mt-1">
-                Optional. Will be derived from path if empty.
+                Creates branch and folder with this name.
               </p>
             </div>
 
-            {/* Path */}
+            {/* Path - Auto-generated but editable */}
             <div>
               <label className="block text-sm text-text-primary mb-1.5">
                 Location
@@ -148,8 +172,8 @@ export function CreateWorktreeDialog({ open, onOpenChange, onSuccess }: CreateWo
                 <input
                   type="text"
                   value={path}
-                  onChange={(e) => setPath(e.target.value)}
-                  placeholder="/path/to/worktree"
+                  onChange={(e) => setPathOverride(e.target.value)}
+                  placeholder={name ? autoPath || '/path/to/worktree' : 'Enter name above...'}
                   className="flex-1 px-3 py-2 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
                 />
                 <button
@@ -202,21 +226,29 @@ export function CreateWorktreeDialog({ open, onOpenChange, onSuccess }: CreateWo
                     className="w-full pl-8 pr-3 py-2 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary focus:border-accent-blue focus:outline-none appearance-none cursor-pointer"
                   >
                     <option value="">Select a branch...</option>
-                    {localBranches.map((branch) => (
+                    {localBranches.filter(b => !b.isHead).map((branch) => (
                       <option key={branch.name} value={branch.name}>
-                        {branch.name} {branch.isHead ? '(current)' : ''}
+                        {branch.name}
                       </option>
                     ))}
                   </select>
+                  <p className="text-xs text-text-muted mt-1">
+                    Only branches not currently checked out.
+                  </p>
                 </div>
               ) : (
-                <input
-                  type="text"
-                  value={newBranchName}
-                  onChange={(e) => setNewBranchName(e.target.value)}
-                  placeholder="New branch name"
-                  className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
-                />
+                <div>
+                  <input
+                    type="text"
+                    value={newBranchName}
+                    onChange={(e) => setBranchOverride(e.target.value)}
+                    placeholder={name ? 'branch-name' : 'Enter name above...'}
+                    className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
+                  />
+                  <p className="text-xs text-text-muted mt-1">
+                    Auto-generated from worktree name.
+                  </p>
+                </div>
               )}
             </div>
 
