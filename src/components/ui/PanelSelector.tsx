@@ -16,6 +16,7 @@ import {
   Trash,
   BookmarkSimple,
   GitFork,
+  ClockCounterClockwise,
 } from "@phosphor-icons/react";
 import { useActiveTabPanels } from "../../stores/tabs-store";
 import { applyLayout } from "../../lib/layouts";
@@ -107,12 +108,14 @@ export function PanelSelector() {
     showStagingSidebar,
     showGraphPanel,
     showWorktreesPanel,
+    showReflogPanel,
     toggleCommitsPanel,
     toggleGraphPanel,
     setShowFilesPanel,
     setShowDiffPanel,
     toggleStagingSidebar,
     toggleWorktreesPanel,
+    toggleReflogPanel,
   } = useActiveTabPanels();
 
   // Load saved layouts on mount
@@ -168,6 +171,14 @@ export function PanelSelector() {
       isActive: showWorktreesPanel,
       toggle: toggleWorktreesPanel,
       keywords: ["workspace", "parallel", "checkout"],
+    },
+    {
+      id: "reflog",
+      label: "Reflog",
+      icon: <ClockCounterClockwise size={15} />,
+      isActive: showReflogPanel,
+      toggle: toggleReflogPanel,
+      keywords: ["history", "undo", "timeline", "log"],
     },
   ];
 

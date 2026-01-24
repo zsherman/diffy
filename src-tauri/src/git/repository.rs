@@ -1146,3 +1146,60 @@ pub fn get_changelog_commits_all_branches(
 
     Ok(commits)
 }
+
+// Reflog entry for HEAD reflog display
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ReflogEntry {
+    /// The reflog selector (e.g., "HEAD@{0}")
+    pub selector: String,
+    /// The commit OID this entry points to
+    pub oid: String,
+    /// Short OID for display
+    pub short_oid: String,
+    /// The reflog message (e.g., "commit: fix bug", "checkout: moving from main to feature")
+    pub message: String,
+    /// Unix timestamp of when this reflog entry was created
+    pub time: i64,
+}
+
+/// Get the HEAD reflog entries for a repository
+pub fn get_reflog(repo_path: &str, limit: usize) -> Result<Vec<ReflogEntry>, GitError> {
+    // Use git CLI for reliable reflog parsing with timestamps
+    // Format: %gd = reflog selector, %H = full hash, %h = short hash, %gs = reflog subject, %at = author timestamp
+    let output = git_command()
+        .args([
+            "reflog",
+            "show",
+            "--format=%gd|%H|%h|%gs|%at",
+            "-n",
+            &limit.to_string(),
+        ])
+        .current_dir(repo_path)
+        .output()
+        .map_err(|e| git2::Error::from_str(&format!("Failed to run git reflog: {}", e)))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(git2::Error::from_str(&format!("git reflog failed: {}", stderr)).into());
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut entries = Vec::new();
+
+    for line in stdout.lines() {
+        let parts: Vec<&str> = line.splitn(5, '|').collect();
+        if parts.len() >= 5 {
+            let time = parts[4].parse::<i64>().unwrap_or(0);
+            entries.push(ReflogEntry {
+                selector: parts[0].to_string(),
+                oid: parts[1].to_string(),
+                short_oid: parts[2].to_string(),
+                message: parts[3].to_string(),
+                time,
+            });
+        }
+    }
+
+    Ok(entries)
+}

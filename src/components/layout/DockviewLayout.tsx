@@ -29,6 +29,7 @@ import {
   WorktreesPanel,
   GraphPanel,
   MergeConflictPanel,
+  ReflogPanel,
 } from "./panels";
 import { DockviewHeaderActions } from "./DockviewHeaderActions";
 import { DockviewTab } from "./DockviewTab";
@@ -62,6 +63,7 @@ const components = {
   worktrees: WorktreesPanel,
   graph: GraphPanel,
   "merge-conflict": MergeConflictPanel,
+  reflog: ReflogPanel,
 };
 
 // Apply a layout preset by ID (without triggering store sync - that's handled separately)
@@ -221,6 +223,7 @@ function syncPanelsFromDockview(api: DockviewApi): PanelVisibility {
     showMergeConflictPanel: api.getPanel("merge-conflict") !== undefined,
     showStagingSidebar: api.getPanel("staging") !== undefined,
     showWorktreesPanel: api.getPanel("worktrees") !== undefined,
+    showReflogPanel: api.getPanel("reflog") !== undefined,
   };
   trace("syncPanelsFromDockview", () => {
     tabsStore.send({ type: "syncPanels", panels });
@@ -350,6 +353,18 @@ function reconcilePanels(api: DockviewApi, desired: PanelVisibility) {
           : { direction: "right" };
       },
     },
+    {
+      id: "reflog",
+      component: "reflog",
+      title: "Reflog",
+      showKey: "showReflogPanel",
+      getPosition: () => {
+        const commits = api.getPanel("commits");
+        return commits
+          ? { referencePanel: commits, direction: "within" }
+          : { direction: "left" };
+      },
+    },
   ];
 
   // Reconcile each panel
@@ -403,13 +418,14 @@ export const DockviewLayout = memo(function DockviewLayout() {
     showWorktreesPanel,
     showGraphPanel,
     showMergeConflictPanel,
+    showReflogPanel,
   } = useActiveTabPanels();
 
   // Track renders with change detection (only when perf tracing enabled)
   const perfEnabled = isPerfTracingEnabled();
   if (perfEnabled) {
     renderCount++;
-    const panelsKey = `${showBranchesPanel}-${showFilesPanel}-${showDiffPanel}-${showStagingSidebar}-${showAIReviewPanel}-${showWorktreesPanel}-${showGraphPanel}-${showMergeConflictPanel}`;
+    const panelsKey = `${showBranchesPanel}-${showFilesPanel}-${showDiffPanel}-${showStagingSidebar}-${showAIReviewPanel}-${showWorktreesPanel}-${showGraphPanel}-${showMergeConflictPanel}-${showReflogPanel}`;
     const changes: string[] = [];
     if (prevTheme !== theme) changes.push(`theme: ${prevTheme} -> ${theme}`);
     if (prevActiveTabPath !== activeTabPath)
@@ -477,6 +493,7 @@ export const DockviewLayout = memo(function DockviewLayout() {
     showWorktreesPanel,
     showGraphPanel,
     showMergeConflictPanel,
+    showReflogPanel,
   };
 
   const onReady = useCallback((event: DockviewReadyEvent) => {
@@ -717,7 +734,8 @@ export const DockviewLayout = memo(function DockviewLayout() {
       lastPanels.showAIReviewPanel === desiredPanels.showAIReviewPanel &&
       lastPanels.showWorktreesPanel === desiredPanels.showWorktreesPanel &&
       lastPanels.showGraphPanel === desiredPanels.showGraphPanel &&
-      lastPanels.showMergeConflictPanel === desiredPanels.showMergeConflictPanel
+      lastPanels.showMergeConflictPanel === desiredPanels.showMergeConflictPanel &&
+      lastPanels.showReflogPanel === desiredPanels.showReflogPanel
     ) {
       if (isPerfTracingEnabled())
         console.log("[perf] Reconcile Effect skipped (no change)");
@@ -766,6 +784,10 @@ export const DockviewLayout = memo(function DockviewLayout() {
         changes.push(
           `mergeConflict: ${lastPanels.showMergeConflictPanel} -> ${desiredPanels.showMergeConflictPanel}`,
         );
+      if (lastPanels.showReflogPanel !== desiredPanels.showReflogPanel)
+        changes.push(
+          `reflog: ${lastPanels.showReflogPanel} -> ${desiredPanels.showReflogPanel}`,
+        );
       console.log("[perf] Panel changes:", changes.join(", ") || "(initial)");
     }
 
@@ -789,6 +811,7 @@ export const DockviewLayout = memo(function DockviewLayout() {
     showWorktreesPanel,
     showGraphPanel,
     showMergeConflictPanel,
+    showReflogPanel,
   ]);
 
   return (

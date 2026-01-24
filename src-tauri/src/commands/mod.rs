@@ -1,5 +1,5 @@
 use crate::error::{AppError, Result};
-use crate::git::{self, BranchInfo, CommitActivity, CommitGraph, CommitInfo, FileDiff, RepositoryInfo, StatusInfo, UnifiedDiff, WorktreeInfo, WorktreeCreateOptions, MergeStatus, FileConflictInfo, StashEntry, AheadBehind, ChangelogCommit};
+use crate::git::{self, BranchInfo, CommitActivity, CommitGraph, CommitInfo, FileDiff, RepositoryInfo, StatusInfo, UnifiedDiff, WorktreeInfo, WorktreeCreateOptions, MergeStatus, FileConflictInfo, StashEntry, AheadBehind, ChangelogCommit, ReflogEntry};
 use std::process::Command;
 use std::path::PathBuf;
 use std::fs;
@@ -1465,6 +1465,18 @@ pub async fn drop_stash(repo_path: String, stash_index: usize) -> Result<()> {
     let mut repo = git::open_repo(&repo_path)?;
     git::drop_stash(&mut repo, stash_index)?;
     Ok(())
+}
+
+// Reflog command
+#[tauri::command]
+#[instrument(skip_all, fields(limit), err(Debug))]
+pub async fn get_reflog(repo_path: String, limit: usize) -> Result<Vec<ReflogEntry>> {
+    // Run blocking git operation on dedicated thread pool
+    tokio::task::spawn_blocking(move || {
+        Ok(git::get_reflog(&repo_path, limit)?)
+    })
+    .await
+    .map_err(|e| AppError::io(format!("Task join error: {}", e)))?
 }
 
 #[tauri::command]

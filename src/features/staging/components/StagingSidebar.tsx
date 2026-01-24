@@ -789,7 +789,7 @@ export function StagingSidebar() {
                 stagedFiles.length === 0 ||
                 isCommitting
               }
-              className="w-full py-2 px-4 bg-accent-green text-white rounded font-medium hover:bg-accent-green/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors shrink-0"
+              className="w-full py-2 px-4 bg-accent-blue text-white rounded font-medium hover:bg-accent-blue/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors shrink-0"
               style={{ fontSize: `${panelFontSize}px` }}
             >
               {isCommitting

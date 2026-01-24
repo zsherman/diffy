@@ -290,6 +290,7 @@ function getActiveTabPanels(s: {
       showWorktreesPanel: false,
       showGraphPanel: false,
       showMergeConflictPanel: false,
+      showReflogPanel: false,
     }
   );
 }
@@ -536,6 +537,10 @@ export function useUIStore() {
     tabsStore,
     (s) => getActiveTabPanels(s).showMergeConflictPanel,
   );
+  const showReflogPanel = useSelector(
+    tabsStore,
+    (s) => getActiveTabPanels(s).showReflogPanel,
+  );
 
   // Memoize all actions to prevent infinite loops when used in useEffect dependencies
   const setTheme = useCallback(
@@ -664,6 +669,14 @@ export function useUIStore() {
     () => tabsStore.send({ type: "toggleMergeConflictPanel" }),
     [],
   );
+  const setShowReflogPanel = useCallback(
+    (show: boolean) => tabsStore.send({ type: "setShowReflogPanel", show }),
+    [],
+  );
+  const toggleReflogPanel = useCallback(
+    () => tabsStore.send({ type: "toggleReflogPanel" }),
+    [],
+  );
 
   // Batch panel sync action
   const syncPanels = useCallback(
@@ -698,6 +711,7 @@ export function useUIStore() {
     showWorktreesPanel,
     showGraphPanel,
     showMergeConflictPanel,
+    showReflogPanel,
 
     // Global actions (memoized)
     setTheme,
@@ -731,6 +745,8 @@ export function useUIStore() {
     toggleGraphPanel,
     setShowMergeConflictPanel,
     toggleMergeConflictPanel,
+    setShowReflogPanel,
+    toggleReflogPanel,
     syncPanels,
   };
 }

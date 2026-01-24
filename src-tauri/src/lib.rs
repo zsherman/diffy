@@ -69,6 +69,8 @@ pub fn run() {
             commands::apply_stash,
             commands::pop_stash,
             commands::drop_stash,
+            // Reflog command
+            commands::get_reflog,
             // Skills commands
             commands::get_skills_dir,
             commands::list_skills,

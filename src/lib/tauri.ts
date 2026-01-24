@@ -14,6 +14,7 @@ import type {
   WorktreeCreateOptions,
   StashEntry,
   AheadBehind,
+  ReflogEntry,
 } from "../types/git";
 import type { SkillMetadata, RemoteSkill } from "../types/skills";
 import type {
@@ -464,6 +465,14 @@ export async function dropStash(
   stashIndex: number,
 ): Promise<void> {
   return invoke<void>("drop_stash", { repoPath, stashIndex });
+}
+
+// Reflog
+export async function getReflog(
+  repoPath: string,
+  limit: number = 200,
+): Promise<ReflogEntry[]> {
+  return invoke<ReflogEntry[]>("get_reflog", { repoPath, limit });
 }
 
 // Ahead/Behind

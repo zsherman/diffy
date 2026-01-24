@@ -98,7 +98,8 @@ export type PanelId =
   | "ai-review"
   | "worktrees"
   | "graph"
-  | "merge-conflict";
+  | "merge-conflict"
+  | "reflog";
 
 export interface RefInfo {
   name: string;
@@ -164,6 +165,14 @@ export interface StashEntry {
 export interface AheadBehind {
   ahead: number;
   behind: number;
+}
+
+export interface ReflogEntry {
+  selector: string;
+  oid: string;
+  shortOid: string;
+  message: string;
+  time: number;
 }
 
 export interface CommitActivity {

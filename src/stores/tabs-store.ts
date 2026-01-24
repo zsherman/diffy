@@ -15,6 +15,7 @@ export interface PanelVisibility {
   showWorktreesPanel: boolean;
   showGraphPanel: boolean;
   showMergeConflictPanel: boolean;
+  showReflogPanel: boolean;
 }
 
 // Per-repository tab state
@@ -110,6 +111,7 @@ const DEFAULT_PANELS: PanelVisibility = {
   showWorktreesPanel: false,
   showGraphPanel: false,
   showMergeConflictPanel: false,
+  showReflogPanel: false,
 };
 
 // Create default tab state for a repository
@@ -385,6 +387,22 @@ export const tabsStore = createStore({
             !tab.panels.showMergeConflictPanel;
       }),
 
+    setShowReflogPanel: (ctx, event: { show: boolean }) =>
+      produce(ctx, (draft) => {
+        const tab = draft.tabs.find(
+          (t) => t.repository.path === draft.activeTabPath,
+        );
+        if (tab) tab.panels.showReflogPanel = event.show;
+      }),
+
+    toggleReflogPanel: (ctx) =>
+      produce(ctx, (draft) => {
+        const tab = draft.tabs.find(
+          (t) => t.repository.path === draft.activeTabPath,
+        );
+        if (tab) tab.panels.showReflogPanel = !tab.panels.showReflogPanel;
+      }),
+
     // Save dockview layout for current tab
     saveDockviewLayout: (ctx, event: { layout: unknown }) =>
       produce(ctx, (draft) => {
@@ -556,6 +574,7 @@ const DEFAULT_PANEL_STATE: PanelVisibility = {
   showWorktreesPanel: false,
   showGraphPanel: false,
   showMergeConflictPanel: false,
+  showReflogPanel: false,
 };
 
 // Shallow equality check for panel visibility
@@ -569,7 +588,8 @@ function panelsEqual(a: PanelVisibility, b: PanelVisibility): boolean {
     a.showAIReviewPanel === b.showAIReviewPanel &&
     a.showWorktreesPanel === b.showWorktreesPanel &&
     a.showGraphPanel === b.showGraphPanel &&
-    a.showMergeConflictPanel === b.showMergeConflictPanel
+    a.showMergeConflictPanel === b.showMergeConflictPanel &&
+    a.showReflogPanel === b.showReflogPanel
   );
 }
 
@@ -594,6 +614,7 @@ export function useActiveTabPanels() {
     showWorktreesPanel,
     showGraphPanel,
     showMergeConflictPanel,
+    showReflogPanel,
   } = panels;
 
   // Panel actions (memoized)
@@ -663,6 +684,14 @@ export function useActiveTabPanels() {
     () => tabsStore.send({ type: "toggleMergeConflictPanel" }),
     [],
   );
+  const setShowReflogPanel = useCallback(
+    (show: boolean) => tabsStore.send({ type: "setShowReflogPanel", show }),
+    [],
+  );
+  const toggleReflogPanel = useCallback(
+    () => tabsStore.send({ type: "toggleReflogPanel" }),
+    [],
+  );
 
   return {
     showCommitsPanel,
@@ -674,6 +703,7 @@ export function useActiveTabPanels() {
     showWorktreesPanel,
     showGraphPanel,
     showMergeConflictPanel,
+    showReflogPanel,
     syncPanels,
     setShowCommitsPanel,
     toggleCommitsPanel,
@@ -690,6 +720,8 @@ export function useActiveTabPanels() {
     toggleGraphPanel,
     setShowMergeConflictPanel,
     toggleMergeConflictPanel,
+    setShowReflogPanel,
+    toggleReflogPanel,
   };
 }
 

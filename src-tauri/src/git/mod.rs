@@ -13,3 +13,4 @@ pub use repository::StashEntry;
 pub use repository::AheadBehind;
 pub use repository::CommitActivity;
 pub use repository::ChangelogCommit;
+pub use repository::ReflogEntry;
