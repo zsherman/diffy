@@ -68,6 +68,7 @@ pub fn run() {
             // Skills commands
             commands::get_skills_dir,
             commands::list_skills,
+            commands::list_remote_skills,
             commands::install_skill_from_url,
             commands::delete_skill,
             commands::get_skill_content,

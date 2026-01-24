@@ -1,18 +1,28 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   listSkills,
+  listRemoteSkills,
   installSkillFromUrl,
   deleteSkill,
   getSkillContent,
   getSkillRaw,
   updateSkill,
 } from '../../../lib/tauri';
-import type { SkillMetadata } from '../../../types/skills';
+import type { SkillMetadata, RemoteSkill } from '../../../types/skills';
 
 export function useSkills() {
   return useQuery<SkillMetadata[], Error>({
     queryKey: ['skills'],
     queryFn: listSkills,
+  });
+}
+
+export function useRemoteSkills() {
+  return useQuery<RemoteSkill[], Error>({
+    queryKey: ['remote-skills'],
+    queryFn: listRemoteSkills,
+    staleTime: 1000 * 60 * 10, // 10 minutes - matches backend cache TTL
+    gcTime: 1000 * 60 * 60, // 1 hour
   });
 }
 

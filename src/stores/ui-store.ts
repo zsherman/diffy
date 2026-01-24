@@ -18,11 +18,15 @@ export function getDockviewApi(): DockviewApi | null {
 }
 
 type Theme = "pierre-dark" | "pierre-light";
+type AppView = "workspace" | "skills";
 
 // UIContext now only contains truly global/window-level state
 interface UIContext {
   // Theme
   theme: Theme;
+
+  // Global app-level view (workspace vs skills)
+  appView: AppView;
 
   // Panel focus (window-level - which panel has keyboard focus)
   activePanel: PanelId;
@@ -121,6 +125,7 @@ export function toggleReactScanAndReload(): void {
 export const uiStore = createStore({
   context: {
     theme: getInitialTheme(),
+    appView: "workspace",
     activePanel: "commits",
     showHelpOverlay: false,
     showCommandPalette: false,
@@ -140,6 +145,10 @@ export const uiStore = createStore({
         if (typeof window !== "undefined") {
           localStorage.setItem("diffy-theme", event.theme);
         }
+      }),
+    setAppView: (ctx, event: { view: AppView }) =>
+      produce(ctx, (draft) => {
+        draft.appView = event.view;
       }),
     setActivePanel: (ctx, event: { panel: PanelId }) =>
       produce(ctx, (draft) => {
@@ -260,6 +269,17 @@ export function useTheme() {
     [],
   );
   return { theme, setTheme };
+}
+
+// Focused hook for app-level view (workspace vs skills)
+export function useAppView() {
+  const appView = useSelector(uiStore, (s) => s.context.appView);
+  const setAppView = useCallback(
+    (view: "workspace" | "skills") =>
+      uiStore.send({ type: "setAppView", view }),
+    [],
+  );
+  return { appView, setAppView };
 }
 
 // Focused hook for just activePanel (used by DockviewPanelWrapper)
@@ -398,6 +418,7 @@ export function useDialogs() {
 export function useUIStore() {
   // Global state from uiStore
   const theme = useSelector(uiStore, (s) => s.context.theme);
+  const appView = useSelector(uiStore, (s) => s.context.appView);
   const activePanel = useSelector(uiStore, (s) => s.context.activePanel);
   const showHelpOverlay = useSelector(
     uiStore,
@@ -468,6 +489,11 @@ export function useUIStore() {
   // Memoize all actions to prevent infinite loops when used in useEffect dependencies
   const setTheme = useCallback(
     (theme: Theme) => uiStore.send({ type: "setTheme", theme }),
+    [],
+  );
+  const setAppView = useCallback(
+    (view: "workspace" | "skills") =>
+      uiStore.send({ type: "setAppView", view }),
     [],
   );
   const setActivePanel = useCallback(
@@ -593,6 +619,7 @@ export function useUIStore() {
   return {
     // Global state
     theme,
+    appView,
     activePanel,
     showHelpOverlay,
     showCommandPalette,
@@ -617,6 +644,7 @@ export function useUIStore() {
 
     // Global actions (memoized)
     setTheme,
+    setAppView,
     setActivePanel,
     setShowHelpOverlay,
     setShowCommandPalette,

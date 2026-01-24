@@ -11,6 +11,7 @@ import {
   ArrowsClockwise,
   CloudArrowDown,
   ListBullets,
+  BookBookmark,
 } from "@phosphor-icons/react";
 import {
   getStatus,
@@ -22,7 +23,7 @@ import {
   getAheadBehind,
 } from "../../../lib/tauri";
 import { useTabsStore, useActiveTabState } from "../../../stores/tabs-store";
-import { useUIStore, getDockviewApi } from "../../../stores/ui-store";
+import { useUIStore, useAppView, getDockviewApi } from "../../../stores/ui-store";
 import { useMergeConflictStore } from "../../../stores/merge-conflict-store";
 import { useToast } from "../../../components/ui/Toast";
 import { applyLayout } from "../../../lib/layouts";
@@ -32,9 +33,31 @@ import { PanelSelector } from "../../../components/ui/PanelSelector";
 
 type MainView = "repository" | "statistics" | "changelog";
 
+/**
+ * Invalidates git-related queries after remote operations.
+ * Uses predicate-based invalidation to match queries regardless of key structure.
+ * 
+ * Query invalidation strategy by operation:
+ * - fetch: branches, commits, aheadBehind (remote refs change, no local working dir impact)
+ * - pull: branches, commits, status, aheadBehind, working-diff-* (can modify working directory)
+ * - push: branches, commits, status, aheadBehind, graph (updates remote tracking, graph may show new remote state)
+ */
+function invalidateGitQueries(
+  queryClient: ReturnType<typeof useQueryClient>,
+  queryNames: string[],
+) {
+  for (const name of queryNames) {
+    queryClient.invalidateQueries({
+      predicate: (query) => query.queryKey[0] === name,
+      refetchType: "all",
+    });
+  }
+}
+
 export function RepoHeader() {
   const { repository } = useTabsStore();
   const { mainView, setMainView } = useActiveTabState();
+  const { appView, setAppView } = useAppView();
   const { showMergeConflictPanel, setShowMergeConflictPanel } = useUIStore();
   const { enterMergeMode, isActive: isMergeActive } = useMergeConflictStore();
   const toast = useToast();
@@ -149,11 +172,22 @@ export function RepoHeader() {
   // Handle mode changes (repository/statistics/changelog)
   const handleModeChange = useCallback(
     (mode: MainView) => {
-      if (mode === mainView) return;
-      setMainView(mode);
+      // Always switch to workspace view first
+      if (appView !== "workspace") {
+        setAppView("workspace");
+      }
+      // Only update mainView if we have a repository
+      if (repository && mode !== mainView) {
+        setMainView(mode);
+      }
     },
-    [setMainView, mainView],
+    [setMainView, mainView, appView, setAppView, repository],
   );
+
+  // Handle skills view toggle
+  const handleSkillsClick = useCallback(() => {
+    setAppView(appView === "skills" ? "workspace" : "skills");
+  }, [appView, setAppView]);
 
   // Git action handlers
   const handleFetch = async () => {
@@ -162,9 +196,8 @@ export function RepoHeader() {
     try {
       await gitFetch(repository.path);
       toast.success("Fetch complete", "Successfully fetched from remote");
-      queryClient.invalidateQueries({ queryKey: ["branches"] });
-      queryClient.invalidateQueries({ queryKey: ["commits"] });
-      queryClient.invalidateQueries({ queryKey: ["aheadBehind"] });
+      // Fetch updates remote refs but doesn't modify working directory
+      invalidateGitQueries(queryClient, ["branches", "commits", "aheadBehind"]);
     } catch (error) {
       console.error("Fetch failed:", error);
       toast.error("Fetch failed", getErrorMessage(error));
@@ -182,10 +215,15 @@ export function RepoHeader() {
         "Pull complete",
         result || "Successfully pulled from remote",
       );
-      queryClient.invalidateQueries({ queryKey: ["branches"] });
-      queryClient.invalidateQueries({ queryKey: ["commits"] });
-      queryClient.invalidateQueries({ queryKey: ["status"] });
-      queryClient.invalidateQueries({ queryKey: ["aheadBehind"] });
+      // Pull can modify working directory, so invalidate status and diffs too
+      invalidateGitQueries(queryClient, [
+        "branches",
+        "commits",
+        "status",
+        "aheadBehind",
+        "working-diff-staged",
+        "working-diff-unstaged",
+      ]);
     } catch (error) {
       console.error("Pull failed:", error);
       toast.error("Pull failed", getErrorMessage(error));
@@ -200,10 +238,14 @@ export function RepoHeader() {
     try {
       await gitPush(repository.path);
       toast.success("Push complete", "Successfully pushed to remote");
-      queryClient.invalidateQueries({ queryKey: ["branches"] });
-      queryClient.invalidateQueries({ queryKey: ["commits"] });
-      queryClient.invalidateQueries({ queryKey: ["status"] });
-      queryClient.invalidateQueries({ queryKey: ["aheadBehind"] });
+      // Push updates remote tracking info and graph visualization
+      invalidateGitQueries(queryClient, [
+        "branches",
+        "commits",
+        "status",
+        "aheadBehind",
+        "graph",
+      ]);
     } catch (error) {
       console.error("Push failed:", error);
       toast.error("Push failed", getErrorMessage(error));
@@ -237,98 +279,107 @@ export function RepoHeader() {
   const toolbarButtonClass =
     "flex items-center gap-1.5 px-2 py-1 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-blue";
 
-  if (!repository) return null;
+  // Determine which workspace view button is active (only when not in skills view and we have a repo)
+  const isWorkspaceActive = appView === "workspace";
+  const isRepoViewActive = isWorkspaceActive && repository && mainView === "repository";
+  const isStatisticsActive = isWorkspaceActive && repository && mainView === "statistics";
+  const isChangelogActive = isWorkspaceActive && repository && mainView === "changelog";
+  const isSkillsActive = appView === "skills";
 
   return (
     <div
       data-tauri-drag-region
       className="grid grid-cols-[1fr_auto_1fr] items-center px-3 h-[38px] bg-bg-tertiary border-b border-border-primary select-none text-xs"
     >
-      {/* Left: Merge conflict chip, branch switcher, git actions */}
+      {/* Left: Merge conflict chip, branch switcher, git actions (only when repo is open) */}
       <div className="flex items-center gap-2">
-        {/* Merge conflict indicator */}
-        {hasConflicts && (
-          <button
-            onClick={handleOpenMergeConflicts}
-            className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-accent-yellow/20 text-xs hover:bg-accent-yellow/30 transition-colors"
-            title="Click to resolve merge conflicts"
-          >
-            <Warning size={14} weight="fill" className="text-accent-yellow" />
-            <span className="text-accent-yellow font-medium">
-              {mergeStatus.conflictingFiles.length} conflict
-              {mergeStatus.conflictingFiles.length > 1 ? "s" : ""}
-            </span>
-          </button>
+        {repository && (
+          <>
+            {/* Merge conflict indicator */}
+            {hasConflicts && (
+              <button
+                onClick={handleOpenMergeConflicts}
+                className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-accent-yellow/20 text-xs hover:bg-accent-yellow/30 transition-colors"
+                title="Click to resolve merge conflicts"
+              >
+                <Warning size={14} weight="fill" className="text-accent-yellow" />
+                <span className="text-accent-yellow font-medium">
+                  {mergeStatus!.conflictingFiles.length} conflict
+                  {mergeStatus!.conflictingFiles.length > 1 ? "s" : ""}
+                </span>
+              </button>
+            )}
+
+            <BranchSwitcher />
+
+            {/* Separator */}
+            <div className="w-px h-4 bg-border-primary mx-1" />
+
+            {/* Git actions toolbar */}
+            <Toolbar.Root className="flex items-center gap-0.5">
+              <Toolbar.Button
+                className={toolbarButtonClass}
+                onClick={handleFetch}
+                disabled={isFetching}
+              >
+                {isFetching ? (
+                  <ArrowsClockwise
+                    size={14}
+                    weight="bold"
+                    className="animate-spin"
+                  />
+                ) : (
+                  <CloudArrowDown size={14} weight="bold" />
+                )}
+                <span className="hidden sm:inline">Fetch</span>
+              </Toolbar.Button>
+
+              <Toolbar.Button
+                className={`${toolbarButtonClass} relative`}
+                onClick={handlePull}
+                disabled={isPulling}
+              >
+                {isPulling ? (
+                  <ArrowsClockwise
+                    size={14}
+                    weight="bold"
+                    className="animate-spin"
+                  />
+                ) : (
+                  <ArrowDown size={14} weight="bold" />
+                )}
+                <span className="hidden sm:inline">Pull</span>
+                {aheadBehind && aheadBehind.behind > 0 && !isPulling && (
+                  <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 flex items-center justify-center text-[9px] font-medium bg-accent-orange text-white rounded-full">
+                    {aheadBehind.behind > 99 ? "99+" : aheadBehind.behind}
+                  </span>
+                )}
+              </Toolbar.Button>
+
+              <Toolbar.Button
+                className={`${toolbarButtonClass} relative`}
+                onClick={handlePush}
+                disabled={isPushing}
+              >
+                {isPushing ? (
+                  <ArrowsClockwise
+                    size={14}
+                    weight="bold"
+                    className="animate-spin"
+                  />
+                ) : (
+                  <ArrowUp size={14} weight="bold" />
+                )}
+                <span className="hidden sm:inline">Push</span>
+                {aheadBehind && aheadBehind.ahead > 0 && !isPushing && (
+                  <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 flex items-center justify-center text-[9px] font-medium bg-accent-blue text-white rounded-full">
+                    {aheadBehind.ahead > 99 ? "99+" : aheadBehind.ahead}
+                  </span>
+                )}
+              </Toolbar.Button>
+            </Toolbar.Root>
+          </>
         )}
-
-        <BranchSwitcher />
-
-        {/* Separator */}
-        <div className="w-px h-4 bg-border-primary mx-1" />
-
-        {/* Git actions toolbar */}
-        <Toolbar.Root className="flex items-center gap-0.5">
-          <Toolbar.Button
-            className={toolbarButtonClass}
-            onClick={handleFetch}
-            disabled={isFetching}
-          >
-            {isFetching ? (
-              <ArrowsClockwise
-                size={14}
-                weight="bold"
-                className="animate-spin"
-              />
-            ) : (
-              <CloudArrowDown size={14} weight="bold" />
-            )}
-            <span className="hidden sm:inline">Fetch</span>
-          </Toolbar.Button>
-
-          <Toolbar.Button
-            className={`${toolbarButtonClass} relative`}
-            onClick={handlePull}
-            disabled={isPulling}
-          >
-            {isPulling ? (
-              <ArrowsClockwise
-                size={14}
-                weight="bold"
-                className="animate-spin"
-              />
-            ) : (
-              <ArrowDown size={14} weight="bold" />
-            )}
-            <span className="hidden sm:inline">Pull</span>
-            {aheadBehind && aheadBehind.behind > 0 && !isPulling && (
-              <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 flex items-center justify-center text-[9px] font-medium bg-accent-orange text-white rounded-full">
-                {aheadBehind.behind > 99 ? "99+" : aheadBehind.behind}
-              </span>
-            )}
-          </Toolbar.Button>
-
-          <Toolbar.Button
-            className={`${toolbarButtonClass} relative`}
-            onClick={handlePush}
-            disabled={isPushing}
-          >
-            {isPushing ? (
-              <ArrowsClockwise
-                size={14}
-                weight="bold"
-                className="animate-spin"
-              />
-            ) : (
-              <ArrowUp size={14} weight="bold" />
-            )}
-            <span className="hidden sm:inline">Push</span>
-            {aheadBehind && aheadBehind.ahead > 0 && !isPushing && (
-              <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 flex items-center justify-center text-[9px] font-medium bg-accent-blue text-white rounded-full">
-                {aheadBehind.ahead > 99 ? "99+" : aheadBehind.ahead}
-              </span>
-            )}
-          </Toolbar.Button>
-        </Toolbar.Root>
       </div>
 
       {/* Center: Mode selector */}
@@ -336,12 +387,13 @@ export function RepoHeader() {
         <button
           onClick={() => handleModeChange("repository")}
           aria-label="Repository view"
-          aria-pressed={mainView === "repository"}
-          className={`${toggleButtonClass} rounded-l ${mainView === "repository" ? "bg-bg-hover text-text-primary" : ""}`}
+          aria-pressed={isRepoViewActive}
+          disabled={!repository}
+          className={`${toggleButtonClass} rounded-l ${isRepoViewActive ? "bg-bg-hover text-text-primary" : ""} ${!repository ? "opacity-50 cursor-not-allowed" : ""}`}
         >
           <Folders size={14} weight="bold" />
           <span className="hidden sm:inline">Repository</span>
-          {uncommittedCount > 0 && mainView !== "repository" && (
+          {uncommittedCount > 0 && !isRepoViewActive && (
             <span className="px-1.5 py-0.5 bg-accent-blue text-white text-[10px] rounded-full leading-none">
               {uncommittedCount}
             </span>
@@ -350,8 +402,9 @@ export function RepoHeader() {
         <button
           onClick={() => handleModeChange("statistics")}
           aria-label="Statistics view"
-          aria-pressed={mainView === "statistics"}
-          className={`${toggleButtonClass} ${mainView === "statistics" ? "bg-bg-hover text-text-primary" : ""}`}
+          aria-pressed={isStatisticsActive}
+          disabled={!repository}
+          className={`${toggleButtonClass} ${isStatisticsActive ? "bg-bg-hover text-text-primary" : ""} ${!repository ? "opacity-50 cursor-not-allowed" : ""}`}
         >
           <ChartBar size={14} weight="bold" />
           <span className="hidden sm:inline">Statistics</span>
@@ -359,17 +412,27 @@ export function RepoHeader() {
         <button
           onClick={() => handleModeChange("changelog")}
           aria-label="Changelog view"
-          aria-pressed={mainView === "changelog"}
-          className={`${toggleButtonClass} rounded-r ${mainView === "changelog" ? "bg-bg-hover text-text-primary" : ""}`}
+          aria-pressed={isChangelogActive}
+          disabled={!repository}
+          className={`${toggleButtonClass} ${isChangelogActive ? "bg-bg-hover text-text-primary" : ""} ${!repository ? "opacity-50 cursor-not-allowed" : ""}`}
         >
           <ListBullets size={14} weight="bold" />
           <span className="hidden sm:inline">Changelog</span>
         </button>
+        <button
+          onClick={handleSkillsClick}
+          aria-label="Skills view"
+          aria-pressed={isSkillsActive}
+          className={`${toggleButtonClass} rounded-r ${isSkillsActive ? "bg-bg-hover text-text-primary" : ""}`}
+        >
+          <BookBookmark size={14} weight="bold" />
+          <span className="hidden sm:inline">Skills</span>
+        </button>
       </div>
 
-      {/* Right: Panel selector (only visible in repository mode) */}
+      {/* Right: Panel selector (only visible in repository mode with a repo) */}
       <div className="flex items-center justify-end">
-        {mainView === "repository" && <PanelSelector />}
+        {isRepoViewActive && <PanelSelector />}
       </div>
     </div>
   );

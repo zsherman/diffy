@@ -15,7 +15,7 @@ import type {
   StashEntry,
   AheadBehind,
 } from "../types/git";
-import type { SkillMetadata } from "../types/skills";
+import type { SkillMetadata, RemoteSkill } from "../types/skills";
 import type {
   MergeStatus,
   FileConflictInfo,
@@ -455,6 +455,10 @@ export async function getSkillsDir(): Promise<string> {
 
 export async function listSkills(): Promise<SkillMetadata[]> {
   return invoke<SkillMetadata[]>("list_skills");
+}
+
+export async function listRemoteSkills(): Promise<RemoteSkill[]> {
+  return invoke<RemoteSkill[]>("list_remote_skills");
 }
 
 export async function installSkillFromUrl(url: string): Promise<SkillMetadata> {

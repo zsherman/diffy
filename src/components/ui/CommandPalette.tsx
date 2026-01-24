@@ -38,6 +38,7 @@ import {
 } from "@phosphor-icons/react";
 import {
   useUIStore,
+  useAppView,
   getDockviewApi,
   isReactScanEnabled,
   toggleReactScanAndReload,
@@ -104,6 +105,7 @@ export function CommandPalette() {
 
   const { repository, openTab } = useTabsStore();
   const { mainView, setMainView } = useActiveTabView();
+  const { appView, setAppView } = useAppView();
   const { enterMergeMode } = useMergeConflictStore();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -554,6 +556,7 @@ export function CommandPalette() {
                   <Command.Item
                     onSelect={() =>
                       runCommand(() => {
+                        setAppView("workspace");
                         setMainView("repository");
                       })
                     }
@@ -566,13 +569,14 @@ export function CommandPalette() {
                     />
                     <span className="flex-1">Go to Repository</span>
                     <span className="text-xs text-text-muted">
-                      {mainView === "repository" ? "Active" : ""}
+                      {appView === "workspace" && mainView === "repository" ? "Active" : ""}
                     </span>
                   </Command.Item>
 
                   <Command.Item
                     onSelect={() =>
                       runCommand(() => {
+                        setAppView("workspace");
                         setMainView("statistics");
                       })
                     }
@@ -588,13 +592,14 @@ export function CommandPalette() {
                     <ChartBar size={16} className="text-text-muted" />
                     <span className="flex-1">Go to Statistics</span>
                     <span className="text-xs text-text-muted">
-                      {mainView === "statistics" ? "Active" : ""}
+                      {appView === "workspace" && mainView === "statistics" ? "Active" : ""}
                     </span>
                   </Command.Item>
 
                   <Command.Item
                     onSelect={() =>
                       runCommand(() => {
+                        setAppView("workspace");
                         setMainView("changelog");
                       })
                     }
@@ -610,7 +615,7 @@ export function CommandPalette() {
                     <ListBullets size={16} className="text-text-muted" />
                     <span className="flex-1">Go to Changelog</span>
                     <span className="text-xs text-text-muted">
-                      {mainView === "changelog" ? "Active" : ""}
+                      {appView === "workspace" && mainView === "changelog" ? "Active" : ""}
                     </span>
                   </Command.Item>
                 </Command.Group>
@@ -925,11 +930,23 @@ export function CommandPalette() {
                 className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
               >
                 <Command.Item
+                  onSelect={() => runCommand(() => setAppView("skills"))}
+                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  keywords={["skills", "agent", "install", "browse"]}
+                >
+                  <BookBookmark size={16} className="text-text-muted" />
+                  <span className="flex-1">Go to Skills</span>
+                  <span className="text-xs text-text-muted">
+                    {appView === "skills" ? "Active" : ""}
+                  </span>
+                </Command.Item>
+
+                <Command.Item
                   onSelect={() => runCommand(() => setShowSkillsDialog(true))}
                   className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   <BookBookmark size={16} className="text-text-muted" />
-                  <span className="flex-1">Manage Skills</span>
+                  <span className="flex-1">Manage Skills (Dialog)</span>
                 </Command.Item>
 
                 {selectedSkillIds.length > 0 && (

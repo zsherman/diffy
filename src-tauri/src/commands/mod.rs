@@ -16,6 +16,152 @@ pub struct SkillMetadata {
     pub source_url: Option<String>,
 }
 
+/// Remote skill from skills.sh leaderboard
+#[derive(serde::Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoteSkill {
+    pub owner: String,
+    pub repo: String,
+    pub skill: String,
+    pub url: String,
+    pub installs: Option<String>,
+}
+
+// Cache for remote skills list
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
+
+struct RemoteSkillsCache {
+    skills: Vec<RemoteSkill>,
+    fetched_at: Instant,
+}
+
+static REMOTE_SKILLS_CACHE: OnceLock<Mutex<Option<RemoteSkillsCache>>> = OnceLock::new();
+const CACHE_TTL: Duration = Duration::from_secs(10 * 60); // 10 minutes
+
+/// Parse skills.sh HTML and extract skill links
+fn parse_skills_html(html: &str) -> Vec<RemoteSkill> {
+    let mut skills = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    // Look for links matching the pattern /owner/repo/skill (exactly 3 segments)
+    // The HTML contains links like: href="https://skills.sh/vercel-labs/agent-skills/vercel-react-best-practices"
+    // or relative: href="/vercel-labs/agent-skills/vercel-react-best-practices"
+    
+    // Simple regex-like pattern matching for href attributes
+    let mut pos = 0;
+    while let Some(href_start) = html[pos..].find("href=\"") {
+        let abs_pos = pos + href_start + 6; // skip href="
+        if let Some(href_end) = html[abs_pos..].find('"') {
+            let href = &html[abs_pos..abs_pos + href_end];
+            
+            // Extract path from URL
+            let path = if href.starts_with("https://skills.sh/") {
+                href.strip_prefix("https://skills.sh/").unwrap_or("")
+            } else if href.starts_with('/') && !href.starts_with("//") {
+                href.strip_prefix('/').unwrap_or("")
+            } else {
+                ""
+            };
+            
+            // Check if path has exactly 3 segments (owner/repo/skill)
+            let segments: Vec<&str> = path.trim_end_matches('/').split('/').collect();
+            if segments.len() == 3 && !segments[0].is_empty() && !segments[1].is_empty() && !segments[2].is_empty() {
+                // Skip docs and other non-skill paths
+                if segments[0] != "docs" && segments[0] != "trending" && segments[0] != "agents" {
+                    let key = format!("{}/{}/{}", segments[0], segments[1], segments[2]);
+                    if !seen.contains(&key) {
+                        seen.insert(key);
+                        
+                        skills.push(RemoteSkill {
+                            owner: segments[0].to_string(),
+                            repo: segments[1].to_string(),
+                            skill: segments[2].to_string(),
+                            url: format!("https://skills.sh/{}/{}/{}", segments[0], segments[1], segments[2]),
+                            installs: None,
+                        });
+                    }
+                }
+            }
+            
+            pos = abs_pos + href_end;
+        } else {
+            break;
+        }
+    }
+    
+    skills
+}
+
+/// Fetch remote skills from skills.sh with caching
+async fn fetch_remote_skills_cached() -> Result<Vec<RemoteSkill>> {
+    let cache = REMOTE_SKILLS_CACHE.get_or_init(|| Mutex::new(None));
+    
+    // Check cache
+    {
+        let guard = cache.lock().map_err(|e| AppError::io(format!("Cache lock error: {}", e)))?;
+        if let Some(ref cached) = *guard {
+            if cached.fetched_at.elapsed() < CACHE_TTL {
+                return Ok(cached.skills.clone());
+            }
+        }
+    }
+    
+    // Fetch fresh data
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .build()
+        .map_err(|e| AppError::network(format!("Failed to create HTTP client: {}", e)))?;
+    
+    let mut all_skills = Vec::new();
+    
+    // Fetch main leaderboard
+    match client.get("https://skills.sh/").send().await {
+        Ok(response) => {
+            if response.status().is_success() {
+                if let Ok(html) = response.text().await {
+                    all_skills.extend(parse_skills_html(&html));
+                }
+            }
+        }
+        Err(e) => {
+            tracing::warn!("Failed to fetch skills.sh main page: {}", e);
+        }
+    }
+    
+    // Fetch trending page
+    match client.get("https://skills.sh/trending").send().await {
+        Ok(response) => {
+            if response.status().is_success() {
+                if let Ok(html) = response.text().await {
+                    let trending = parse_skills_html(&html);
+                    // Add only new skills not already in all_skills
+                    let existing: std::collections::HashSet<_> = all_skills.iter().map(|s| s.url.clone()).collect();
+                    for skill in trending {
+                        if !existing.contains(&skill.url) {
+                            all_skills.push(skill);
+                        }
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            tracing::warn!("Failed to fetch skills.sh trending page: {}", e);
+        }
+    }
+    
+    // Update cache
+    {
+        let mut guard = cache.lock().map_err(|e| AppError::io(format!("Cache lock error: {}", e)))?;
+        *guard = Some(RemoteSkillsCache {
+            skills: all_skills.clone(),
+            fetched_at: Instant::now(),
+        });
+    }
+    
+    Ok(all_skills)
+}
+
 /// Get the skills directory path
 fn get_skills_dir_path(app: &tauri::AppHandle) -> Result<PathBuf> {
     let app_data_dir = app.path()
@@ -919,6 +1065,12 @@ pub async fn list_skills(app: tauri::AppHandle) -> Result<Vec<SkillMetadata>> {
 
     skills.sort_by(|a, b| a.name.cmp(&b.name));
     Ok(skills)
+}
+
+#[tauri::command]
+#[instrument(skip_all, err(Debug))]
+pub async fn list_remote_skills() -> Result<Vec<RemoteSkill>> {
+    fetch_remote_skills_cached().await
 }
 
 /// Generate possible raw GitHub URLs for a skills.sh URL

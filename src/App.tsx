@@ -17,7 +17,7 @@ import {
   GlobalErrorBoundary,
 } from "./components/ui";
 import { RepoHeader } from "./features/repository/components";
-import { SkillsDialog } from "./features/skills";
+import { SkillsDialog, SkillsView } from "./features/skills";
 import { StatisticsView } from "./features/statistics";
 import { ChangelogView } from "./features/changelog";
 import { openRepository, discoverRepository } from "./lib/tauri";
@@ -29,7 +29,7 @@ import {
   getSavedTabPaths,
   createTabState,
 } from "./stores/tabs-store";
-import { useTheme, getDockviewApi } from "./stores/ui-store";
+import { useTheme, useAppView, getDockviewApi } from "./stores/ui-store";
 import { useKeyboardNavigation } from "./hooks/useKeyboardNavigation";
 import { useRepoWatcher } from "./hooks/useRepoWatcher";
 import {
@@ -62,12 +62,18 @@ function AppContent() {
 
   // Get theme from UI store (global setting) - use focused hook to avoid unnecessary subscriptions
   const { theme } = useTheme();
+  
+  // Get global app view (workspace vs skills)
+  const { appView } = useAppView();
 
   // Track previous mainView to detect transitions from overlay views (statistics/changelog)
   const prevMainViewRef = useRef(mainView);
   
   // Helper to check if a view is an overlay view (rendered outside Dockview)
   const isOverlayView = (view: string) => view === "statistics" || view === "changelog";
+  
+  // Check if we're in skills view (also an overlay, but global)
+  const isSkillsView = appView === "skills";
 
   // Sync theme to document
   useEffect(() => {
@@ -242,11 +248,14 @@ function AppContent() {
         />
       )}
 
-      {/* Repo header with branch, git actions, view toggle, and layout switcher */}
-      {repository && <RepoHeader />}
+      {/* Repo header with branch, git actions, view toggle, and layout switcher - always shown for Skills button */}
+      <RepoHeader />
 
       {/* Main content */}
-      {repository ? (
+      {isSkillsView ? (
+        /* Skills view - global, not tied to repository */
+        <SkillsView />
+      ) : repository ? (
         <>
           {/* Overlay views - rendered outside Dockview when active */}
           {mainView === "statistics" && <StatisticsView />}
