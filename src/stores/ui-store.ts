@@ -4,6 +4,7 @@ import { useSelector } from "@xstate/store/react";
 import { produce } from "immer";
 import type { DockviewApi } from "dockview-react";
 import type { AIReviewReviewerId, PanelId } from "../types/git";
+import type { CLIStatus } from "../lib/tauri";
 import { tabsStore, type PanelVisibility } from "./tabs-store";
 import { type ThemeId, isValidThemeId, getDefaultTheme } from "../lib/themes";
 
@@ -59,6 +60,10 @@ interface UIContext {
 
   // AI Review
   aiReviewReviewerId: AIReviewReviewerId;
+
+  // CLI availability (detected on app load)
+  cliStatus: CLIStatus | null;
+  cliStatusLoading: boolean;
 
   // Developer/Performance settings
   perfTracingEnabled: boolean;
@@ -175,6 +180,8 @@ export const uiStore = createStore({
     graphColumnWidths: { branchTag: 180, graph: 120 },
     selectedSkillIds: getInitialSelectedSkills(),
     aiReviewReviewerId: getInitialAIReviewReviewerId(),
+    cliStatus: null,
+    cliStatusLoading: false,
     perfTracingEnabled: getInitialPerfTracingEnabled(),
     defaultRemoteAction: getInitialDefaultRemoteAction(),
   } as UIContext,
@@ -241,6 +248,15 @@ export const uiStore = createStore({
         if (typeof window !== "undefined") {
           localStorage.setItem("diffy-ai-reviewer", event.reviewerId);
         }
+      }),
+    setCLIStatus: (ctx, event: { status: CLIStatus }) =>
+      produce(ctx, (draft) => {
+        draft.cliStatus = event.status;
+        draft.cliStatusLoading = false;
+      }),
+    setCLIStatusLoading: (ctx, event: { loading: boolean }) =>
+      produce(ctx, (draft) => {
+        draft.cliStatusLoading = event.loading;
       }),
     toggleSkillSelection: (ctx, event: { skillId: string }) =>
       produce(ctx, (draft) => {
@@ -520,6 +536,11 @@ export function useUIStore() {
     uiStore,
     (s) => s.context.aiReviewReviewerId,
   );
+  const cliStatus = useSelector(uiStore, (s) => s.context.cliStatus);
+  const cliStatusLoading = useSelector(
+    uiStore,
+    (s) => s.context.cliStatusLoading,
+  );
   const perfTracingEnabled = useSelector(
     uiStore,
     (s) => s.context.perfTracingEnabled,
@@ -619,6 +640,15 @@ export function useUIStore() {
   const setAIReviewReviewerId = useCallback(
     (reviewerId: AIReviewReviewerId) =>
       uiStore.send({ type: "setAIReviewReviewerId", reviewerId }),
+    [],
+  );
+  const setCLIStatus = useCallback(
+    (status: CLIStatus) => uiStore.send({ type: "setCLIStatus", status }),
+    [],
+  );
+  const setCLIStatusLoading = useCallback(
+    (loading: boolean) =>
+      uiStore.send({ type: "setCLIStatusLoading", loading }),
     [],
   );
   const toggleSkillSelection = useCallback(
@@ -730,6 +760,8 @@ export function useUIStore() {
     graphColumnWidths,
     selectedSkillIds,
     aiReviewReviewerId,
+    cliStatus,
+    cliStatusLoading,
     perfTracingEnabled,
     defaultRemoteAction,
 
@@ -757,6 +789,8 @@ export function useUIStore() {
     setGraphColumnWidths,
     setSelectedSkillIds,
     setAIReviewReviewerId,
+    setCLIStatus,
+    setCLIStatusLoading,
     toggleSkillSelection,
     setShowSkillsDialog,
     clearSelectedSkills,

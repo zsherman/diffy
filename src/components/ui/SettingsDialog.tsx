@@ -28,6 +28,7 @@ export function SettingsDialog() {
     aiReviewReviewerId,
     setAIReviewReviewerId,
     setShowSkillsDialog,
+    cliStatus,
     perfTracingEnabled,
     setPerfTracingEnabled,
   } = useUIStore();
@@ -209,8 +210,12 @@ export function SettingsDialog() {
                           }
                           className="bg-bg-hover border border-border-primary rounded-sm px-2 py-1.5 text-sm text-text-primary focus:outline-hidden focus:border-accent-blue min-w-[260px]"
                         >
-                          <option value="claude-cli">Claude CLI (Structured)</option>
-                          <option value="coderabbit-cli">CodeRabbit CLI (Text)</option>
+                          <option value="claude-cli">
+                            Claude CLI (Structured) {cliStatus && !cliStatus.claude.available ? "⚠️" : ""}
+                          </option>
+                          <option value="coderabbit-cli">
+                            CodeRabbit CLI (Text) {cliStatus && !cliStatus.coderabbit.available ? "⚠️" : ""}
+                          </option>
                         </select>
                         <div className="text-xs text-text-muted leading-relaxed flex-1">
                           {aiReviewReviewerId === "coderabbit-cli" ? (
@@ -220,6 +225,50 @@ export function SettingsDialog() {
                           )}
                         </div>
                       </div>
+                      {/* CLI availability status */}
+                      {cliStatus && (
+                        <div className="text-xs space-y-1 pt-2 border-t border-border-primary">
+                          <div className="flex items-center gap-2">
+                            <span className={cliStatus.claude.available ? "text-accent-green" : "text-accent-yellow"}>
+                              {cliStatus.claude.available ? "✓" : "⚠"}
+                            </span>
+                            <span className="text-text-muted">
+                              Claude: {cliStatus.claude.available ? "installed" : "not found"}
+                            </span>
+                            {!cliStatus.claude.available && (
+                              <span className="text-text-muted font-mono text-xs">
+                                ({cliStatus.claude.installInstructions})
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={cliStatus.coderabbit.available ? "text-accent-green" : "text-accent-yellow"}>
+                              {cliStatus.coderabbit.available ? "✓" : "⚠"}
+                            </span>
+                            <span className="text-text-muted">
+                              CodeRabbit: {cliStatus.coderabbit.available ? "installed" : "not found"}
+                            </span>
+                            {!cliStatus.coderabbit.available && (
+                              <span className="text-text-muted font-mono text-xs">
+                                ({cliStatus.coderabbit.installInstructions})
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={cliStatus.codex.available ? "text-accent-green" : "text-accent-yellow"}>
+                              {cliStatus.codex.available ? "✓" : "⚠"}
+                            </span>
+                            <span className="text-text-muted">
+                              Codex: {cliStatus.codex.available ? "installed" : "not found"}
+                            </span>
+                            {!cliStatus.codex.available && (
+                              <span className="text-text-muted font-mono text-xs">
+                                ({cliStatus.codex.installInstructions})
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Skills summary */}

@@ -266,6 +266,110 @@ fn extract_json_object(text: &str) -> Option<&str> {
     None
 }
 
+// =============================================================================
+// CLI Availability Detection
+// =============================================================================
+
+/// Information about a CLI tool's availability
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CLIAvailability {
+    pub available: bool,
+    pub path: Option<String>,
+    pub install_instructions: String,
+}
+
+/// All CLI tools availability status
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CLIStatus {
+    pub claude: CLIAvailability,
+    pub coderabbit: CLIAvailability,
+    pub codex: CLIAvailability,
+}
+
+/// Check if a binary exists and is executable (actually verify it works)
+fn check_binary_available(name: &str, candidates: &[String]) -> (bool, Option<String>) {
+    // First check explicit paths
+    for path in candidates {
+        let p = PathBuf::from(path);
+        if p.exists() {
+            return (true, Some(path.clone()));
+        }
+    }
+
+    // Try PATH lookup by running --version
+    let output = std::process::Command::new(name)
+        .arg("--version")
+        .output();
+
+    match output {
+        Ok(o) if o.status.success() => (true, Some(name.to_string())),
+        _ => (false, None),
+    }
+}
+
+#[tauri::command]
+pub async fn check_cli_availability() -> Result<CLIStatus> {
+    let home = std::env::var("HOME").unwrap_or_default();
+
+    // Check Claude CLI
+    let claude_candidates = vec![
+        format!("{}/.claude/local/claude", home),
+        format!("{}/.local/bin/claude", home),
+        format!("{}/.bun/bin/claude", home),
+        format!("{}/.npm-global/bin/claude", home),
+        "/usr/local/bin/claude".to_string(),
+        "/opt/homebrew/bin/claude".to_string(),
+    ];
+
+    let (claude_available, claude_path) = check_binary_available("claude", &claude_candidates);
+
+    // Check CodeRabbit CLI
+    let coderabbit_candidates = vec![
+        format!("{}/.local/bin/coderabbit", home),
+        format!("{}/.bun/bin/coderabbit", home),
+        format!("{}/.npm-global/bin/coderabbit", home),
+        "/usr/local/bin/coderabbit".to_string(),
+        "/opt/homebrew/bin/coderabbit".to_string(),
+    ];
+
+    let (coderabbit_available, coderabbit_path) = check_binary_available("coderabbit", &coderabbit_candidates);
+
+    // Check Codex CLI (OpenAI)
+    let codex_candidates = vec![
+        format!("{}/.local/bin/codex", home),
+        format!("{}/.bun/bin/codex", home),
+        format!("{}/.npm-global/bin/codex", home),
+        "/usr/local/bin/codex".to_string(),
+        "/opt/homebrew/bin/codex".to_string(),
+    ];
+
+    let (codex_available, codex_path) = check_binary_available("codex", &codex_candidates);
+
+    Ok(CLIStatus {
+        claude: CLIAvailability {
+            available: claude_available,
+            path: claude_path,
+            install_instructions: "npm install -g @anthropic-ai/claude-cli".to_string(),
+        },
+        coderabbit: CLIAvailability {
+            available: coderabbit_available,
+            path: coderabbit_path,
+            install_instructions: "npm install -g coderabbit".to_string(),
+        },
+        codex: CLIAvailability {
+            available: codex_available,
+            path: codex_path,
+            install_instructions: "npm install -g @openai/codex".to_string(),
+        },
+    })
+}
+
+// =============================================================================
+// Repository Commands
+// =============================================================================
+
 #[tauri::command]
 #[instrument(skip_all, fields(path = %path), err(Debug))]
 pub async fn open_repository(path: String) -> Result<RepositoryInfo> {
@@ -499,6 +603,20 @@ pub async fn cherry_pick(repo_path: String, commit_id: String) -> Result<String>
 #[tauri::command]
 pub async fn reset_hard(repo_path: String, commit_id: String) -> Result<String> {
     Ok(git::reset_hard(&repo_path, &commit_id)?)
+}
+
+#[tauri::command]
+pub async fn squash_commits(
+    repo_path: String,
+    commit_ids: Vec<String>,
+    message: String,
+) -> Result<git::SquashResult> {
+    let result = tokio::task::spawn_blocking(move || {
+        git::squash_commits(&repo_path, commit_ids, &message)
+    })
+    .await
+    .map_err(|e| AppError::io(format!("Task join error: {}", e)))??;
+    Ok(result)
 }
 
 #[tauri::command]
@@ -1031,6 +1149,120 @@ Include only files that need changes. Preserve all existing code that doesn't ne
 
     let summary = json["summary"].as_str().unwrap_or("Fixes applied");
     Ok(format!("{} file(s) updated: {}", fixed_count, summary))
+}
+
+// CodeRabbit issue fix using Claude
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodeRabbitIssueFix {
+    pub file: String,
+    pub lines: String,
+    pub description: String,
+    pub ai_agent_prompt: String,
+}
+
+#[tauri::command]
+pub async fn fix_coderabbit_issue(repo_path: String, issue: CodeRabbitIssueFix) -> Result<String> {
+    // Validate file path to prevent path traversal
+    let file_path = std::path::Path::new(&issue.file);
+    if file_path.is_absolute() || issue.file.contains("..") {
+        return Err(AppError::validation("Invalid file path"));
+    }
+
+    let full_path = std::path::Path::new(&repo_path).join(&issue.file);
+    if !full_path.starts_with(&repo_path) {
+        return Err(AppError::validation("File path escapes repository"));
+    }
+
+    // Read the current file content
+    let file_content = std::fs::read_to_string(&full_path)
+        .map_err(|e| AppError::io(format!("Failed to read {}: {}", issue.file, e)))?;
+
+    // Find Claude CLI
+    let claude_path = find_claude_binary()?;
+
+    // Build the prompt using CodeRabbit's AI agent prompt
+    let prompt = format!(
+        r#"You are a code assistant helping to fix an issue identified by CodeRabbit.
+
+FILE: {}
+LINES: {}
+
+ISSUE DESCRIPTION:
+{}
+
+CODERABBIT'S SUGGESTED FIX:
+{}
+
+CURRENT FILE CONTENT:
+```
+{}
+```
+
+Apply the fix as suggested. Return ONLY a JSON object with this structure:
+{{
+  "files": {{
+    "{}": "the complete corrected file content"
+  }},
+  "summary": "brief description of what was fixed"
+}}
+
+Return ONLY valid JSON, no markdown, no explanation."#,
+        issue.file,
+        issue.lines,
+        issue.description,
+        issue.ai_agent_prompt,
+        file_content,
+        issue.file
+    );
+
+    // Run Claude CLI in a blocking task
+    let repo_path_clone = repo_path.clone();
+    let file_name = issue.file.clone();
+
+    let result = tokio::task::spawn_blocking(move || {
+        let output = std::process::Command::new(&claude_path)
+            .args(["--print", "--output-format", "text", "--prompt", &prompt])
+            .current_dir(&repo_path_clone)
+            .output()
+            .map_err(|e| AppError::io(format!("Failed to run Claude CLI: {}", e)))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(AppError::ai(format!("Claude CLI failed: {}", stderr)));
+        }
+
+        let response = String::from_utf8_lossy(&output.stdout).to_string();
+        Ok(response)
+    })
+    .await
+    .map_err(|e| AppError::io(format!("Task join error: {}", e)))??;
+
+    // Parse the JSON response
+    let json_str = extract_json_object(&result)
+        .ok_or_else(|| AppError::ai("Claude response did not contain valid JSON"))?;
+
+    let json: serde_json::Value = serde_json::from_str(json_str)
+        .map_err(|e| AppError::ai(format!("Failed to parse Claude response: {}", e)))?;
+
+    // Extract and write the fixed file
+    let files = json["files"]
+        .as_object()
+        .ok_or_else(|| AppError::ai("Response missing 'files' object"))?;
+
+    let new_content = files
+        .get(&file_name)
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| AppError::ai(format!("Response missing content for {}", file_name)))?;
+
+    std::fs::write(&full_path, new_content)
+        .map_err(|e| AppError::io(format!("Failed to write {}: {}", file_name, e)))?;
+
+    let summary = json["summary"]
+        .as_str()
+        .unwrap_or("Fix applied successfully");
+
+    Ok(format!("{}: {}", file_name, summary))
 }
 
 // Skills commands

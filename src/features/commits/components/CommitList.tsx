@@ -19,6 +19,7 @@ import {
 } from "../../../stores/tabs-store";
 import { useActivePanel, usePanelFontSize } from "../../../stores/ui-store";
 import { AuthorAvatar } from "../../graph/components/AuthorAvatar";
+import { SquashDialog } from "./SquashDialog";
 import type { CommitInfo } from "../../../types/git";
 import { createMountLogger } from "../../../lib/perf";
 
@@ -41,6 +42,7 @@ function formatTimeAgo(timestamp: number): string {
 const CommitRow = memo(function CommitRow({
   commit,
   isSelected,
+  isMultiSelected,
   isFocused,
   onClick,
   fontSize,
@@ -48,8 +50,9 @@ const CommitRow = memo(function CommitRow({
 }: {
   commit: CommitInfo;
   isSelected: boolean;
+  isMultiSelected: boolean;
   isFocused: boolean;
-  onClick: () => void;
+  onClick: (e: React.MouseEvent) => void;
   fontSize: number;
   repoPath: string;
 }) {
@@ -62,11 +65,13 @@ const CommitRow = memo(function CommitRow({
     >
       <div
         className={`@container flex items-center cursor-pointer border-b border-black/20 ${
-          isFocused
-            ? "bg-bg-selected"
-            : isSelected
-              ? "bg-bg-hover"
-              : "hover:bg-bg-hover/50"
+          isMultiSelected
+            ? "bg-accent-blue/15 border-l-2 border-l-accent-blue"
+            : isFocused
+              ? "bg-bg-selected"
+              : isSelected
+                ? "bg-bg-hover"
+                : "hover:bg-bg-hover/50"
         }`}
         style={{ height: ROW_HEIGHT }}
         onClick={onClick}
@@ -75,7 +80,7 @@ const CommitRow = memo(function CommitRow({
         <div className="pl-3 pr-2.5 shrink-0">
           <AuthorAvatar email={commit.authorEmail} size={24} />
         </div>
-        
+
         <div className="flex-1 min-w-0 pr-3 py-1.5 overflow-hidden">
           {/* Commit message - primary focus */}
           <div
@@ -84,7 +89,7 @@ const CommitRow = memo(function CommitRow({
           >
             {commit.summary}
           </div>
-          
+
           {/* Metadata row */}
           <div
             className="flex items-center gap-1.5 text-text-muted mt-0.5 overflow-hidden"
@@ -92,21 +97,29 @@ const CommitRow = memo(function CommitRow({
           >
             <span className="truncate min-w-0 shrink">{commit.authorName}</span>
             <span className="opacity-40 shrink-0">•</span>
-            <span className="opacity-70 shrink-0">{formatTimeAgo(commit.time)}</span>
+            <span className="opacity-70 shrink-0">
+              {formatTimeAgo(commit.time)}
+            </span>
             {commit.filesChanged > 0 && (
               <>
                 <span className="opacity-40 shrink-0">•</span>
-                <span className="opacity-70 shrink-0">{commit.filesChanged} files</span>
-                <span className="text-accent-green shrink-0">+{commit.additions}</span>
-                <span className="text-accent-red shrink-0">-{commit.deletions}</span>
+                <span className="opacity-70 shrink-0">
+                  {commit.filesChanged} files
+                </span>
+                <span className="text-accent-green shrink-0">
+                  +{commit.additions}
+                </span>
+                <span className="text-accent-red shrink-0">
+                  -{commit.deletions}
+                </span>
               </>
             )}
           </div>
         </div>
-        
+
         {/* Commit ID on the right - hidden at small container sizes */}
         <div className="pr-3 shrink-0 hidden @[280px]:block">
-          <span 
+          <span
             className="font-mono text-text-muted/60"
             style={{ fontSize: `${Math.max(10, fontSize - 2)}px` }}
           >
@@ -123,10 +136,14 @@ export function CommitList() {
   const {
     selectedBranch,
     selectedCommit,
+    selectedCommits,
     setSelectedCommit,
     commitFilter,
     setCommitFilter,
     setSelectedFile,
+    toggleCommitSelection,
+    setSelectedCommits,
+    clearCommitSelection,
   } = useActiveTabState();
   // Use focused hooks - avoids re-render when unrelated state changes
   const { activePanel } = useActivePanel();
@@ -134,6 +151,7 @@ export function CommitList() {
   const panelFontSize = usePanelFontSize();
   const listRef = useRef<VListHandle>(null);
   const [focusedIndex, setFocusedIndex] = useState(0);
+  const [showSquashDialog, setShowSquashDialog] = useState(false);
 
   // Track mount/unmount for performance debugging
   useEffect(() => createMountLogger("CommitList"), []);
@@ -187,6 +205,12 @@ export function CommitList() {
           setSelectedCommit(commit.id);
           setSelectedFile(null);
         }
+      } else if (e.key === "Escape") {
+        // Clear multi-selection
+        if (selectedCommits.length > 0) {
+          e.preventDefault();
+          clearCommitSelection();
+        }
       }
     };
 
@@ -198,6 +222,8 @@ export function CommitList() {
     focusedIndex,
     setSelectedCommit,
     setSelectedFile,
+    selectedCommits,
+    clearCommitSelection,
   ]);
 
   // Scroll focused item into view
@@ -206,13 +232,49 @@ export function CommitList() {
   }, [focusedIndex]);
 
   const handleCommitClick = useCallback(
-    (commit: CommitInfo, index: number) => {
+    (commit: CommitInfo, index: number, e: React.MouseEvent) => {
       setFocusedIndex(index);
+
+      // Cmd/Ctrl+Click: Toggle multi-selection
+      if (e.metaKey || e.ctrlKey) {
+        toggleCommitSelection(commit.id);
+        return;
+      }
+
+      // Shift+Click: Range selection
+      if (e.shiftKey && selectedCommits.length > 0) {
+        // Find the range between last selected and this commit
+        const lastSelectedId = selectedCommits[selectedCommits.length - 1];
+        const lastSelectedIndex = filteredCommits.findIndex(
+          (c) => c.id === lastSelectedId,
+        );
+        if (lastSelectedIndex !== -1) {
+          const startIndex = Math.min(lastSelectedIndex, index);
+          const endIndex = Math.max(lastSelectedIndex, index);
+          const rangeIds = filteredCommits
+            .slice(startIndex, endIndex + 1)
+            .map((c) => c.id);
+          setSelectedCommits(rangeIds);
+        }
+        return;
+      }
+
+      // Normal click: Single selection (clears multi-select)
+      clearCommitSelection();
       setSelectedCommit(commit.id);
       setSelectedFile(null);
       setShowFilesPanel(true);
     },
-    [setSelectedCommit, setSelectedFile, setShowFilesPanel],
+    [
+      setSelectedCommit,
+      setSelectedFile,
+      setShowFilesPanel,
+      toggleCommitSelection,
+      setSelectedCommits,
+      clearCommitSelection,
+      selectedCommits,
+      filteredCommits,
+    ],
   );
 
   return (
@@ -229,6 +291,21 @@ export function CommitList() {
         />
       </div>
 
+      {/* Multi-select action bar */}
+      {selectedCommits.length >= 2 && (
+        <div className="px-3 py-2 border-b border-black/20 bg-bg-secondary flex items-center justify-between">
+          <span className="text-text-muted text-sm">
+            {selectedCommits.length} commits selected
+          </span>
+          <button
+            onClick={() => setShowSquashDialog(true)}
+            className="px-3 py-1 text-sm bg-accent-blue text-white rounded hover:bg-accent-blue/80 transition-colors"
+          >
+            Squash Selected
+          </button>
+        </div>
+      )}
+
       {/* Commit list */}
       <div className="flex-1 overflow-hidden">
         {/* Loading state for initial load */}
@@ -243,8 +320,9 @@ export function CommitList() {
                 key={commit.id}
                 commit={commit}
                 isSelected={selectedCommit === commit.id}
+                isMultiSelected={selectedCommits.includes(commit.id)}
                 isFocused={index === focusedIndex}
-                onClick={() => handleCommitClick(commit, index)}
+                onClick={(e) => handleCommitClick(commit, index, e)}
                 fontSize={panelFontSize}
                 repoPath={repository?.path ?? ""}
               />
@@ -252,6 +330,21 @@ export function CommitList() {
           </VList>
         )}
       </div>
+
+      {/* Squash dialog */}
+      {showSquashDialog && (
+        <SquashDialog
+          commits={filteredCommits.filter((c) =>
+            selectedCommits.includes(c.id),
+          )}
+          repoPath={repository?.path ?? ""}
+          onClose={() => setShowSquashDialog(false)}
+          onSuccess={() => {
+            setShowSquashDialog(false);
+            clearCommitSelection();
+          }}
+        />
+      )}
     </div>
   );
 }

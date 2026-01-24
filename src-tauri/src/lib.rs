@@ -28,6 +28,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(WatcherState::new())
         .invoke_handler(tauri::generate_handler![
+            commands::check_cli_availability,
             commands::open_repository,
             commands::discover_repository,
             commands::list_branches,
@@ -53,12 +54,14 @@ pub fn run() {
             commands::checkout_commit,
             commands::cherry_pick,
             commands::reset_hard,
+            commands::squash_commits,
             commands::generate_commit_message,
             commands::generate_ai_review,
             commands::generate_review,
             commands::generate_changelog_summary,
             commands::generate_contributor_review,
             commands::fix_ai_review_issues,
+            commands::fix_coderabbit_issue,
             commands::list_worktrees,
             commands::create_worktree,
             commands::remove_worktree,

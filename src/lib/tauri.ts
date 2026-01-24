@@ -48,6 +48,26 @@ async function tracedInvoke<T>(
 }
 
 // ============================================================================
+// CLI Availability
+// ============================================================================
+
+export interface CLIAvailability {
+  available: boolean;
+  path: string | null;
+  installInstructions: string;
+}
+
+export interface CLIStatus {
+  claude: CLIAvailability;
+  coderabbit: CLIAvailability;
+  codex: CLIAvailability;
+}
+
+export async function checkCLIAvailability(): Promise<CLIStatus> {
+  return invoke<CLIStatus>("check_cli_availability");
+}
+
+// ============================================================================
 // Structured Error Handling
 // ============================================================================
 
@@ -331,6 +351,20 @@ export async function resetHard(
   return invoke<string>("reset_hard", { repoPath, commitId });
 }
 
+// Squash result type
+export interface SquashResult {
+  newCommitId: string;
+  previousHeadId: string;
+}
+
+export async function squashCommits(
+  repoPath: string,
+  commitIds: string[],
+  message: string,
+): Promise<SquashResult> {
+  return invoke<SquashResult>("squash_commits", { repoPath, commitIds, message });
+}
+
 // Commit
 export async function createCommit(
   repoPath: string,
@@ -382,6 +416,20 @@ export async function fixAIReviewIssues(
   issues: IssueToFix[],
 ): Promise<string> {
   return invoke<string>("fix_ai_review_issues", { repoPath, issues });
+}
+
+export interface CodeRabbitIssueFix {
+  file: string;
+  lines: string;
+  description: string;
+  aiAgentPrompt: string;
+}
+
+export async function fixCodeRabbitIssue(
+  repoPath: string,
+  issue: CodeRabbitIssueFix,
+): Promise<string> {
+  return invoke<string>("fix_coderabbit_issue", { repoPath, issue });
 }
 
 // Contributor Review

@@ -1,11 +1,7 @@
 import { useCallback, useState, useEffect, useRef } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { open } from "@tauri-apps/plugin-dialog";
-import {
-  FolderOpen,
-  ClockCounterClockwise,
-  X,
-} from "@phosphor-icons/react";
+import { FolderOpen, ClockCounterClockwise, X } from "@phosphor-icons/react";
 import { DockviewLayout } from "./components/layout";
 import {
   StatusBar,
@@ -15,12 +11,17 @@ import {
   ToastProvider,
   TabBar,
   GlobalErrorBoundary,
+  UndoToast,
 } from "./components/ui";
 import { RepoHeader } from "./features/repository/components";
 import { SkillsDialog, SkillsView } from "./features/skills";
 import { StatisticsView } from "./features/statistics";
 import { ChangelogView } from "./features/changelog";
-import { openRepository, discoverRepository } from "./lib/tauri";
+import {
+  openRepository,
+  discoverRepository,
+  checkCLIAvailability,
+} from "./lib/tauri";
 import {
   useTabActions,
   useActiveTabView,
@@ -29,7 +30,12 @@ import {
   getSavedTabPaths,
   createTabState,
 } from "./stores/tabs-store";
-import { useTheme, useAppView, getDockviewApi } from "./stores/ui-store";
+import {
+  useTheme,
+  useAppView,
+  getDockviewApi,
+  useUIStore,
+} from "./stores/ui-store";
 import { useKeyboardNavigation } from "./hooks/useKeyboardNavigation";
 import { useRepoWatcher } from "./hooks/useRepoWatcher";
 import {
@@ -62,16 +68,17 @@ function AppContent() {
 
   // Get theme from UI store (global setting) - use focused hook to avoid unnecessary subscriptions
   const { theme } = useTheme();
-  
+
   // Get global app view (workspace vs skills)
   const { appView } = useAppView();
 
   // Track previous mainView to detect transitions from overlay views (statistics/changelog)
   const prevMainViewRef = useRef(mainView);
-  
+
   // Helper to check if a view is an overlay view (rendered outside Dockview)
-  const isOverlayView = (view: string) => view === "statistics" || view === "changelog";
-  
+  const isOverlayView = (view: string) =>
+    view === "statistics" || view === "changelog";
+
   // Check if we're in skills view (also an overlay, but global)
   const isSkillsView = appView === "skills";
 
@@ -79,6 +86,29 @@ function AppContent() {
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
+
+  // Check CLI availability on app load
+  const { setCLIStatus, setCLIStatusLoading } = useUIStore();
+  useEffect(() => {
+    setCLIStatusLoading(true);
+    checkCLIAvailability()
+      .then((status) => {
+        setCLIStatus(status);
+        // Log for debugging
+        console.log("[CLI] Availability check:", {
+          claude: status.claude.available
+            ? status.claude.path
+            : "not installed",
+          coderabbit: status.coderabbit.available
+            ? status.coderabbit.path
+            : "not installed",
+        });
+      })
+      .catch((err) => {
+        console.error("[CLI] Failed to check availability:", err);
+        setCLIStatusLoading(false);
+      });
+  }, [setCLIStatus, setCLIStatusLoading]);
 
   // Ref to the Dockview container for layout recalculation
   const dockviewContainerRef = useRef<HTMLDivElement>(null);
@@ -365,6 +395,7 @@ function App() {
         <GlobalErrorBoundary>
           <AppContent />
         </GlobalErrorBoundary>
+        <UndoToast />
       </ToastProvider>
     </QueryClientProvider>
   );

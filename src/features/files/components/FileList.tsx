@@ -31,6 +31,7 @@ const STATUS_COLORS: Record<string, string> = {
   M: "text-accent-yellow",
   D: "text-accent-red",
   R: "text-accent-purple",
+  C: "text-accent-blue",
   "?": "text-text-muted",
 };
 
@@ -39,7 +40,17 @@ const STATUS_LABELS: Record<string, string> = {
   M: "Modified",
   D: "Deleted",
   R: "Renamed",
+  C: "Copied",
   "?": "Untracked",
+};
+
+const STATUS_TOOLTIPS: Record<string, string> = {
+  A: "Added — New file added to the repository",
+  M: "Modified — File has been changed",
+  D: "Deleted — File has been removed",
+  R: "Renamed — File has been renamed or moved",
+  C: "Copied — File has been copied from another file",
+  "?": "Untracked — File is not tracked by git",
 };
 
 interface FileItem {
@@ -113,10 +124,10 @@ const FileRow = memo(function FileRow({
         onClick={onClick}
       >
         <span
-          className={`w-5 font-mono text-xs ${statusColor}`}
-          title={STATUS_LABELS[status]}
+          className={`shrink-0 font-mono text-xs ${statusColor}`}
+          title={STATUS_TOOLTIPS[status] ?? status}
         >
-          [{status}]
+          {STATUS_LABELS[status] ?? status}
         </span>
         <span className="truncate text-text-primary ml-1">{file.path}</span>
         {"additions" in file && file.additions > 0 && (
@@ -467,7 +478,7 @@ export function FileList() {
           const file = item.data as FileStatus | DiffFile;
           return (
             <FileRow
-              key={file.path}
+              key={`${item.section ?? 'file'}-${file.path}`}
               file={file}
               isSelected={selectedFile === file.path}
               isFocused={index === focusedIndex}

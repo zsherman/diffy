@@ -14,11 +14,13 @@ import {
   Funnel,
   X,
   Wrench,
+  ArrowSquareOut,
 } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   generateReview,
   fixAIReviewIssues,
+  fixCodeRabbitIssue,
   type IssueToFix,
 } from "../../../lib/tauri";
 import {
@@ -27,7 +29,7 @@ import {
   normalizeError,
 } from "../../../lib/errors";
 import { useTabsStore, useActiveTabState } from "../../../stores/tabs-store";
-import { useUIStore } from "../../../stores/ui-store";
+import { useUIStore, getDockviewApi } from "../../../stores/ui-store";
 import { LoadingSpinner } from "../../../components/ui";
 import { useToast } from "../../../components/ui/Toast";
 import { SkillSelector } from "../../skills";
@@ -142,6 +144,7 @@ const IssueCard = memo(function IssueCard({
   onToggleSelect,
   onFix,
   onDismiss,
+  onGoToFile,
   isFixing,
 }: {
   issue: AIReviewIssue;
@@ -149,6 +152,7 @@ const IssueCard = memo(function IssueCard({
   onToggleSelect: () => void;
   onFix: () => void;
   onDismiss: () => void;
+  onGoToFile?: (file: string) => void;
   isFixing: boolean;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -211,6 +215,18 @@ const IssueCard = memo(function IssueCard({
 
         {/* Per-issue actions */}
         <div className="flex items-center gap-1 shrink-0">
+          {issue.filePath && onGoToFile && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onGoToFile(issue.filePath!);
+              }}
+              className="p-1.5 rounded-sm hover:bg-bg-tertiary text-text-muted hover:text-accent-blue transition-colors"
+              title="Show in diff panel"
+            >
+              <ArrowSquareOut size={14} />
+            </button>
+          )}
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -581,11 +597,21 @@ const DiffView = memo(function DiffView({ content }: { content: string }) {
 // Single CodeRabbit issue card component
 const CodeRabbitIssueCard = memo(function CodeRabbitIssueCard({
   issue,
+  repoPath,
+  onFixed,
+  onGoToFile,
 }: {
   issue: CodeRabbitIssue;
+  repoPath: string;
+  onFixed?: () => void;
+  onGoToFile?: (file: string) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
+  const [isFixing, setIsFixing] = useState(false);
+  const [fixResult, setFixResult] = useState<{ success: boolean; message: string } | null>(null);
+  const toast = useToast();
+  const queryClient = useQueryClient();
 
   const handleCopyPrompt = useCallback(async () => {
     if (!issue.aiAgentPrompt) return;
@@ -597,6 +623,38 @@ const CodeRabbitIssueCard = memo(function CodeRabbitIssueCard({
       console.error("Failed to copy:", err);
     }
   }, [issue.aiAgentPrompt]);
+
+  const handleFix = useCallback(async () => {
+    if (!issue.aiAgentPrompt || isFixing) return;
+
+    setIsFixing(true);
+    setFixResult(null);
+
+    try {
+      const result = await fixCodeRabbitIssue(repoPath, {
+        file: issue.file,
+        lines: issue.lines,
+        description: issue.description,
+        aiAgentPrompt: issue.aiAgentPrompt,
+      });
+
+      setFixResult({ success: true, message: result });
+      toast.success("Fix applied", result);
+
+      // Invalidate queries to refresh file state
+      queryClient.invalidateQueries({ queryKey: ["working-diff-staged"] });
+      queryClient.invalidateQueries({ queryKey: ["working-diff-unstaged"] });
+      queryClient.invalidateQueries({ queryKey: ["status"] });
+
+      onFixed?.();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to apply fix";
+      setFixResult({ success: false, message });
+      toast.error("Fix failed", message);
+    } finally {
+      setIsFixing(false);
+    }
+  }, [issue, repoPath, isFixing, toast, queryClient, onFixed]);
 
   // Determine badge color based on issue type
   const getTypeBadgeColor = (type: string) => {
@@ -624,33 +682,49 @@ const CodeRabbitIssueCard = memo(function CodeRabbitIssueCard({
     issue.suggestedFix.startsWith("+")
   );
 
+  const canFix = !!issue.aiAgentPrompt;
+
   return (
     <div className="bg-bg-tertiary rounded-lg overflow-hidden border border-border-primary">
       {/* Header - File, Type, Lines */}
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center gap-2 px-3 py-2 bg-bg-secondary hover:bg-bg-hover transition-colors text-left"
-      >
-        {isExpanded ? (
-          <CaretDown size={14} className="text-text-muted shrink-0" />
-        ) : (
-          <CaretRight size={14} className="text-text-muted shrink-0" />
-        )}
-        <File size={14} className="text-text-muted shrink-0" />
-        <span className="text-sm font-medium text-text-primary truncate">
-          {issue.file}
-        </span>
-        {issue.lines && (
-          <span className="text-xs text-text-muted shrink-0">
-            :{issue.lines}
+      <div className="flex items-center gap-2 px-3 py-2 bg-bg-secondary">
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="flex items-center gap-2 flex-1 min-w-0 hover:bg-bg-hover rounded-sm transition-colors text-left py-0.5 px-1 -ml-1"
+        >
+          {isExpanded ? (
+            <CaretDown size={14} className="text-text-muted shrink-0" />
+          ) : (
+            <CaretRight size={14} className="text-text-muted shrink-0" />
+          )}
+          <File size={14} className="text-text-muted shrink-0" />
+          <span className="text-sm font-medium text-text-primary truncate">
+            {issue.file}
           </span>
+          {issue.lines && (
+            <span className="text-xs text-text-muted shrink-0">
+              :{issue.lines}
+            </span>
+          )}
+        </button>
+        {onGoToFile && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onGoToFile(issue.file);
+            }}
+            className="p-1 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors shrink-0"
+            title="Show in diff panel"
+          >
+            <ArrowSquareOut size={14} />
+          </button>
         )}
         <span
-          className={`text-xs px-2 py-0.5 rounded-sm shrink-0 ml-auto ${getTypeBadgeColor(issue.type)}`}
+          className={`text-xs px-2 py-0.5 rounded-sm shrink-0 ${getTypeBadgeColor(issue.type)}`}
         >
           {issue.type}
         </span>
-      </button>
+      </div>
 
       {/* Body - Description and Suggested Fix */}
       {isExpanded && (
@@ -687,26 +761,64 @@ const CodeRabbitIssueCard = memo(function CodeRabbitIssueCard({
                 <h5 className="text-xs font-semibold text-text-muted uppercase tracking-wide">
                   Prompt for AI Agent
                 </h5>
-                <button
-                  onClick={handleCopyPrompt}
-                  className="flex items-center gap-1.5 px-2 py-1 text-xs text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors"
-                >
-                  {copiedPrompt ? (
-                    <>
-                      <CheckCircle size={12} weight="fill" className="text-accent-green" />
-                      Copied
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={12} />
-                      Copy
-                    </>
-                  )}
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={handleCopyPrompt}
+                    className="flex items-center gap-1.5 px-2 py-1 text-xs text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors"
+                  >
+                    {copiedPrompt ? (
+                      <>
+                        <CheckCircle size={12} weight="fill" className="text-accent-green" />
+                        Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={12} />
+                        Copy
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
               <pre className="text-xs text-accent-purple bg-accent-purple/10 p-2 rounded-sm overflow-x-auto whitespace-pre-wrap font-mono border border-accent-purple/20">
                 {issue.aiAgentPrompt}
               </pre>
+            </div>
+          )}
+
+          {/* Fix Result */}
+          {fixResult && (
+            <div
+              className={`p-2 rounded-sm text-xs ${
+                fixResult.success
+                  ? "bg-accent-green/10 text-accent-green border border-accent-green/20"
+                  : "bg-accent-red/10 text-accent-red border border-accent-red/20"
+              }`}
+            >
+              {fixResult.message}
+            </div>
+          )}
+
+          {/* Fix Button */}
+          {canFix && !fixResult?.success && (
+            <div className="border-t border-border-primary pt-3">
+              <button
+                onClick={handleFix}
+                disabled={isFixing}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-accent-purple text-white rounded-lg font-medium text-sm hover:bg-accent-purple/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
+              >
+                {isFixing ? (
+                  <>
+                    <LoadingSpinner size="sm" />
+                    Fixing with Claude...
+                  </>
+                ) : (
+                  <>
+                    <Wrench size={16} weight="bold" />
+                    Fix with Claude
+                  </>
+                )}
+              </button>
             </div>
           )}
         </div>
@@ -719,14 +831,18 @@ const CodeRabbitIssueCard = memo(function CodeRabbitIssueCard({
 const CodeRabbitReviewContent = memo(function CodeRabbitReviewContent({
   issues,
   rawContent,
+  repoPath,
   onRegenerate,
   onNewReview,
+  onGoToFile,
   isLoading,
 }: {
   issues: CodeRabbitIssue[];
   rawContent: string;
+  repoPath: string;
   onRegenerate: () => void;
   onNewReview: () => void;
+  onGoToFile: (file: string) => void;
   isLoading: boolean;
 }) {
   const [showRaw, setShowRaw] = useState(false);
@@ -752,6 +868,8 @@ const CodeRabbitReviewContent = memo(function CodeRabbitReviewContent({
           <span className="text-xs px-2 py-0.5 bg-accent-blue/20 text-accent-blue rounded-sm">
             CodeRabbit
           </span>
+          <span className="text-xs text-text-muted">working changes</span>
+          <span className="text-xs text-text-muted">·</span>
           <span className="text-xs text-text-muted">
             {hasIssues
               ? `${issues.length} ${issues.length === 1 ? "issue" : "issues"}`
@@ -813,7 +931,12 @@ const CodeRabbitReviewContent = memo(function CodeRabbitReviewContent({
         ) : hasIssues ? (
           <div className="space-y-3">
             {issues.map((issue, index) => (
-              <CodeRabbitIssueCard key={`${issue.file}-${issue.lines}-${index}`} issue={issue} />
+              <CodeRabbitIssueCard
+                key={`${issue.file}-${issue.lines}-${index}`}
+                issue={issue}
+                repoPath={repoPath}
+                onGoToFile={onGoToFile}
+              />
             ))}
           </div>
         ) : (
@@ -848,8 +971,10 @@ export function AIReviewContent() {
     setAIReviewLoading,
     setAIReviewError,
     clearAIReview,
+    setSelectedFile,
+    setSelectedCommit,
   } = useActiveTabState();
-  const { selectedSkillIds, aiReviewReviewerId } = useUIStore();
+  const { selectedSkillIds, aiReviewReviewerId, cliStatus } = useUIStore();
   const queryClient = useQueryClient();
   const toast = useToast();
 
@@ -906,6 +1031,24 @@ export function AIReviewContent() {
       issuesDismissed: 0,
     });
   }, [clearAIReview]);
+
+  // Navigate to file in diff panel
+  const handleGoToFile = useCallback(
+    (file: string) => {
+      // Set the selected file
+      setSelectedFile(file);
+
+      // Focus the diff panel
+      const api = getDockviewApi();
+      if (api) {
+        const panel = api.getPanel("diff");
+        if (panel) {
+          panel.api.setActive();
+        }
+      }
+    },
+    [setSelectedFile],
+  );
 
   // Reset state when review changes
   useEffect(() => {
@@ -1039,8 +1182,11 @@ export function AIReviewContent() {
     setReviewResult(null);
 
     try {
+      // Only pass commitId for Claude CLI (CodeRabbit only supports working changes)
       const commitId =
-        viewMode === "commit" ? (selectedCommit ?? undefined) : undefined;
+        viewMode === "commit" && supportsCommitReview
+          ? (selectedCommit ?? undefined)
+          : undefined;
       // Only pass skills for Claude CLI
       const skillIds =
         aiReviewReviewerId === "claude-cli" && selectedSkillIds.length > 0
@@ -1081,6 +1227,7 @@ export function AIReviewContent() {
     selectedCommit,
     selectedSkillIds,
     aiReviewReviewerId,
+    supportsCommitReview,
     aiReviewLoading,
     setAIReview,
     setAIReviewLoading,
@@ -1156,10 +1303,25 @@ export function AIReviewContent() {
   const reviewerDisplayName =
     aiReviewReviewerId === "claude-cli" ? "Claude CLI" : "CodeRabbit CLI";
 
+  // Check if selected CLI is available
+  const selectedCLIAvailable =
+    cliStatus === null
+      ? true // Assume available until checked
+      : aiReviewReviewerId === "claude-cli"
+        ? cliStatus.claude.available
+        : cliStatus.coderabbit.available;
+
+  const selectedCLIInstallInstructions =
+    cliStatus === null
+      ? ""
+      : aiReviewReviewerId === "claude-cli"
+        ? cliStatus.claude.installInstructions
+        : cliStatus.coderabbit.installInstructions;
+
   // Empty state - no review yet
   if (!reviewResult && !aiReviewLoading && !aiReviewError && !notRunningReason) {
-    const isCommitMode = viewMode === "commit" && selectedCommit;
-    const showCommitWarning = !supportsCommitReview && isCommitMode;
+    // Claude can review commits, CodeRabbit always reviews working changes
+    const isCommitMode = viewMode === "commit" && selectedCommit && supportsCommitReview;
 
     return (
       <div className="flex flex-col items-center justify-center h-full p-6 text-center">
@@ -1171,10 +1333,60 @@ export function AIReviewContent() {
         <h3 className="text-lg font-medium text-text-primary mb-2">
           AI Code Review
         </h3>
-        <p className="text-sm text-text-muted mb-2 max-w-xs">
-          Generate a PR-style code review for{" "}
-          {isCommitMode ? "this commit" : "your working changes"}.
-        </p>
+
+        {/* CLI not installed warning */}
+        {!selectedCLIAvailable && (
+          <div className="w-full max-w-sm mb-4 p-3 bg-accent-yellow/10 border border-accent-yellow/30 rounded-lg">
+            <div className="flex items-start gap-2">
+              <Warning
+                size={16}
+                weight="fill"
+                className="text-accent-yellow shrink-0 mt-0.5"
+              />
+              <div className="text-left">
+                <p className="text-sm font-medium text-text-primary">
+                  {reviewerDisplayName} not installed
+                </p>
+                <p className="text-xs text-text-muted mt-1">
+                  {selectedCLIInstallInstructions}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* What's being reviewed - prominent indicator */}
+        <div className="w-full max-w-sm mb-4">
+          {isCommitMode ? (
+            <div className="p-3 bg-accent-blue/10 border border-accent-blue/30 rounded-lg">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-left">
+                  <p className="text-xs font-medium text-accent-blue">
+                    Reviewing Commit
+                  </p>
+                  <p className="text-xs text-text-muted font-mono truncate">
+                    {selectedCommit?.slice(0, 8)}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setSelectedCommit(null)}
+                  className="px-2 py-1 text-xs text-accent-blue hover:text-text-primary hover:bg-accent-blue/20 rounded-sm transition-colors"
+                >
+                  Review Working Changes Instead
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 bg-bg-tertiary border border-border-primary rounded-lg">
+              <p className="text-sm text-text-primary">
+                Reviewing <span className="font-medium">Working Changes</span>
+              </p>
+              <p className="text-xs text-text-muted mt-1">
+                Staged and unstaged changes will be analyzed
+              </p>
+            </div>
+          )}
+        </div>
 
         {/* Current reviewer indicator */}
         <p className="text-xs text-text-muted mb-4">
@@ -1185,16 +1397,6 @@ export function AIReviewContent() {
           <span className="text-text-muted"> · Change in Settings</span>
         </p>
 
-        {/* Warning for CodeRabbit in commit mode */}
-        {showCommitWarning && (
-          <div className="w-full max-w-xs mb-4 p-3 bg-accent-yellow/10 border border-accent-yellow/30 rounded-lg text-left">
-            <p className="text-xs text-accent-yellow">
-              <strong>Note:</strong> CodeRabbit CLI only supports working
-              changes. Switch to Claude CLI in Settings to review commits.
-            </p>
-          </div>
-        )}
-
         {/* Skill Selection (Claude only) */}
         {supportsSkills && (
           <div className="w-full max-w-xs mb-4">
@@ -1204,8 +1406,13 @@ export function AIReviewContent() {
 
         <button
           onClick={handleGenerateReview}
-          disabled={!repository || showCommitWarning}
+          disabled={!repository || !selectedCLIAvailable}
           className="px-4 py-2 bg-accent-purple text-white rounded-lg font-medium text-sm hover:bg-accent-purple/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+          title={
+            !selectedCLIAvailable
+              ? `${reviewerDisplayName} is not installed`
+              : undefined
+          }
         >
           <Sparkle size={16} weight="bold" />
           Generate Review
@@ -1290,13 +1497,15 @@ export function AIReviewContent() {
   }
 
   // Parsed CodeRabbit result display
-  if (reviewResult?.kind === "coderabbit") {
+  if (reviewResult?.kind === "coderabbit" && repository) {
     return (
       <CodeRabbitReviewContent
         issues={reviewResult.issues}
         rawContent={reviewResult.rawContent}
+        repoPath={repository.path}
         onRegenerate={handleGenerateReview}
         onNewReview={handleNewReview}
+        onGoToFile={handleGoToFile}
         isLoading={aiReviewLoading}
       />
     );
@@ -1318,14 +1527,26 @@ export function AIReviewContent() {
   const totalSelected = selectedIssues.size;
   const activeIssuesCount = aiReview!.issues.length - dismissedIssues.size;
 
+  // What was reviewed for this result
+  const reviewedCommit = viewMode === "commit" && selectedCommit;
+
   // Structured review display (Claude)
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border-primary bg-bg-secondary">
-        <span className="text-xs px-2 py-0.5 bg-accent-purple/20 text-accent-purple rounded-sm">
-          Claude
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs px-2 py-0.5 bg-accent-purple/20 text-accent-purple rounded-sm">
+            Claude
+          </span>
+          {reviewedCommit ? (
+            <span className="text-xs text-text-muted">
+              commit <span className="font-mono text-accent-blue">{selectedCommit?.slice(0, 7)}</span>
+            </span>
+          ) : (
+            <span className="text-xs text-text-muted">working changes</span>
+          )}
+        </div>
         <div className="flex items-center gap-1">
           <button
             onClick={handleNewReview}
@@ -1431,6 +1652,7 @@ export function AIReviewContent() {
                 onToggleSelect={() => handleToggleIssue(issue.id)}
                 onFix={() => handleFixSingle(issue.id)}
                 onDismiss={() => handleDismissIssue(issue.id)}
+                onGoToFile={handleGoToFile}
                 isFixing={isFixing}
               />
             ))}

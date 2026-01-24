@@ -37,6 +37,7 @@ import {
 } from "../../../lib/tauri";
 import { FileContextMenu } from "../../../components/ui";
 import { useTabsStore, useActiveTabState } from "../../../stores/tabs-store";
+import { useUIStore } from "../../../stores/ui-store";
 import { usePanelFontSize } from "../../../stores/ui-store";
 import type { FileStatus, StashEntry } from "../../../types/git";
 
@@ -288,7 +289,11 @@ export function StagingSidebar() {
     setAmendPreviousCommit,
     clearCommitForm,
   } = useActiveTabState();
+  const { cliStatus } = useUIStore();
   const panelFontSize = usePanelFontSize();
+
+  // Check if Claude CLI is available for commit message generation
+  const claudeAvailable = cliStatus?.claude.available ?? true; // Assume available until checked
   const queryClient = useQueryClient();
 
   const [unstagedExpanded, setUnstagedExpanded] = useState(true);
@@ -767,9 +772,15 @@ export function StagingSidebar() {
               />
               <button
                 onClick={handleGenerateMessage}
-                disabled={stagedFiles.length === 0 || isGenerating}
+                disabled={
+                  stagedFiles.length === 0 || isGenerating || !claudeAvailable
+                }
                 className="px-2 py-1.5 bg-accent-purple text-white rounded-sm text-xs hover:bg-accent-purple/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
-                title="Generate commit message with AI"
+                title={
+                  !claudeAvailable
+                    ? `Claude CLI not installed: ${cliStatus?.claude.installInstructions}`
+                    : "Generate commit message with AI"
+                }
               >
                 {isGenerating ? (
                   <CircleNotch

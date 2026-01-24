@@ -13,6 +13,7 @@ export {
   SkeletonDiff,
 } from "./LoadingSpinner";
 export { ToastProvider, useToast } from "./Toast";
+export { UndoToast } from "./UndoToast";
 export { TabBar } from "./TabBar";
 export {
   ErrorBoundary,

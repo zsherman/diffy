@@ -635,6 +635,108 @@ pub fn reset_hard(repo_path: &str, commit_id: &str) -> Result<String, GitError> 
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SquashResult {
+    pub new_commit_id: String,
+    pub previous_head_id: String,
+}
+
+/// Squash multiple commits into one using soft reset approach.
+/// 
+/// commit_ids must be ordered from oldest to newest, and the newest must be HEAD.
+/// The function will:
+/// 1. Validate the working tree is clean
+/// 2. Store the current HEAD for undo
+/// 3. Find the parent of the oldest commit
+/// 4. Soft reset to that parent (keeps all changes staged)
+/// 5. Create a new commit with the provided message
+pub fn squash_commits(repo_path: &str, commit_ids: Vec<String>, message: &str) -> Result<SquashResult, GitError> {
+    if commit_ids.len() < 2 {
+        return Err(git2::Error::from_str("At least 2 commits are required for squash").into());
+    }
+
+    let repo = open_repo(repo_path)?;
+    
+    // Get current HEAD for undo
+    let head = repo.head()?;
+    let head_commit = head.peel_to_commit()?;
+    let previous_head_id = head_commit.id().to_string();
+    
+    // Verify the newest commit is HEAD
+    let newest_commit_id = commit_ids.last().unwrap();
+    if !previous_head_id.starts_with(newest_commit_id) && newest_commit_id != &previous_head_id {
+        return Err(git2::Error::from_str(
+            "The newest commit in the selection must be HEAD. Squashing non-HEAD commits is not supported."
+        ).into());
+    }
+    
+    // Check for uncommitted changes
+    let status = get_status(&repo)?;
+    if !status.staged.is_empty() || !status.unstaged.is_empty() {
+        return Err(git2::Error::from_str(
+            "Cannot squash with uncommitted changes. Please commit or stash your changes first."
+        ).into());
+    }
+    
+    // Find the parent of the oldest commit
+    let oldest_commit_id = &commit_ids[0];
+    let oldest_commit = repo.find_commit(git2::Oid::from_str(oldest_commit_id)?)?;
+    
+    // Get the parent commit (if exists)
+    let parent_id = if oldest_commit.parent_count() > 0 {
+        oldest_commit.parent_id(0)?.to_string()
+    } else {
+        // This is the root commit - we need to handle this differently
+        // For now, we'll return an error as squashing from root is complex
+        return Err(git2::Error::from_str(
+            "Cannot squash commits including the root commit"
+        ).into());
+    };
+    
+    // Soft reset to the parent of the oldest commit
+    // This keeps all changes staged
+    let output = git_command()
+        .args(["reset", "--soft", &parent_id])
+        .current_dir(repo_path)
+        .output()
+        .map_err(|e| git2::Error::from_str(&format!("Failed to run git reset --soft: {}", e)))?;
+    
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(git2::Error::from_str(&format!("git reset --soft failed: {}", stderr)).into());
+    }
+    
+    // Create the new squashed commit
+    let output = git_command()
+        .args(["commit", "-m", message])
+        .current_dir(repo_path)
+        .output()
+        .map_err(|e| git2::Error::from_str(&format!("Failed to run git commit: {}", e)))?;
+    
+    if !output.status.success() {
+        // If commit fails, try to restore the previous state
+        let _ = git_command()
+            .args(["reset", "--hard", &previous_head_id])
+            .current_dir(repo_path)
+            .output();
+        
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(git2::Error::from_str(&format!("git commit failed: {}", stderr)).into());
+    }
+    
+    // Get the new commit ID
+    let repo = open_repo(repo_path)?; // Reopen to get fresh state
+    let new_head = repo.head()?;
+    let new_commit = new_head.peel_to_commit()?;
+    let new_commit_id = new_commit.id().to_string();
+    
+    Ok(SquashResult {
+        new_commit_id,
+        previous_head_id,
+    })
+}
+
 // Worktree types and functions
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]

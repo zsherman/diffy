@@ -31,6 +31,7 @@ export interface RepoTabState {
   // Selection state
   selectedBranch: string | null;
   selectedCommit: string | null;
+  selectedCommits: string[]; // Multi-selection for squash
   selectedFile: string | null;
 
   // Filters
@@ -128,6 +129,7 @@ function createTabState(repository: RepositoryInfo): RepoTabState {
     repository,
     selectedBranch: null,
     selectedCommit: null,
+    selectedCommits: [],
     selectedFile: null,
     branchFilter: "",
     commitFilter: "",
@@ -263,6 +265,46 @@ export const tabsStore = createStore({
           tab.aiReviewError = null;
           tab.reviewResult = null;
           tab.reviewError = null;
+        }
+      }),
+
+    // Multi-select commits for squash
+    toggleCommitSelection: (ctx, event: { commitId: string }) =>
+      produce(ctx, (draft) => {
+        const tab = draft.tabs.find(
+          (t) => t.repository.path === draft.activeTabPath,
+        );
+        if (tab) {
+          const index = tab.selectedCommits.indexOf(event.commitId);
+          if (index >= 0) {
+            // Remove from selection
+            tab.selectedCommits.splice(index, 1);
+          } else {
+            // Add to selection
+            tab.selectedCommits.push(event.commitId);
+          }
+        }
+      }),
+
+    // Select a range of commits (for shift+click)
+    setSelectedCommits: (ctx, event: { commitIds: string[] }) =>
+      produce(ctx, (draft) => {
+        const tab = draft.tabs.find(
+          (t) => t.repository.path === draft.activeTabPath,
+        );
+        if (tab) {
+          tab.selectedCommits = event.commitIds;
+        }
+      }),
+
+    // Clear multi-selection
+    clearCommitSelection: (ctx) =>
+      produce(ctx, (draft) => {
+        const tab = draft.tabs.find(
+          (t) => t.repository.path === draft.activeTabPath,
+        );
+        if (tab) {
+          tab.selectedCommits = [];
         }
       }),
 
@@ -784,12 +826,14 @@ export function useActiveTabView() {
 type SelectionState = {
   selectedBranch: string | null;
   selectedCommit: string | null;
+  selectedCommits: string[];
   selectedFile: string | null;
   selectedWorktree: string | null;
 };
 const DEFAULT_SELECTION_STATE: SelectionState = {
   selectedBranch: null,
   selectedCommit: null,
+  selectedCommits: [],
   selectedFile: null,
   selectedWorktree: null,
 };
@@ -805,6 +849,7 @@ export function useActiveTabSelection() {
         ? {
             selectedBranch: tab.selectedBranch,
             selectedCommit: tab.selectedCommit,
+            selectedCommits: tab.selectedCommits,
             selectedFile: tab.selectedFile,
             selectedWorktree: tab.selectedWorktree,
           }
@@ -813,12 +858,18 @@ export function useActiveTabSelection() {
     (a, b) =>
       a.selectedBranch === b.selectedBranch &&
       a.selectedCommit === b.selectedCommit &&
+      a.selectedCommits === b.selectedCommits &&
       a.selectedFile === b.selectedFile &&
       a.selectedWorktree === b.selectedWorktree,
   );
 
-  const { selectedBranch, selectedCommit, selectedFile, selectedWorktree } =
-    selection;
+  const {
+    selectedBranch,
+    selectedCommit,
+    selectedCommits,
+    selectedFile,
+    selectedWorktree,
+  } = selection;
 
   const updateActiveTab = useCallback(
     (updates: Partial<Omit<RepoTabState, "repository">>) =>
@@ -844,15 +895,35 @@ export function useActiveTabSelection() {
     [updateActiveTab],
   );
 
+  // Multi-selection actions
+  const toggleCommitSelection = useCallback(
+    (commitId: string) =>
+      tabsStore.send({ type: "toggleCommitSelection", commitId }),
+    [],
+  );
+  const setSelectedCommits = useCallback(
+    (commitIds: string[]) =>
+      tabsStore.send({ type: "setSelectedCommits", commitIds }),
+    [],
+  );
+  const clearCommitSelection = useCallback(
+    () => tabsStore.send({ type: "clearCommitSelection" }),
+    [],
+  );
+
   return {
     selectedBranch,
     selectedCommit,
+    selectedCommits,
     selectedFile,
     selectedWorktree,
     setSelectedBranch,
     setSelectedCommit,
     setSelectedFile,
     setSelectedWorktree,
+    toggleCommitSelection,
+    setSelectedCommits,
+    clearCommitSelection,
   };
 }
 
@@ -1067,12 +1138,16 @@ export function useActiveTabState() {
     // Selection state
     selectedBranch: selection.selectedBranch,
     selectedCommit: selection.selectedCommit,
+    selectedCommits: selection.selectedCommits,
     selectedFile: selection.selectedFile,
     selectedWorktree: selection.selectedWorktree,
     setSelectedBranch: selection.setSelectedBranch,
     setSelectedCommit: selection.setSelectedCommit,
     setSelectedFile: selection.setSelectedFile,
     setSelectedWorktree: selection.setSelectedWorktree,
+    toggleCommitSelection: selection.toggleCommitSelection,
+    setSelectedCommits: selection.setSelectedCommits,
+    clearCommitSelection: selection.clearCommitSelection,
 
     // Filter state
     branchFilter: filters.branchFilter,
