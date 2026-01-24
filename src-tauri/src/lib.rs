@@ -62,6 +62,7 @@ pub fn run() {
             commands::generate_contributor_review,
             commands::fix_ai_review_issues,
             commands::fix_coderabbit_issue,
+            commands::generate_diagram,
             commands::list_worktrees,
             commands::create_worktree,
             commands::remove_worktree,

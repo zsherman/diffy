@@ -443,6 +443,11 @@ export async function fixCodeRabbitIssue(
   return invoke<string>("fix_coderabbit_issue", { repoPath, issue });
 }
 
+// Generate Mermaid diagram from working changes using Claude
+export async function generateDiagram(repoPath: string): Promise<string> {
+  return invoke<string>("generate_diagram", { repoPath });
+}
+
 // Contributor Review
 export interface ContributorReviewRequest {
   contributorName: string;

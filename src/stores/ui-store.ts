@@ -591,6 +591,10 @@ export function useUIStore() {
     tabsStore,
     (s) => getActiveTabPanels(s).showReflogPanel,
   );
+  const showMermaidChangesPanel = useSelector(
+    tabsStore,
+    (s) => getActiveTabPanels(s).showMermaidChangesPanel,
+  );
 
   // Memoize all actions to prevent infinite loops when used in useEffect dependencies
   const setTheme = useCallback(
@@ -749,6 +753,14 @@ export function useUIStore() {
     () => tabsStore.send({ type: "toggleReflogPanel" }),
     [],
   );
+  const setShowMermaidChangesPanel = useCallback(
+    (show: boolean) => tabsStore.send({ type: "setShowMermaidChangesPanel", show }),
+    [],
+  );
+  const toggleMermaidChangesPanel = useCallback(
+    () => tabsStore.send({ type: "toggleMermaidChangesPanel" }),
+    [],
+  );
 
   // Batch panel sync action
   const syncPanels = useCallback(
@@ -788,6 +800,7 @@ export function useUIStore() {
     showGraphPanel,
     showMergeConflictPanel,
     showReflogPanel,
+    showMermaidChangesPanel,
 
     // Global actions (memoized)
     setTheme,
@@ -828,6 +841,8 @@ export function useUIStore() {
     toggleMergeConflictPanel,
     setShowReflogPanel,
     toggleReflogPanel,
+    setShowMermaidChangesPanel,
+    toggleMermaidChangesPanel,
     syncPanels,
   };
 }

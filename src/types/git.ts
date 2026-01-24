@@ -100,7 +100,8 @@ export type PanelId =
   | "worktrees"
   | "graph"
   | "merge-conflict"
-  | "reflog";
+  | "reflog"
+  | "mermaid-changes";
 
 export interface RefInfo {
   name: string;

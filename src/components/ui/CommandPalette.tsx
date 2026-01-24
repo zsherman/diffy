@@ -22,6 +22,7 @@ import {
   Sun,
   Moon,
   TreeStructure,
+  FlowArrow,
   Plus,
   BookBookmark,
   Trash,
@@ -88,6 +89,7 @@ export function CommandPalette() {
     showStagingSidebar,
     showAIReviewPanel,
     showWorktreesPanel,
+    showMermaidChangesPanel,
     theme,
     diffViewMode,
     diffFontSize,
@@ -102,6 +104,7 @@ export function CommandPalette() {
     toggleWorktreesPanel,
     setShowWorktreesPanel,
     setShowMergeConflictPanel,
+    setShowMermaidChangesPanel,
     setTheme,
     setDiffViewMode,
     setDiffFontSize,
@@ -770,6 +773,19 @@ export function CommandPalette() {
                       {showWorktreesPanel ? "Hide" : "Show"}
                     </span>
                   </Command.Item>
+
+                  <Command.Item
+                    onSelect={() =>
+                      runCommand(() => setShowMermaidChangesPanel(!showMermaidChangesPanel))
+                    }
+                    className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  >
+                    <FlowArrow size={16} className="text-text-muted" />
+                    <span className="flex-1">Toggle Changes Diagram Panel</span>
+                    <span className="text-xs text-text-muted">
+                      {showMermaidChangesPanel ? "Hide" : "Show"}
+                    </span>
+                  </Command.Item>
                 </Command.Group>
 
                 {/* Repository Group - Switch/Close repos */}
@@ -987,6 +1003,20 @@ export function CommandPalette() {
                   >
                     <TreeStructure size={16} className="text-text-muted" />
                     <span className="flex-1">Go to Worktrees</span>
+                  </Command.Item>
+
+                  <Command.Item
+                    onSelect={() =>
+                      runCommand(() => {
+                        setShowMermaidChangesPanel(true);
+                        setActivePanel("mermaid-changes");
+                        focusPanel("mermaid-changes");
+                      })
+                    }
+                    className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  >
+                    <FlowArrow size={16} className="text-text-muted" />
+                    <span className="flex-1">Go to Changes Diagram</span>
                   </Command.Item>
                 </Command.Group>
 

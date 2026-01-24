@@ -31,6 +31,7 @@ import {
   GraphPanel,
   MergeConflictPanel,
   ReflogPanel,
+  MermaidChangesPanel,
 } from "./panels";
 import { DockviewHeaderActions } from "./DockviewHeaderActions";
 import { DockviewTab } from "./DockviewTab";
@@ -66,6 +67,7 @@ const components = {
   graph: GraphPanel,
   "merge-conflict": MergeConflictPanel,
   reflog: ReflogPanel,
+  "mermaid-changes": MermaidChangesPanel,
 };
 
 // Apply a layout preset by ID (without triggering store sync - that's handled separately)
@@ -227,6 +229,7 @@ function syncPanelsFromDockview(api: DockviewApi): PanelVisibility {
     showStagingSidebar: api.getPanel("staging") !== undefined,
     showWorktreesPanel: api.getPanel("worktrees") !== undefined,
     showReflogPanel: api.getPanel("reflog") !== undefined,
+    showMermaidChangesPanel: api.getPanel("mermaid-changes") !== undefined,
   };
   trace("syncPanelsFromDockview", () => {
     tabsStore.send({ type: "syncPanels", panels });
@@ -383,6 +386,19 @@ function reconcilePanels(api: DockviewApi, desired: PanelVisibility) {
           : { direction: "left" };
       },
     },
+    {
+      id: "mermaid-changes",
+      component: "mermaid-changes",
+      title: "Changes Diagram",
+      showKey: "showMermaidChangesPanel",
+      getPosition: () => {
+        const diff = api.getPanel("diff");
+        const staging = api.getPanel("staging");
+        if (staging) return { referencePanel: staging, direction: "within" };
+        if (diff) return { referencePanel: diff, direction: "right" };
+        return { direction: "right" };
+      },
+    },
   ];
 
   // Reconcile each panel
@@ -438,13 +454,14 @@ export const DockviewLayout = memo(function DockviewLayout() {
     showGraphPanel,
     showMergeConflictPanel,
     showReflogPanel,
+    showMermaidChangesPanel,
   } = useActiveTabPanels();
 
   // Track renders with change detection (only when perf tracing enabled)
   const perfEnabled = isPerfTracingEnabled();
   if (perfEnabled) {
     renderCount++;
-    const panelsKey = `${showBranchesPanel}-${showFilesPanel}-${showFileTreePanel}-${showDiffPanel}-${showStagingSidebar}-${showAIReviewPanel}-${showWorktreesPanel}-${showGraphPanel}-${showMergeConflictPanel}-${showReflogPanel}`;
+    const panelsKey = `${showBranchesPanel}-${showFilesPanel}-${showFileTreePanel}-${showDiffPanel}-${showStagingSidebar}-${showAIReviewPanel}-${showWorktreesPanel}-${showGraphPanel}-${showMergeConflictPanel}-${showReflogPanel}-${showMermaidChangesPanel}`;
     const changes: string[] = [];
     if (prevTheme !== theme) changes.push(`theme: ${prevTheme} -> ${theme}`);
     if (prevActiveTabPath !== activeTabPath)
@@ -514,6 +531,7 @@ export const DockviewLayout = memo(function DockviewLayout() {
     showGraphPanel,
     showMergeConflictPanel,
     showReflogPanel,
+    showMermaidChangesPanel,
   };
 
   const onReady = useCallback((event: DockviewReadyEvent) => {
@@ -756,7 +774,8 @@ export const DockviewLayout = memo(function DockviewLayout() {
       lastPanels.showWorktreesPanel === desiredPanels.showWorktreesPanel &&
       lastPanels.showGraphPanel === desiredPanels.showGraphPanel &&
       lastPanels.showMergeConflictPanel === desiredPanels.showMergeConflictPanel &&
-      lastPanels.showReflogPanel === desiredPanels.showReflogPanel
+      lastPanels.showReflogPanel === desiredPanels.showReflogPanel &&
+      lastPanels.showMermaidChangesPanel === desiredPanels.showMermaidChangesPanel
     ) {
       if (isPerfTracingEnabled())
         console.log("[perf] Reconcile Effect skipped (no change)");
@@ -813,6 +832,10 @@ export const DockviewLayout = memo(function DockviewLayout() {
         changes.push(
           `reflog: ${lastPanels.showReflogPanel} -> ${desiredPanels.showReflogPanel}`,
         );
+      if (lastPanels.showMermaidChangesPanel !== desiredPanels.showMermaidChangesPanel)
+        changes.push(
+          `mermaidChanges: ${lastPanels.showMermaidChangesPanel} -> ${desiredPanels.showMermaidChangesPanel}`,
+        );
       console.log("[perf] Panel changes:", changes.join(", ") || "(initial)");
     }
 
@@ -838,6 +861,7 @@ export const DockviewLayout = memo(function DockviewLayout() {
     showGraphPanel,
     showMergeConflictPanel,
     showReflogPanel,
+    showMermaidChangesPanel,
   ]);
 
   return (

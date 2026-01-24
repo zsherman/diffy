@@ -2619,3 +2619,85 @@ pub async fn stop_watching(state: tauri::State<'_, WatcherState>) -> Result<()> 
         .unwatch()
         .map_err(|e| AppError::io(format!("Failed to stop watcher: {}", e)))
 }
+
+/// Generate a Mermaid sequence diagram from working changes using Claude CLI
+#[tauri::command]
+#[instrument(skip_all, fields(repo_path = %repo_path), err(Debug))]
+pub async fn generate_diagram(repo_path: String) -> Result<String> {
+    tokio::task::spawn_blocking(move || {
+        let repo = git::open_repo(&repo_path)?;
+
+        // Get both staged and unstaged changes
+        let staged_diff = git::get_working_diff(&repo, true)?;
+        let unstaged_diff = git::get_working_diff(&repo, false)?;
+
+        let combined_patch = format!(
+            "=== STAGED CHANGES ===\n{}\n\n=== UNSTAGED CHANGES ===\n{}",
+            staged_diff.patch, unstaged_diff.patch
+        );
+
+        if combined_patch.trim().is_empty() || 
+           (staged_diff.patch.is_empty() && unstaged_diff.patch.is_empty()) {
+            return Err(AppError::validation("No changes to analyze"));
+        }
+
+        // Truncate if too long (keep first ~50k chars)
+        let truncated_diff = if combined_patch.len() > 50000 {
+            format!(
+                "{}\n\n... (truncated, {} more characters)",
+                &combined_patch[..50000],
+                combined_patch.len() - 50000
+            )
+        } else {
+            combined_patch
+        };
+
+        let prompt = format!(
+            r#"Analyze this git diff and generate a Mermaid sequence diagram showing the key interactions and data flow in the changed code. Focus on:
+1. Which components/modules/functions are involved
+2. How they communicate or pass data
+3. The order of operations
+
+Return ONLY valid Mermaid code starting with "sequenceDiagram" - no markdown fences, no explanation, just the diagram code.
+
+If the changes are primarily configuration, styling, or don't have meaningful interactions to diagram, generate a simple flowchart instead starting with "flowchart TB" showing what was changed and why.
+
+Git diff:
+```
+{diff}
+```"#,
+            diff = truncated_diff
+        );
+
+        // Call claude CLI
+        let claude_path = find_claude_binary()?;
+        let output = Command::new(&claude_path)
+            .args(["-p", &prompt])
+            .output()
+            .map_err(|e| AppError::ai(format!("Failed to run claude at {:?}: {}", claude_path, e)))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(AppError::ai(format!("Claude failed: {}", stderr)));
+        }
+
+        let response = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+        if response.is_empty() {
+            return Err(AppError::ai("Claude returned an empty response"));
+        }
+
+        // Clean up the response - remove markdown fences if present
+        let diagram = response
+            .trim()
+            .trim_start_matches("```mermaid")
+            .trim_start_matches("```")
+            .trim_end_matches("```")
+            .trim()
+            .to_string();
+
+        Ok(diagram)
+    })
+    .await
+    .map_err(|e| AppError::io(format!("Task join error: {}", e)))?
+}

@@ -11,6 +11,8 @@ import {
   ChartBar,
   GitMerge,
   ClockCounterClockwise,
+  FlowArrow,
+  TreeStructure,
   type IconProps,
 } from '@phosphor-icons/react';
 import { useActiveTabAIReview } from '../../stores/tabs-store';
@@ -20,6 +22,7 @@ type IconComponent = React.ComponentType<IconProps>;
 const panelIcons: Record<string, IconComponent> = {
   commits: GitCommit,
   files: Files,
+  'file-tree': TreeStructure,
   diff: FileCode,
   branches: GitBranch,
   staging: Tray,
@@ -28,6 +31,7 @@ const panelIcons: Record<string, IconComponent> = {
   graph: ChartBar,
   'merge-conflict': GitMerge,
   reflog: ClockCounterClockwise,
+  'mermaid-changes': FlowArrow,
 };
 
 // Status indicator for AI Review panel

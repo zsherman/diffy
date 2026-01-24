@@ -35,3 +35,4 @@ export {
   getStatusLabel,
   getStatusTooltip,
 } from "./FileStatusIndicator";
+export { MermaidRenderer } from "./MermaidRenderer";

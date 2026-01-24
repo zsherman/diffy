@@ -22,6 +22,7 @@ export interface PanelVisibility {
   showGraphPanel: boolean;
   showMergeConflictPanel: boolean;
   showReflogPanel: boolean;
+  showMermaidChangesPanel: boolean;
 }
 
 // Per-repository tab state
@@ -123,6 +124,7 @@ const DEFAULT_PANELS: PanelVisibility = {
   showGraphPanel: false,
   showMergeConflictPanel: false,
   showReflogPanel: false,
+  showMermaidChangesPanel: false,
 };
 
 // Create default tab state for a repository
@@ -476,6 +478,22 @@ export const tabsStore = createStore({
         if (tab) tab.panels.showReflogPanel = !tab.panels.showReflogPanel;
       }),
 
+    setShowMermaidChangesPanel: (ctx, event: { show: boolean }) =>
+      produce(ctx, (draft) => {
+        const tab = draft.tabs.find(
+          (t) => t.repository.path === draft.activeTabPath,
+        );
+        if (tab) tab.panels.showMermaidChangesPanel = event.show;
+      }),
+
+    toggleMermaidChangesPanel: (ctx) =>
+      produce(ctx, (draft) => {
+        const tab = draft.tabs.find(
+          (t) => t.repository.path === draft.activeTabPath,
+        );
+        if (tab) tab.panels.showMermaidChangesPanel = !tab.panels.showMermaidChangesPanel;
+      }),
+
     // Save dockview layout for current tab
     saveDockviewLayout: (ctx, event: { layout: unknown }) =>
       produce(ctx, (draft) => {
@@ -649,6 +667,7 @@ const DEFAULT_PANEL_STATE: PanelVisibility = {
   showGraphPanel: false,
   showMergeConflictPanel: false,
   showReflogPanel: false,
+  showMermaidChangesPanel: false,
 };
 
 // Shallow equality check for panel visibility
@@ -664,7 +683,8 @@ function panelsEqual(a: PanelVisibility, b: PanelVisibility): boolean {
     a.showWorktreesPanel === b.showWorktreesPanel &&
     a.showGraphPanel === b.showGraphPanel &&
     a.showMergeConflictPanel === b.showMergeConflictPanel &&
-    a.showReflogPanel === b.showReflogPanel
+    a.showReflogPanel === b.showReflogPanel &&
+    a.showMermaidChangesPanel === b.showMermaidChangesPanel
   );
 }
 
@@ -691,6 +711,7 @@ export function useActiveTabPanels() {
     showGraphPanel,
     showMergeConflictPanel,
     showReflogPanel,
+    showMermaidChangesPanel,
   } = panels;
 
   // Panel actions (memoized)
@@ -776,6 +797,14 @@ export function useActiveTabPanels() {
     () => tabsStore.send({ type: "toggleReflogPanel" }),
     [],
   );
+  const setShowMermaidChangesPanel = useCallback(
+    (show: boolean) => tabsStore.send({ type: "setShowMermaidChangesPanel", show }),
+    [],
+  );
+  const toggleMermaidChangesPanel = useCallback(
+    () => tabsStore.send({ type: "toggleMermaidChangesPanel" }),
+    [],
+  );
 
   return {
     showCommitsPanel,
@@ -789,6 +818,7 @@ export function useActiveTabPanels() {
     showGraphPanel,
     showMergeConflictPanel,
     showReflogPanel,
+    showMermaidChangesPanel,
     syncPanels,
     setShowCommitsPanel,
     toggleCommitsPanel,
@@ -809,6 +839,8 @@ export function useActiveTabPanels() {
     toggleMergeConflictPanel,
     setShowReflogPanel,
     toggleReflogPanel,
+    setShowMermaidChangesPanel,
+    toggleMermaidChangesPanel,
   };
 }
 
@@ -1243,6 +1275,9 @@ export function useActiveTabState() {
     toggleGraphPanel: panels.toggleGraphPanel,
     setShowMergeConflictPanel: panels.setShowMergeConflictPanel,
     toggleMergeConflictPanel: panels.toggleMergeConflictPanel,
+    showMermaidChangesPanel: panels.showMermaidChangesPanel,
+    setShowMermaidChangesPanel: panels.setShowMermaidChangesPanel,
+    toggleMermaidChangesPanel: panels.toggleMermaidChangesPanel,
 
     // Dockview layout
     dockviewLayout,

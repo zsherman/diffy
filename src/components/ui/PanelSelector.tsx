@@ -17,6 +17,7 @@ import {
   BookmarkSimple,
   GitFork,
   ClockCounterClockwise,
+  FlowArrow,
 } from "@phosphor-icons/react";
 import { useActiveTabPanels } from "../../stores/tabs-store";
 import { applyLayout } from "../../lib/layouts";
@@ -110,6 +111,7 @@ export function PanelSelector() {
     showGraphPanel,
     showWorktreesPanel,
     showReflogPanel,
+    showMermaidChangesPanel,
     toggleCommitsPanel,
     toggleGraphPanel,
     setShowFilesPanel,
@@ -118,6 +120,7 @@ export function PanelSelector() {
     toggleStagingSidebar,
     toggleWorktreesPanel,
     toggleReflogPanel,
+    toggleMermaidChangesPanel,
   } = useActiveTabPanels();
 
   // Load saved layouts on mount
@@ -189,6 +192,14 @@ export function PanelSelector() {
       isActive: showReflogPanel,
       toggle: toggleReflogPanel,
       keywords: ["history", "undo", "timeline", "log"],
+    },
+    {
+      id: "mermaid-changes",
+      label: "Changes Diagram",
+      icon: <FlowArrow size={15} />,
+      isActive: showMermaidChangesPanel,
+      toggle: toggleMermaidChangesPanel,
+      keywords: ["mermaid", "diagram", "flowchart", "mindmap", "visual", "changes"],
     },
   ];
 
