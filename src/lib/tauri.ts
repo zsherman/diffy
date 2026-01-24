@@ -303,6 +303,27 @@ export async function gitPush(repoPath: string): Promise<string> {
   return invoke<string>("git_push", { repoPath });
 }
 
+export async function checkoutCommit(
+  repoPath: string,
+  commitId: string,
+): Promise<string> {
+  return invoke<string>("checkout_commit", { repoPath, commitId });
+}
+
+export async function cherryPick(
+  repoPath: string,
+  commitId: string,
+): Promise<string> {
+  return invoke<string>("cherry_pick", { repoPath, commitId });
+}
+
+export async function resetHard(
+  repoPath: string,
+  commitId: string,
+): Promise<string> {
+  return invoke<string>("reset_hard", { repoPath, commitId });
+}
+
 // Commit
 export async function createCommit(
   repoPath: string,

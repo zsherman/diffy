@@ -311,6 +311,7 @@ export function GraphTableView() {
               isSelected={selectedCommit === commit.id}
               isFocused={index === focusedIndex}
               onClick={() => handleCommitClick(commit, index)}
+              repoPath={repository?.path ?? ""}
             />
           ))}
           {isFetchingNextPage && (

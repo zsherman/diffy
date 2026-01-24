@@ -3,6 +3,7 @@ import { createTwoFilesPatch } from 'diff';
 import { parsePatchFiles } from '@pierre/diffs';
 import { FileDiff } from '@pierre/diffs/react';
 import { useUIStore } from '../../../stores/ui-store';
+import { getTheme, isLightTheme } from '../../../lib/themes';
 
 interface ConflictDiffViewProps {
   filePath: string;
@@ -16,7 +17,8 @@ export function ConflictDiffView({
   theirsContent,
 }: ConflictDiffViewProps) {
   const { theme, diffViewMode, diffFontSize } = useUIStore();
-  const themeType = theme === 'pierre-light' ? 'light' : 'dark';
+  const diffsTheme = getTheme(theme)?.diffsTheme ?? 'pierre-dark';
+  const themeType = isLightTheme(theme) ? 'light' : 'dark';
 
   // Generate a unified diff patch between ours and theirs
   const parsedDiff = useMemo(() => {
@@ -58,6 +60,7 @@ export function ConflictDiffView({
         fileDiff={parsedDiff}
         options={{
           diffStyle: diffViewMode === 'split' ? 'split' : 'unified',
+          theme: diffsTheme,
           themeType,
           disableFileHeader: true,
         }}

@@ -11,6 +11,7 @@ import {
   setDockviewApi,
   isPerfTracingEnabled,
 } from "../../stores/ui-store";
+import { isLightTheme } from "../../lib/themes";
 import {
   useActiveTabPath,
   useActiveTabPanels,
@@ -795,7 +796,7 @@ export const DockviewLayout = memo(function DockviewLayout() {
       components={components}
       onReady={onReady}
       className={
-        theme === "pierre-light"
+        isLightTheme(theme)
           ? "dockview-theme-light"
           : "dockview-theme-dark"
       }

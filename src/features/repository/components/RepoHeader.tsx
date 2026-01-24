@@ -220,10 +220,13 @@ export function RepoHeader() {
         "branches",
         "commits",
         "status",
-        "aheadBehind",
         "working-diff-staged",
         "working-diff-unstaged",
       ]);
+      // Refetch aheadBehind immediately to update badge
+      await queryClient.refetchQueries({
+        queryKey: ["aheadBehind", repository.path],
+      });
     } catch (error) {
       console.error("Pull failed:", error);
       toast.error("Pull failed", getErrorMessage(error));
@@ -243,9 +246,12 @@ export function RepoHeader() {
         "branches",
         "commits",
         "status",
-        "aheadBehind",
         "graph",
       ]);
+      // Refetch aheadBehind immediately to update badge
+      await queryClient.refetchQueries({
+        queryKey: ["aheadBehind", repository.path],
+      });
     } catch (error) {
       console.error("Push failed:", error);
       toast.error("Push failed", getErrorMessage(error));

@@ -9,6 +9,7 @@ import { useTabsStore, useActiveTabState } from "../../../stores/tabs-store";
 import { useDiffSettings } from "../../../stores/ui-store";
 import { LoadingSpinner, SkeletonDiff, FileContextMenu } from "../../../components/ui";
 import { createMountLogger } from "../../../lib/perf";
+import { getTheme, isLightTheme } from "../../../lib/themes";
 
 // Threshold for auto-collapsing large diffs
 const LARGE_DIFF_THRESHOLD = 500;
@@ -41,6 +42,7 @@ const CollapsibleFileDiff = memo(function CollapsibleFileDiff({
   diffStyle,
   defaultCollapsed,
   fontSize,
+  diffsTheme,
   themeType,
   repoPath,
 }: {
@@ -49,6 +51,7 @@ const CollapsibleFileDiff = memo(function CollapsibleFileDiff({
   diffStyle: "split" | "unified";
   defaultCollapsed?: boolean;
   fontSize: number;
+  diffsTheme: string;
   themeType: "light" | "dark";
   repoPath: string;
 }) {
@@ -127,6 +130,7 @@ const CollapsibleFileDiff = memo(function CollapsibleFileDiff({
             fileDiff={fileDiff}
             options={{
               diffStyle,
+              theme: diffsTheme,
               themeType,
               disableFileHeader: true,
             }}
@@ -144,6 +148,7 @@ function SingleFileDiff({
   filePath,
   diffViewMode,
   fontSize,
+  diffsTheme,
   themeType,
 }: {
   repoPath: string;
@@ -151,6 +156,7 @@ function SingleFileDiff({
   filePath: string;
   diffViewMode: "split" | "unified";
   fontSize: number;
+  diffsTheme: string;
   themeType: "light" | "dark";
 }) {
   const { data: fileDiff, isLoading } = useQuery({
@@ -194,6 +200,7 @@ function SingleFileDiff({
         fileDiff={parsedFile}
         options={{
           diffStyle: diffViewMode === "split" ? "split" : "unified",
+          theme: diffsTheme,
           themeType,
         }}
       />
@@ -206,7 +213,9 @@ export function DiffViewer() {
   const { selectedCommit, selectedFile } = useActiveTabState();
   // Use focused hook - avoids re-render when unrelated UI state changes
   const { theme, diffViewMode, diffFontSize } = useDiffSettings();
-  const themeType = theme === "pierre-light" ? "light" : "dark";
+  // Get the Shiki theme name for @pierre/diffs and the light/dark mode
+  const diffsTheme = getTheme(theme)?.diffsTheme ?? "pierre-dark";
+  const themeType = isLightTheme(theme) ? "light" : "dark";
 
   // Track mount/unmount for performance debugging
   useEffect(() => createMountLogger("DiffViewer"), []);
@@ -295,6 +304,7 @@ export function DiffViewer() {
             filePath={selectedFile}
             diffViewMode={diffViewMode}
             fontSize={diffFontSize}
+            diffsTheme={diffsTheme}
             themeType={themeType}
           />
         </div>
@@ -331,6 +341,7 @@ export function DiffViewer() {
             fileDiff={fileDiff}
             diffStyle={diffViewMode === "split" ? "split" : "unified"}
             fontSize={diffFontSize}
+            diffsTheme={diffsTheme}
             themeType={themeType}
             repoPath={repository.path}
           />
@@ -390,6 +401,7 @@ export function DiffViewer() {
           fileDiff={fileDiff}
           diffStyle={diffViewMode === "split" ? "split" : "unified"}
           fontSize={diffFontSize}
+          diffsTheme={diffsTheme}
           themeType={themeType}
           repoPath={repository?.path ?? ""}
         />

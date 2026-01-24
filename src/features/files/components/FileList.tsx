@@ -16,6 +16,7 @@ import {
   unstageFiles,
   discardChanges,
 } from "../../../lib/tauri";
+import { FileContextMenu } from "../../../components/ui";
 import { createMountLogger } from "../../../lib/perf";
 import {
   useTabsStore,
@@ -63,44 +64,71 @@ const FileRow = memo(function FileRow({
   isFocused,
   onClick,
   fontSize,
+  repoPath,
+  section,
+  onStage,
+  onUnstage,
+  onDiscard,
 }: {
   file: FileStatus | DiffFile;
   isSelected: boolean;
   isFocused: boolean;
   onClick: (e: React.MouseEvent) => void;
   fontSize: number;
+  repoPath: string;
+  section?: "staged" | "unstaged" | "untracked" | "commit";
+  onStage?: () => void;
+  onUnstage?: () => void;
+  onDiscard?: () => void;
 }) {
   const status = file.status;
   const statusColor = STATUS_COLORS[status] || "text-text-primary";
 
+  // Only show staging actions for working directory files (not commit files)
+  const stagingActions =
+    section && section !== "commit" && onStage && onUnstage && onDiscard
+      ? {
+          isStaged: section === "staged",
+          onStage,
+          onUnstage,
+          onDiscard,
+        }
+      : undefined;
+
   return (
-    <div
-      className={`flex items-center px-2 py-1 cursor-pointer ${
-        isFocused
-          ? "bg-bg-selected"
-          : isSelected
-            ? "bg-bg-hover"
-            : "hover:bg-bg-hover"
-      }`}
-      style={{ fontSize: `${fontSize}px` }}
-      onClick={onClick}
+    <FileContextMenu
+      relativePath={file.path}
+      repoPath={repoPath}
+      stagingActions={stagingActions}
     >
-      <span
-        className={`w-5 font-mono text-xs ${statusColor}`}
-        title={STATUS_LABELS[status]}
+      <div
+        className={`flex items-center px-2 py-1 cursor-pointer ${
+          isFocused
+            ? "bg-bg-selected"
+            : isSelected
+              ? "bg-bg-hover"
+              : "hover:bg-bg-hover"
+        }`}
+        style={{ fontSize: `${fontSize}px` }}
+        onClick={onClick}
       >
-        [{status}]
-      </span>
-      <span className="truncate text-text-primary ml-1">{file.path}</span>
-      {"additions" in file && file.additions > 0 && (
-        <span className="ml-auto text-xs text-accent-green">
-          +{file.additions}
+        <span
+          className={`w-5 font-mono text-xs ${statusColor}`}
+          title={STATUS_LABELS[status]}
+        >
+          [{status}]
         </span>
-      )}
-      {"deletions" in file && file.deletions > 0 && (
-        <span className="ml-1 text-xs text-accent-red">-{file.deletions}</span>
-      )}
-    </div>
+        <span className="truncate text-text-primary ml-1">{file.path}</span>
+        {"additions" in file && file.additions > 0 && (
+          <span className="ml-auto text-xs text-accent-green">
+            +{file.additions}
+          </span>
+        )}
+        {"deletions" in file && file.deletions > 0 && (
+          <span className="ml-1 text-xs text-accent-red">-{file.deletions}</span>
+        )}
+      </div>
+    </FileContextMenu>
   );
 });
 
@@ -220,9 +248,36 @@ export function FileList() {
 
   const discardMutation = useMutation({
     mutationFn: (paths: string[]) => discardChanges(repository!.path, paths),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["status", repoPath] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["status", repoPath] });
+      queryClient.invalidateQueries({
+        queryKey: ["working-diff-staged", repoPath],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["working-diff-unstaged", repoPath],
+      });
+    },
   });
+
+  // Handlers for context menu actions
+  const handleStageFile = useCallback(
+    (path: string) => stageMutation.mutate([path]),
+    [stageMutation],
+  );
+
+  const handleUnstageFile = useCallback(
+    (path: string) => unstageMutation.mutate([path]),
+    [unstageMutation],
+  );
+
+  const handleDiscardFile = useCallback(
+    (path: string) => {
+      if (confirm(`Discard changes to ${path}? This cannot be undone.`)) {
+        discardMutation.mutate([path]);
+      }
+    },
+    [discardMutation],
+  );
 
   // Update view mode based on selection
   useEffect(() => {
@@ -418,6 +473,11 @@ export function FileList() {
               isFocused={index === focusedIndex}
               onClick={(e) => handleFileClick(e, file, index)}
               fontSize={panelFontSize}
+              repoPath={repository?.path ?? ""}
+              section={item.section}
+              onStage={() => handleStageFile(file.path)}
+              onUnstage={() => handleUnstageFile(file.path)}
+              onDiscard={() => handleDiscardFile(file.path)}
             />
           );
         })}

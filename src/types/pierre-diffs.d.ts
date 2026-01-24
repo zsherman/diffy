@@ -50,6 +50,9 @@ declare module '@pierre/diffs/react' {
 
   export interface FileDiffOptions {
     diffStyle?: DiffStyle;
+    /** Theme for syntax highlighting - can be a theme name or object with dark/light variants */
+    theme?: string | { dark: string; light: string };
+    /** Controls which theme variant to use when theme is an object: 'system' follows OS, 'light'/'dark' forces specific */
     themeType?: ThemeTypes;
     disableLineNumbers?: boolean;
     disableFileHeader?: boolean;

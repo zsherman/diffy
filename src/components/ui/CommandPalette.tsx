@@ -35,6 +35,8 @@ import {
   ClockCounterClockwise,
   ChartBar,
   ListBullets,
+  Check,
+  Palette,
 } from "@phosphor-icons/react";
 import {
   useUIStore,
@@ -68,6 +70,7 @@ import {
   getRecentRepositories,
   type RecentRepository,
 } from "../../lib/recent-repos";
+import { THEMES, getTheme, type ThemeId } from "../../lib/themes";
 
 export function CommandPalette() {
   const {
@@ -350,6 +353,7 @@ export function CommandPalette() {
             <span className="text-sm text-text-muted">
               {page === "recent" && "Recent Repositories"}
               {page === "merge-branch" && "Merge Branch"}
+              {page === "themes" && "Select Theme"}
             </span>
           </div>
         )}
@@ -362,7 +366,9 @@ export function CommandPalette() {
               ? "Search repositories..."
               : page === "merge-branch"
                 ? "Search branches..."
-                : "Type a command..."
+                : page === "themes"
+                  ? "Search themes..."
+                  : "Type a command..."
           }
           className="w-full px-4 py-3 bg-transparent border-b border-border-primary text-text-primary placeholder-text-muted outline-none focus:outline-none focus-visible:outline-none focus:ring-0 text-sm"
         />
@@ -421,6 +427,36 @@ export function CommandPalette() {
                   No other branches available to merge
                 </div>
               )}
+            </>
+          )}
+
+          {/* Themes Page */}
+          {page === "themes" && (
+            <>
+              {THEMES.map((t) => (
+                <Command.Item
+                  key={t.id}
+                  onSelect={() =>
+                    runCommand(() => setTheme(t.id as ThemeId))
+                  }
+                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                >
+                  <span className="w-4 flex justify-center">
+                    {theme === t.id && (
+                      <Check size={14} weight="bold" className="text-accent-green" />
+                    )}
+                  </span>
+                  {t.kind === "light" ? (
+                    <Sun size={16} className="text-text-muted" />
+                  ) : (
+                    <Moon size={16} className="text-text-muted" />
+                  )}
+                  <span className="flex-1">{t.label}</span>
+                  <span className="text-xs text-text-muted capitalize">
+                    {t.kind}
+                  </span>
+                </Command.Item>
+              ))}
             </>
           )}
 
@@ -792,28 +828,19 @@ export function CommandPalette() {
                 className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
               >
                 <Command.Item
-                  onSelect={() =>
-                    runCommand(() =>
-                      setTheme(
-                        theme === "pierre-dark"
-                          ? "pierre-light"
-                          : "pierre-dark",
-                      ),
-                    )
-                  }
+                  onSelect={() => {
+                    setSearch("");
+                    setPages([...pages, "themes"]);
+                  }}
                   className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  keywords={["theme", "dark", "light", "appearance"]}
                 >
-                  {theme === "pierre-dark" ? (
-                    <Sun size={16} className="text-text-muted" />
-                  ) : (
-                    <Moon size={16} className="text-text-muted" />
-                  )}
-                  <span className="flex-1">Toggle Theme</span>
+                  <Palette size={16} className="text-text-muted" />
+                  <span className="flex-1">Themes...</span>
                   <span className="text-xs text-text-muted">
-                    {theme === "pierre-dark"
-                      ? "Switch to Light"
-                      : "Switch to Dark"}
+                    {getTheme(theme)?.label ?? "Theme"}
                   </span>
+                  <CaretRight size={16} className="text-text-muted" />
                 </Command.Item>
 
                 <Command.Item

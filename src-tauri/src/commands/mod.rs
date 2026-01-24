@@ -482,6 +482,21 @@ pub async fn git_push(repo_path: String) -> Result<String> {
 }
 
 #[tauri::command]
+pub async fn checkout_commit(repo_path: String, commit_id: String) -> Result<String> {
+    Ok(git::checkout_commit(&repo_path, &commit_id)?)
+}
+
+#[tauri::command]
+pub async fn cherry_pick(repo_path: String, commit_id: String) -> Result<String> {
+    Ok(git::cherry_pick(&repo_path, &commit_id)?)
+}
+
+#[tauri::command]
+pub async fn reset_hard(repo_path: String, commit_id: String) -> Result<String> {
+    Ok(git::reset_hard(&repo_path, &commit_id)?)
+}
+
+#[tauri::command]
 #[instrument(skip_all, err(Debug))]
 pub async fn generate_commit_message(repo_path: String) -> Result<String> {
     // Get the staged diff

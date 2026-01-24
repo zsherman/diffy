@@ -3,6 +3,7 @@ import { createTwoFilesPatch } from 'diff';
 import { parsePatchFiles } from '@pierre/diffs';
 import { FileDiff } from '@pierre/diffs/react';
 import { useUIStore } from '../../../stores/ui-store';
+import { getTheme, isLightTheme } from '../../../lib/themes';
 
 interface SideDiffViewProps {
   content: string;
@@ -16,7 +17,8 @@ export function SideDiffView({
   side,
 }: SideDiffViewProps) {
   const { theme, diffFontSize } = useUIStore();
-  const themeType = theme === 'pierre-light' ? 'light' : 'dark';
+  const diffsTheme = getTheme(theme)?.diffsTheme ?? 'pierre-dark';
+  const themeType = isLightTheme(theme) ? 'light' : 'dark';
 
   // Generate a unified diff patch
   // For "ours" side: we want to show ours as the "old" (left) side
@@ -66,6 +68,7 @@ export function SideDiffView({
         fileDiff={parsedDiff}
         options={{
           diffStyle: 'unified',
+          theme: diffsTheme,
           themeType,
           disableFileHeader: true,
         }}

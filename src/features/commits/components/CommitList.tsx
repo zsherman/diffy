@@ -12,6 +12,7 @@ import { VList } from "virtua";
 import type { VListHandle } from "virtua";
 import { PencilSimple } from "@phosphor-icons/react";
 import { getCommitHistory, getCommitGraph } from "../../../lib/tauri";
+import { CommitContextMenu } from "../../../components/ui";
 import {
   useTabsStore,
   useActiveTabState,
@@ -45,69 +46,78 @@ const CommitRow = memo(function CommitRow({
   isFocused,
   onClick,
   fontSize,
+  repoPath,
 }: {
   commit: CommitInfo;
   isSelected: boolean;
   isFocused: boolean;
   onClick: () => void;
   fontSize: number;
+  repoPath: string;
 }) {
   return (
-    <div
-      className={`flex items-center cursor-pointer h-12 ${
-        isFocused
-          ? "bg-bg-selected"
-          : isSelected
-            ? "bg-bg-hover"
-            : "hover:bg-bg-hover"
-      }`}
-      onClick={onClick}
+    <CommitContextMenu
+      commitId={commit.id}
+      shortId={commit.shortId}
+      message={commit.message}
+      repoPath={repoPath}
     >
-      <div style={{ width: GRAPH_WIDTH, flexShrink: 0 }} />
-      <div className="flex-1 min-w-0 px-2 py-1 overflow-hidden">
-        <div className="flex items-center gap-2 min-w-0">
-          <span
-            className="text-accent-yellow font-mono shrink-0"
-            style={{ fontSize: `${fontSize}px` }}
+      <div
+        className={`flex items-center cursor-pointer h-12 ${
+          isFocused
+            ? "bg-bg-selected"
+            : isSelected
+              ? "bg-bg-hover"
+              : "hover:bg-bg-hover"
+        }`}
+        onClick={onClick}
+      >
+        <div style={{ width: GRAPH_WIDTH, flexShrink: 0 }} />
+        <div className="flex-1 min-w-0 px-2 py-1 overflow-hidden">
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className="text-accent-yellow font-mono shrink-0"
+              style={{ fontSize: `${fontSize}px` }}
+            >
+              {commit.shortId}
+            </span>
+            <span
+              className="text-text-primary truncate"
+              style={{ fontSize: `${fontSize}px` }}
+            >
+              {commit.summary}
+            </span>
+          </div>
+          <div
+            className="flex items-center gap-1.5 text-text-muted whitespace-nowrap overflow-hidden"
+            style={{ fontSize: `${Math.max(10, fontSize - 2)}px` }}
           >
-            {commit.shortId}
-          </span>
-          <span
-            className="text-text-primary truncate"
-            style={{ fontSize: `${fontSize}px` }}
-          >
-            {commit.summary}
-          </span>
-        </div>
-        <div
-          className="flex items-center gap-1.5 text-text-muted whitespace-nowrap overflow-hidden"
-          style={{ fontSize: `${Math.max(10, fontSize - 2)}px` }}
-        >
-          <span className="truncate max-w-[100px]">{commit.authorName}</span>
-          <span className="shrink-0">•</span>
-          <span className="shrink-0">{formatTimeAgo(commit.time)}</span>
-          {commit.filesChanged > 0 && (
-            <>
-              <span className="shrink-0">•</span>
-              <span className="flex items-center gap-0.5 shrink-0">
-                <PencilSimple size={10} weight="bold" />
-                {commit.filesChanged}
-              </span>
-              {commit.additions > 0 && (
-                <span className="text-accent-green shrink-0">
-                  +{commit.additions}
+            <span className="truncate max-w-[100px]">{commit.authorName}</span>
+            <span className="shrink-0">•</span>
+            <span className="shrink-0">{formatTimeAgo(commit.time)}</span>
+            {commit.filesChanged > 0 && (
+              <>
+                <span className="shrink-0">•</span>
+                <span className="flex items-center gap-0.5 shrink-0">
+                  <PencilSimple size={10} weight="bold" />
+                  {commit.filesChanged}
                 </span>
-              )}
-              {commit.deletions > 0 && (
-                <span className="text-accent-red shrink-0">
-                  -{commit.deletions}
-                </span>
-              )}
-            </>
-          )}
+                {commit.additions > 0 && (
+                  <span className="text-accent-green shrink-0">
+                    +{commit.additions}
+                  </span>
+                )}
+                {commit.deletions > 0 && (
+                  <span className="text-accent-red shrink-0">
+                    -{commit.deletions}
+                  </span>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </CommitContextMenu>
   );
 });
 
@@ -281,6 +291,7 @@ export function CommitList() {
                   isFocused={index === focusedIndex}
                   onClick={() => handleCommitClick(commit, index)}
                   fontSize={panelFontSize}
+                  repoPath={repository?.path ?? ""}
                 />
               ))}
             </VList>

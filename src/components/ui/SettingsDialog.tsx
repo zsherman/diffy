@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Dialog } from '@base-ui/react/dialog';
-import { X, Sliders, Minus, Plus, Sun, Moon, BookBookmark, ArrowSquareOut, Timer, MagnifyingGlass } from '@phosphor-icons/react';
+import { X, Sliders, Minus, Plus, Sun, Moon, BookBookmark, ArrowSquareOut, Timer, MagnifyingGlass, Check } from '@phosphor-icons/react';
 import { useUIStore, isReactScanEnabled, toggleReactScanAndReload } from '../../stores/ui-store';
 import { useSkills } from '../../features/skills/hooks/useSkills';
+import { THEMES, type ThemeId } from '../../lib/themes';
 
 type SettingsSection = 'appearance' | 'diff' | 'skills' | 'developer';
 
@@ -84,36 +85,33 @@ export function SettingsDialog() {
                     <h3 className="text-sm font-medium text-text-primary mb-4">Appearance</h3>
 
                     {/* Theme */}
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <label className="text-sm text-text-primary">Theme</label>
-                        <p className="text-xs text-text-muted mt-0.5">
-                          Choose between Pierre Dark and Pierre Light themes
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => setTheme('pierre-dark')}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-colors ${
-                            theme === 'pierre-dark'
-                              ? 'bg-accent-blue/20 text-accent-blue'
-                              : 'bg-bg-hover text-text-muted hover:text-text-primary'
-                          }`}
-                        >
-                          <Moon size={14} weight="bold" />
-                          Dark
-                        </button>
-                        <button
-                          onClick={() => setTheme('pierre-light')}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm transition-colors ${
-                            theme === 'pierre-light'
-                              ? 'bg-accent-blue/20 text-accent-blue'
-                              : 'bg-bg-hover text-text-muted hover:text-text-primary'
-                          }`}
-                        >
-                          <Sun size={14} weight="bold" />
-                          Light
-                        </button>
+                    <div className="mb-4">
+                      <label className="text-sm text-text-primary">Theme</label>
+                      <p className="text-xs text-text-muted mt-0.5 mb-3">
+                        Choose a color theme for the application
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {THEMES.map((t) => (
+                          <button
+                            key={t.id}
+                            onClick={() => setTheme(t.id as ThemeId)}
+                            className={`flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors text-left ${
+                              theme === t.id
+                                ? 'bg-accent-blue/20 text-accent-blue ring-1 ring-accent-blue/50'
+                                : 'bg-bg-hover text-text-muted hover:text-text-primary hover:bg-bg-tertiary'
+                            }`}
+                          >
+                            {t.kind === 'light' ? (
+                              <Sun size={14} weight="bold" className="shrink-0" />
+                            ) : (
+                              <Moon size={14} weight="bold" className="shrink-0" />
+                            )}
+                            <span className="flex-1">{t.label}</span>
+                            {theme === t.id && (
+                              <Check size={14} weight="bold" className="shrink-0" />
+                            )}
+                          </button>
+                        ))}
                       </div>
                     </div>
 

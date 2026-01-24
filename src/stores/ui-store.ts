@@ -5,6 +5,7 @@ import { produce } from "immer";
 import type { DockviewApi } from "dockview-react";
 import type { PanelId } from "../types/git";
 import { tabsStore, type PanelVisibility } from "./tabs-store";
+import { type ThemeId, isValidThemeId, getDefaultTheme } from "../lib/themes";
 
 // Dockview API reference (stored outside of xstate store for direct access)
 let dockviewApiRef: DockviewApi | null = null;
@@ -17,7 +18,7 @@ export function getDockviewApi(): DockviewApi | null {
   return dockviewApiRef;
 }
 
-type Theme = "pierre-dark" | "pierre-light";
+type Theme = ThemeId;
 type AppView = "workspace" | "skills";
 
 // UIContext now only contains truly global/window-level state
@@ -54,11 +55,11 @@ interface UIContext {
 function getInitialTheme(): Theme {
   if (typeof window !== "undefined") {
     const saved = localStorage.getItem("diffy-theme");
-    if (saved === "pierre-dark" || saved === "pierre-light") {
+    if (saved && isValidThemeId(saved)) {
       return saved;
     }
   }
-  return "pierre-dark";
+  return getDefaultTheme();
 }
 
 // Get initial selected skills from localStorage

@@ -557,6 +557,56 @@ pub fn git_push(repo_path: &str) -> Result<String, GitError> {
     }
 }
 
+pub fn checkout_commit(repo_path: &str, commit_id: &str) -> Result<String, GitError> {
+    let output = git_command()
+        .args(["checkout", commit_id])
+        .current_dir(repo_path)
+        .output()
+        .map_err(|e| git2::Error::from_str(&format!("Failed to run git checkout: {}", e)))?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Ok(format!("{}{}", stdout, stderr).trim().to_string())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(git2::Error::from_str(&format!("git checkout failed: {}", stderr)).into())
+    }
+}
+
+pub fn cherry_pick(repo_path: &str, commit_id: &str) -> Result<String, GitError> {
+    let output = git_command()
+        .args(["cherry-pick", commit_id])
+        .current_dir(repo_path)
+        .output()
+        .map_err(|e| git2::Error::from_str(&format!("Failed to run git cherry-pick: {}", e)))?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Ok(format!("{}{}", stdout, stderr).trim().to_string())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(git2::Error::from_str(&format!("git cherry-pick failed: {}", stderr)).into())
+    }
+}
+
+pub fn reset_hard(repo_path: &str, commit_id: &str) -> Result<String, GitError> {
+    let output = git_command()
+        .args(["reset", "--hard", commit_id])
+        .current_dir(repo_path)
+        .output()
+        .map_err(|e| git2::Error::from_str(&format!("Failed to run git reset: {}", e)))?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        Ok(stdout.trim().to_string())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(git2::Error::from_str(&format!("git reset --hard failed: {}", stderr)).into())
+    }
+}
+
 // Worktree types and functions
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]

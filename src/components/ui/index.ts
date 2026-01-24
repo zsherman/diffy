@@ -20,3 +20,4 @@ export {
   PanelErrorBoundary,
 } from "./ErrorBoundary";
 export { FileContextMenu } from "./FileContextMenu";
+export { CommitContextMenu } from "./CommitContextMenu";
