@@ -1,5 +1,5 @@
 use crate::error::{AppError, Result};
-use crate::git::{self, BranchInfo, CommitActivity, CommitGraph, CommitInfo, FileDiff, RepositoryInfo, StatusInfo, UnifiedDiff, WorktreeInfo, WorktreeCreateOptions, MergeStatus, FileConflictInfo, StashEntry, AheadBehind, ChangelogCommit, ReflogEntry};
+use crate::git::{self, BranchInfo, CommitActivity, CommitGraph, CommitInfo, FileDiff, RepositoryInfo, StatusInfo, UnifiedDiff, WorktreeInfo, WorktreeCreateOptions, MergeStatus, FileConflictInfo, StashEntry, AheadBehind, ChangelogCommit, ReflogEntry, RebaseStatus};
 use std::process::Command;
 use std::path::PathBuf;
 use std::fs;
@@ -1755,6 +1755,32 @@ pub async fn continue_merge(repo_path: String) -> Result<String> {
 #[tauri::command]
 pub async fn merge_branch(repo_path: String, branch_name: String) -> Result<String> {
     Ok(git::merge_branch(&repo_path, &branch_name)?)
+}
+
+// Rebase commands
+#[tauri::command]
+#[instrument(skip_all, err(Debug))]
+pub async fn get_rebase_status(repo_path: String) -> Result<RebaseStatus> {
+    let repo = git::open_repo(&repo_path)?;
+    Ok(git::get_rebase_status(&repo)?)
+}
+
+#[tauri::command]
+#[instrument(skip_all, fields(onto_ref = %onto_ref), err(Debug))]
+pub async fn rebase_onto(repo_path: String, onto_ref: String) -> Result<String> {
+    Ok(git::rebase_onto(&repo_path, &onto_ref)?)
+}
+
+#[tauri::command]
+#[instrument(skip_all, err(Debug))]
+pub async fn continue_rebase(repo_path: String) -> Result<String> {
+    Ok(git::continue_rebase(&repo_path)?)
+}
+
+#[tauri::command]
+#[instrument(skip_all, err(Debug))]
+pub async fn abort_rebase(repo_path: String) -> Result<String> {
+    Ok(git::abort_rebase(&repo_path)?)
 }
 
 #[derive(serde::Serialize)]

@@ -6,6 +6,194 @@ use std::process::Command;
 
 use super::GitError;
 
+// =============================================================================
+// Rebase Types and Functions
+// =============================================================================
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RebaseStatus {
+    pub in_rebase: bool,
+    pub conflicting_files: Vec<String>,
+    pub onto_ref: Option<String>,
+}
+
+/// Check if the repository is in a rebase state and list conflicting files
+pub fn get_rebase_status(repo: &Repository) -> Result<RebaseStatus, GitError> {
+    let state = repo.state();
+    let in_rebase = matches!(
+        state,
+        RepositoryState::Rebase
+            | RepositoryState::RebaseInteractive
+            | RepositoryState::RebaseMerge
+    );
+
+    let mut conflicting_files = Vec::new();
+
+    if in_rebase {
+        let mut opts = StatusOptions::new();
+        opts.include_untracked(false);
+
+        let statuses = repo.statuses(Some(&mut opts))?;
+
+        for entry in statuses.iter() {
+            let status = entry.status();
+            if status.is_conflicted() {
+                if let Some(path) = entry.path() {
+                    conflicting_files.push(path.to_string());
+                }
+            }
+        }
+    }
+
+    // Try to get the onto ref from rebase state
+    let onto_ref = get_rebase_onto_ref(repo);
+
+    Ok(RebaseStatus {
+        in_rebase,
+        conflicting_files,
+        onto_ref,
+    })
+}
+
+/// Try to extract the onto ref from rebase state files
+fn get_rebase_onto_ref(repo: &Repository) -> Option<String> {
+    let git_dir = repo.path();
+
+    // Check rebase-merge directory (for git rebase)
+    let rebase_merge_dir = git_dir.join("rebase-merge");
+    if rebase_merge_dir.exists() {
+        // Try to read onto file
+        let onto_path = rebase_merge_dir.join("onto");
+        if let Ok(content) = fs::read_to_string(&onto_path) {
+            let onto_sha = content.trim();
+            // Try to resolve to a branch name
+            if let Some(name) = resolve_commit_to_ref_name(repo, onto_sha) {
+                return Some(name);
+            }
+            // Fall back to short SHA
+            return Some(onto_sha.chars().take(7).collect());
+        }
+    }
+
+    // Check rebase-apply directory (for git am / older rebase)
+    let rebase_apply_dir = git_dir.join("rebase-apply");
+    if rebase_apply_dir.exists() {
+        let onto_path = rebase_apply_dir.join("onto");
+        if let Ok(content) = fs::read_to_string(&onto_path) {
+            let onto_sha = content.trim();
+            if let Some(name) = resolve_commit_to_ref_name(repo, onto_sha) {
+                return Some(name);
+            }
+            return Some(onto_sha.chars().take(7).collect());
+        }
+    }
+
+    None
+}
+
+/// Try to resolve a commit SHA to a branch name
+fn resolve_commit_to_ref_name(repo: &Repository, sha: &str) -> Option<String> {
+    // Try to find a branch that points to this commit
+    if let Ok(branches) = repo.branches(None) {
+        for branch_result in branches.flatten() {
+            let (branch, _) = branch_result;
+            if let Some(target) = branch.get().target() {
+                let target_str = target.to_string();
+                if target_str.starts_with(sha) || sha.starts_with(&target_str[..7.min(target_str.len())]) {
+                    if let Ok(Some(name)) = branch.name() {
+                        return Some(name.to_string());
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Start a rebase onto a target ref
+pub fn rebase_onto(repo_path: &str, onto_ref: &str) -> Result<String, GitError> {
+    let output = git_command()
+        .args(["rebase", onto_ref])
+        .current_dir(repo_path)
+        .output()
+        .map_err(|e| git2::Error::from_str(&format!("Failed to run git rebase: {}", e)))?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        Ok(stdout.trim().to_string())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let combined = format!("{}{}", stderr, stdout);
+        
+        // Check if it's a conflict (rebase stops with conflicts)
+        if combined.contains("CONFLICT") || combined.contains("could not apply") || combined.contains("Resolve all conflicts") {
+            Err(git2::Error::from_str("Rebase has conflicts that need to be resolved").into())
+        } else {
+            Err(git2::Error::from_str(&format!("git rebase failed: {}", combined.trim())).into())
+        }
+    }
+}
+
+/// Continue the rebase after resolving conflicts
+pub fn continue_rebase(repo_path: &str) -> Result<String, GitError> {
+    // First check if there are still unresolved conflicts
+    let repo = super::open_repo(repo_path)?;
+    let status = get_rebase_status(&repo)?;
+
+    if !status.conflicting_files.is_empty() {
+        return Err(git2::Error::from_str(&format!(
+            "Cannot continue rebase: {} file(s) still have conflicts",
+            status.conflicting_files.len()
+        ))
+        .into());
+    }
+
+    let output = git_command()
+        .args(["rebase", "--continue"])
+        .current_dir(repo_path)
+        .env("GIT_EDITOR", "true") // Prevent editor from opening
+        .output()
+        .map_err(|e| git2::Error::from_str(&format!("Failed to run git rebase --continue: {}", e)))?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        Ok(stdout.trim().to_string())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let combined = format!("{}{}", stderr, stdout);
+        
+        // Check if more conflicts occurred (next commit in rebase)
+        if combined.contains("CONFLICT") || combined.contains("could not apply") {
+            Err(git2::Error::from_str("Rebase has more conflicts that need to be resolved").into())
+        } else {
+            Err(git2::Error::from_str(&format!("git rebase --continue failed: {}", combined.trim())).into())
+        }
+    }
+}
+
+/// Abort the current rebase
+pub fn abort_rebase(repo_path: &str) -> Result<String, GitError> {
+    let output = git_command()
+        .args(["rebase", "--abort"])
+        .current_dir(repo_path)
+        .output()
+        .map_err(|e| git2::Error::from_str(&format!("Failed to run git rebase --abort: {}", e)))?;
+
+    if output.status.success() {
+        Ok("Rebase aborted successfully".to_string())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(git2::Error::from_str(&format!("git rebase --abort failed: {}", stderr)).into())
+    }
+}
+
+// =============================================================================
+// Merge Types and Functions
+// =============================================================================
+
 /// Get the user's PATH from their login shell (for packaged app compatibility)
 fn get_user_path() -> String {
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());

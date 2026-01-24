@@ -14,6 +14,7 @@ import {
 import {
   getStatus,
   getMergeStatus,
+  getRebaseStatus,
   parseFileConflicts,
   gitRemoteAction,
   gitPush,
@@ -22,6 +23,7 @@ import {
 import { useTabsStore, useActiveTabState } from "../../../stores/tabs-store";
 import { useUIStore, useAppView, getDockviewApi, useDefaultRemoteAction } from "../../../stores/ui-store";
 import { useMergeConflictStore } from "../../../stores/merge-conflict-store";
+import { GitFork } from "@phosphor-icons/react";
 import { useToast } from "../../../components/ui/Toast";
 import { applyLayout } from "../../../lib/layouts";
 import { getErrorMessage } from "../../../lib/errors";
@@ -58,10 +60,11 @@ export function RepoHeader() {
   const { mainView, setMainView } = useActiveTabState();
   const { appView, setAppView } = useAppView();
   const { showMergeConflictPanel, setShowMergeConflictPanel } = useUIStore();
-  const { enterMergeMode, isActive: isMergeActive } = useMergeConflictStore();
+  const { enterMergeMode, enterConflictMode, isActive: isConflictModeActive } = useMergeConflictStore();
   const toast = useToast();
   const queryClient = useQueryClient();
   const hasShownMergeToast = useRef(false);
+  const hasShownRebaseToast = useRef(false);
 
   // Git action states
   const [isRemoteActionLoading, setIsRemoteActionLoading] = useState(false);
@@ -86,6 +89,15 @@ export function RepoHeader() {
     staleTime: 10000,
   });
 
+  // Fetch rebase status
+  const { data: rebaseStatus } = useQuery({
+    queryKey: ["rebase-status", repository?.path],
+    queryFn: () => getRebaseStatus(repository!.path),
+    enabled: !!repository?.path,
+    refetchInterval: 60000,
+    staleTime: 10000,
+  });
+
   // Fetch ahead/behind counts
   const { data: aheadBehind } = useQuery({
     queryKey: ["aheadBehind", repository?.path],
@@ -100,7 +112,7 @@ export function RepoHeader() {
       mergeStatus?.inMerge &&
       mergeStatus.conflictingFiles.length > 0 &&
       !showMergeConflictPanel &&
-      !isMergeActive &&
+      !isConflictModeActive &&
       !hasShownMergeToast.current
     ) {
       hasShownMergeToast.current = true;
@@ -139,9 +151,61 @@ export function RepoHeader() {
   }, [
     mergeStatus,
     showMergeConflictPanel,
-    isMergeActive,
+    isConflictModeActive,
     repository,
     enterMergeMode,
+    setShowMergeConflictPanel,
+    toast,
+  ]);
+
+  // Show toast when rebase conflicts are detected
+  useEffect(() => {
+    if (
+      rebaseStatus?.inRebase &&
+      rebaseStatus.conflictingFiles.length > 0 &&
+      !showMergeConflictPanel &&
+      !isConflictModeActive &&
+      !hasShownRebaseToast.current
+    ) {
+      hasShownRebaseToast.current = true;
+      const conflictCount = rebaseStatus.conflictingFiles.length;
+      toast.withAction(
+        "Rebase Conflicts Detected",
+        `${conflictCount} file${conflictCount > 1 ? "s have" : " has"} conflicts that need to be resolved`,
+        "warning",
+        {
+          label: "Resolve Conflicts",
+          onClick: async () => {
+            if (!repository) return;
+            try {
+              const fileInfos = await Promise.all(
+                rebaseStatus.conflictingFiles.map((filePath) =>
+                  parseFileConflicts(repository.path, filePath),
+                ),
+              );
+              enterConflictMode(fileInfos, rebaseStatus.ontoRef, 'rebase');
+              setShowMergeConflictPanel(true);
+              const api = getDockviewApi();
+              if (api) {
+                applyLayout(api, "merge-conflict");
+              }
+            } catch (error) {
+              console.error("Failed to load conflict info:", error);
+            }
+          },
+        },
+      );
+    }
+
+    if (!rebaseStatus?.inRebase || rebaseStatus.conflictingFiles.length === 0) {
+      hasShownRebaseToast.current = false;
+    }
+  }, [
+    rebaseStatus,
+    showMergeConflictPanel,
+    isConflictModeActive,
+    repository,
+    enterConflictMode,
     setShowMergeConflictPanel,
     toast,
   ]);
@@ -151,9 +215,11 @@ export function RepoHeader() {
     ? status.staged.length + status.unstaged.length + status.untracked.length
     : 0;
 
-  // Show merge indicator when in merge state
-  const hasConflicts =
+  // Show conflict indicator when in merge or rebase state
+  const hasMergeConflicts =
     mergeStatus?.inMerge && mergeStatus.conflictingFiles.length > 0;
+  const hasRebaseConflicts =
+    rebaseStatus?.inRebase && rebaseStatus.conflictingFiles.length > 0;
 
   // Update window title when repository changes
   useEffect(() => {
@@ -272,6 +338,25 @@ export function RepoHeader() {
     }
   };
 
+  const handleOpenRebaseConflicts = async () => {
+    if (!repository || !rebaseStatus) return;
+    try {
+      const fileInfos = await Promise.all(
+        rebaseStatus.conflictingFiles.map((filePath) =>
+          parseFileConflicts(repository.path, filePath),
+        ),
+      );
+      enterConflictMode(fileInfos, rebaseStatus.ontoRef, 'rebase');
+      setShowMergeConflictPanel(true);
+      const api = getDockviewApi();
+      if (api) {
+        applyLayout(api, "merge-conflict");
+      }
+    } catch (error) {
+      console.error("Failed to load conflict info:", error);
+    }
+  };
+
   const toggleButtonClass =
     "flex items-center gap-1.5 px-3 py-1 text-text-muted transition-colors data-pressed:bg-bg-hover data-pressed:text-text-primary hover:text-text-primary text-xs";
 
@@ -295,7 +380,7 @@ export function RepoHeader() {
         {repository && (
           <>
             {/* Merge conflict indicator */}
-            {hasConflicts && (
+            {hasMergeConflicts && (
               <button
                 onClick={handleOpenMergeConflicts}
                 className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-accent-yellow/20 text-xs hover:bg-accent-yellow/30 transition-colors whitespace-nowrap shrink-0"
@@ -303,8 +388,23 @@ export function RepoHeader() {
               >
                 <Warning size={14} weight="fill" className="text-accent-yellow" />
                 <span className="text-accent-yellow font-medium">
-                  {mergeStatus!.conflictingFiles.length} conflict
+                  {mergeStatus!.conflictingFiles.length} merge conflict
                   {mergeStatus!.conflictingFiles.length > 1 ? "s" : ""}
+                </span>
+              </button>
+            )}
+
+            {/* Rebase conflict indicator */}
+            {hasRebaseConflicts && (
+              <button
+                onClick={handleOpenRebaseConflicts}
+                className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-accent-orange/20 text-xs hover:bg-accent-orange/30 transition-colors whitespace-nowrap shrink-0"
+                title="Click to resolve rebase conflicts"
+              >
+                <GitFork size={14} weight="fill" className="text-accent-orange" />
+                <span className="text-accent-orange font-medium">
+                  {rebaseStatus!.conflictingFiles.length} rebase conflict
+                  {rebaseStatus!.conflictingFiles.length > 1 ? "s" : ""}
                 </span>
               </button>
             )}

@@ -23,6 +23,7 @@ import type {
   MergeStatus,
   FileConflictInfo,
   AIResolveConflictResponse,
+  RebaseStatus,
 } from "../features/merge-conflict/types";
 import { isPerfTracingEnabled } from "../stores/ui-store";
 
@@ -626,6 +627,26 @@ export async function mergeBranch(
   branchName: string,
 ): Promise<string> {
   return invoke<string>("merge_branch", { repoPath, branchName });
+}
+
+// Rebase operations
+export async function getRebaseStatus(repoPath: string): Promise<RebaseStatus> {
+  return invoke<RebaseStatus>("get_rebase_status", { repoPath });
+}
+
+export async function rebaseOnto(
+  repoPath: string,
+  ontoRef: string,
+): Promise<string> {
+  return invoke<string>("rebase_onto", { repoPath, ontoRef });
+}
+
+export async function continueRebase(repoPath: string): Promise<string> {
+  return invoke<string>("continue_rebase", { repoPath });
+}
+
+export async function abortRebase(repoPath: string): Promise<string> {
+  return invoke<string>("abort_rebase", { repoPath });
 }
 
 export async function aiResolveConflict(

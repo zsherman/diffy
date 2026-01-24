@@ -14,3 +14,6 @@ pub use repository::AheadBehind;
 pub use repository::CommitActivity;
 pub use repository::ChangelogCommit;
 pub use repository::ReflogEntry;
+
+// Re-export rebase types
+pub use merge::RebaseStatus;

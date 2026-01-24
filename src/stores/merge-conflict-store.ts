@@ -3,9 +3,15 @@ import { useSelector } from '@xstate/store/react';
 import { produce } from 'immer';
 import type { FileConflictInfo } from '../features/merge-conflict/types';
 
+// Operation type - which git operation caused the conflicts
+export type ConflictOperation = 'merge' | 'rebase';
+
 interface MergeConflictContext {
   // Active state
   isActive: boolean;
+
+  // Operation type (merge or rebase)
+  operation: ConflictOperation;
 
   // Files with conflicts
   files: FileConflictInfo[];
@@ -25,13 +31,16 @@ interface MergeConflictContext {
   // AI explanation by file path
   aiExplanationByFile: Record<string, string>;
 
-  // Their branch name (for display)
-  theirBranch: string | null;
+  // Other ref label (for display)
+  // For merge: "their branch name"
+  // For rebase: "onto ref"
+  otherRefLabel: string | null;
 }
 
 export const mergeConflictStore = createStore({
   context: {
     isActive: false,
+    operation: 'merge',
     files: [],
     currentFileIndex: 0,
     currentConflictIndex: 0,
@@ -40,17 +49,22 @@ export const mergeConflictStore = createStore({
     isAIResolving: false,
     aiError: null,
     aiExplanationByFile: {},
-    theirBranch: null,
+    otherRefLabel: null,
   } as MergeConflictContext,
   on: {
-    enterMergeMode: (
+    enterConflictMode: (
       ctx,
-      event: { files: FileConflictInfo[]; theirBranch: string | null }
+      event: { 
+        files: FileConflictInfo[]; 
+        otherRefLabel: string | null;
+        operation: ConflictOperation;
+      }
     ) =>
       produce(ctx, (draft) => {
         draft.isActive = true;
+        draft.operation = event.operation;
         draft.files = event.files;
-        draft.theirBranch = event.theirBranch;
+        draft.otherRefLabel = event.otherRefLabel;
         draft.currentFileIndex = 0;
         draft.currentConflictIndex = 0;
         // Initialize resolved content with the original content (with markers)
@@ -63,9 +77,32 @@ export const mergeConflictStore = createStore({
         draft.aiExplanationByFile = {};
       }),
 
-    exitMergeMode: (ctx) =>
+    // Legacy action for backward compatibility
+    enterMergeMode: (
+      ctx,
+      event: { files: FileConflictInfo[]; theirBranch: string | null }
+    ) =>
+      produce(ctx, (draft) => {
+        draft.isActive = true;
+        draft.operation = 'merge';
+        draft.files = event.files;
+        draft.otherRefLabel = event.theirBranch;
+        draft.currentFileIndex = 0;
+        draft.currentConflictIndex = 0;
+        // Initialize resolved content with the original content (with markers)
+        draft.resolvedByFile = {};
+        for (const file of event.files) {
+          draft.resolvedByFile[file.filePath] = file.originalContent;
+        }
+        draft.notesByFile = {};
+        draft.aiError = null;
+        draft.aiExplanationByFile = {};
+      }),
+
+    exitConflictMode: (ctx) =>
       produce(ctx, (draft) => {
         draft.isActive = false;
+        draft.operation = 'merge';
         draft.files = [];
         draft.currentFileIndex = 0;
         draft.currentConflictIndex = 0;
@@ -74,7 +111,23 @@ export const mergeConflictStore = createStore({
         draft.isAIResolving = false;
         draft.aiError = null;
         draft.aiExplanationByFile = {};
-        draft.theirBranch = null;
+        draft.otherRefLabel = null;
+      }),
+
+    // Legacy action for backward compatibility
+    exitMergeMode: (ctx) =>
+      produce(ctx, (draft) => {
+        draft.isActive = false;
+        draft.operation = 'merge';
+        draft.files = [];
+        draft.currentFileIndex = 0;
+        draft.currentConflictIndex = 0;
+        draft.resolvedByFile = {};
+        draft.notesByFile = {};
+        draft.isAIResolving = false;
+        draft.aiError = null;
+        draft.aiExplanationByFile = {};
+        draft.otherRefLabel = null;
       }),
 
     nextFile: (ctx) =>
@@ -206,6 +259,7 @@ export const mergeConflictStore = createStore({
 // Hook for using the merge conflict store
 export function useMergeConflictStore() {
   const isActive = useSelector(mergeConflictStore, (s) => s.context.isActive);
+  const operation = useSelector(mergeConflictStore, (s) => s.context.operation);
   const files = useSelector(mergeConflictStore, (s) => s.context.files);
   const currentFileIndex = useSelector(mergeConflictStore, (s) => s.context.currentFileIndex);
   const currentConflictIndex = useSelector(mergeConflictStore, (s) => s.context.currentConflictIndex);
@@ -214,7 +268,7 @@ export function useMergeConflictStore() {
   const isAIResolving = useSelector(mergeConflictStore, (s) => s.context.isAIResolving);
   const aiError = useSelector(mergeConflictStore, (s) => s.context.aiError);
   const aiExplanationByFile = useSelector(mergeConflictStore, (s) => s.context.aiExplanationByFile);
-  const theirBranch = useSelector(mergeConflictStore, (s) => s.context.theirBranch);
+  const otherRefLabel = useSelector(mergeConflictStore, (s) => s.context.otherRefLabel);
 
   // Derived values
   const currentFile = files[currentFileIndex] ?? null;
@@ -223,9 +277,13 @@ export function useMergeConflictStore() {
   const notes = currentFile ? notesByFile[currentFile.filePath] ?? '' : '';
   const aiExplanation = currentFile ? aiExplanationByFile[currentFile.filePath] ?? '' : '';
 
+  // Legacy alias for backward compatibility
+  const theirBranch = otherRefLabel;
+
   return {
     // State
     isActive,
+    operation,
     files,
     currentFileIndex,
     currentConflictIndex,
@@ -234,7 +292,8 @@ export function useMergeConflictStore() {
     isAIResolving,
     aiError,
     aiExplanationByFile,
-    theirBranch,
+    otherRefLabel,
+    theirBranch, // Legacy alias
 
     // Derived
     currentFile,
@@ -244,6 +303,10 @@ export function useMergeConflictStore() {
     aiExplanation,
 
     // Actions
+    enterConflictMode: (files: FileConflictInfo[], otherRefLabel: string | null, operation: ConflictOperation) =>
+      mergeConflictStore.send({ type: 'enterConflictMode', files, otherRefLabel, operation }),
+    exitConflictMode: () => mergeConflictStore.send({ type: 'exitConflictMode' }),
+    // Legacy actions for backward compatibility
     enterMergeMode: (files: FileConflictInfo[], theirBranch: string | null) =>
       mergeConflictStore.send({ type: 'enterMergeMode', files, theirBranch }),
     exitMergeMode: () => mergeConflictStore.send({ type: 'exitMergeMode' }),

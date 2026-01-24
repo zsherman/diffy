@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect } from "react";
 import {
   GitBranch,
   GitMerge,
+  GitFork,
   Files,
   Code,
   Stack,
@@ -58,6 +59,9 @@ import {
   parseFileConflicts,
   listBranches,
   mergeBranch,
+  getStatus,
+  rebaseOnto,
+  getRebaseStatus,
 } from "../../lib/tauri";
 import { getErrorMessage } from "../../lib/errors";
 import { applyLayout, layoutPresets } from "../../lib/layouts";
@@ -109,7 +113,7 @@ export function CommandPalette() {
   const { repository, openTab } = useTabsStore();
   const { mainView, setMainView } = useActiveTabView();
   const { appView, setAppView } = useAppView();
-  const { enterMergeMode } = useMergeConflictStore();
+  const { enterMergeMode, enterConflictMode } = useMergeConflictStore();
   const toast = useToast();
   const queryClient = useQueryClient();
 
@@ -119,6 +123,9 @@ export function CommandPalette() {
   const page = pages[pages.length - 1];
   const [branchesForMerge, setBranchesForMerge] = useState<
     Array<{ name: string; isHead: boolean }>
+  >([]);
+  const [branchesForRebase, setBranchesForRebase] = useState<
+    Array<{ name: string; isHead: boolean; isRemote: boolean }>
   >([]);
 
   // Reset pages and search when dialog closes
@@ -310,6 +317,89 @@ export function CommandPalette() {
     }
   };
 
+  const handleOpenRebasePage = async () => {
+    if (!repository) return;
+    try {
+      const branches = await listBranches(repository.path);
+      // Include both local and remote branches for rebase
+      setBranchesForRebase(
+        branches.map((b) => ({ name: b.name, isHead: b.isHead, isRemote: b.isRemote })),
+      );
+      setSearch("");
+      setPages([...pages, "rebase-onto"]);
+    } catch (error) {
+      toast.error("Failed to load branches", getErrorMessage(error));
+    }
+  };
+
+  const handleRebaseOnto = async (ontoRef: string) => {
+    if (!repository) return;
+    setShowCommandPalette(false);
+
+    // Preflight check: ensure clean working tree
+    try {
+      const status = await getStatus(repository.path);
+      const hasChanges = status.staged.length > 0 || status.unstaged.length > 0 || status.untracked.length > 0;
+      
+      if (hasChanges) {
+        toast.error(
+          "Cannot rebase with uncommitted changes",
+          "Please commit or stash your changes before rebasing",
+        );
+        return;
+      }
+    } catch (error) {
+      toast.error("Failed to check status", getErrorMessage(error));
+      return;
+    }
+
+    // Perform the rebase
+    try {
+      await rebaseOnto(repository.path, ontoRef);
+      toast.success(
+        "Rebase successful",
+        `Rebased current branch onto ${ontoRef}`,
+      );
+      queryClient.invalidateQueries({ queryKey: ["branches"] });
+      queryClient.invalidateQueries({ queryKey: ["commits"] });
+      queryClient.invalidateQueries({ queryKey: ["status"] });
+      queryClient.invalidateQueries({ queryKey: ["aheadBehind"] });
+      queryClient.invalidateQueries({ queryKey: ["graph-commits"] });
+      queryClient.invalidateQueries({ queryKey: ["graphTableGraph"] });
+    } catch (error) {
+      const errorMsg = getErrorMessage(error);
+      if (errorMsg.includes("conflict") || errorMsg.includes("CONFLICT")) {
+        toast.warning(
+          "Rebase conflicts",
+          "The rebase has conflicts that need to be resolved",
+        );
+        // Open the conflict panel
+        try {
+          const rebaseStatus = await getRebaseStatus(repository.path);
+          if (rebaseStatus.conflictingFiles.length > 0) {
+            const fileInfos = await Promise.all(
+              rebaseStatus.conflictingFiles.map((filePath) =>
+                parseFileConflicts(repository.path, filePath),
+              ),
+            );
+            enterConflictMode(fileInfos, rebaseStatus.ontoRef, 'rebase');
+            setShowMergeConflictPanel(true);
+            // Switch to merge conflict layout
+            const api = getDockviewApi();
+            if (api) {
+              applyLayout(api, "merge-conflict");
+            }
+          }
+        } catch (e) {
+          console.error("Failed to load conflict info:", e);
+        }
+        queryClient.invalidateQueries({ queryKey: ["rebase-status"] });
+      } else {
+        toast.error("Rebase failed", errorMsg);
+      }
+    }
+  };
+
   return (
     <Command.Dialog
       open={showCommandPalette}
@@ -353,6 +443,7 @@ export function CommandPalette() {
             <span className="text-sm text-text-muted">
               {page === "recent" && "Recent Repositories"}
               {page === "merge-branch" && "Merge Branch"}
+              {page === "rebase-onto" && "Rebase Onto..."}
               {page === "themes" && "Select Theme"}
             </span>
           </div>
@@ -366,9 +457,11 @@ export function CommandPalette() {
               ? "Search repositories..."
               : page === "merge-branch"
                 ? "Search branches..."
-                : page === "themes"
-                  ? "Search themes..."
-                  : "Type a command..."
+                : page === "rebase-onto"
+                  ? "Search branches..."
+                  : page === "themes"
+                    ? "Search themes..."
+                    : "Type a command..."
           }
           className="w-full px-4 py-3 bg-transparent border-b border-border-primary text-text-primary placeholder-text-muted outline-hidden focus:outline-hidden focus-visible:outline-hidden focus:ring-0 text-sm"
         />
@@ -425,6 +518,32 @@ export function CommandPalette() {
               {branchesForMerge.filter((b) => !b.isHead).length === 0 && (
                 <div className="py-6 text-center text-text-muted text-sm">
                   No other branches available to merge
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Rebase Onto Page */}
+          {page === "rebase-onto" && (
+            <>
+              {branchesForRebase
+                .filter((b) => !b.isHead) // Don't show current branch
+                .map((branch) => (
+                  <Command.Item
+                    key={branch.name}
+                    onSelect={() => handleRebaseOnto(branch.name)}
+                    className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  >
+                    <GitFork size={16} className={branch.isRemote ? "text-accent-purple" : "text-text-muted"} />
+                    <span className="flex-1">{branch.name}</span>
+                    <span className="text-xs text-text-muted">
+                      {branch.isRemote ? "Remote" : "Local"}
+                    </span>
+                  </Command.Item>
+                ))}
+              {branchesForRebase.filter((b) => !b.isHead).length === 0 && (
+                <div className="py-6 text-center text-text-muted text-sm">
+                  No other branches available to rebase onto
                 </div>
               )}
             </>
@@ -817,6 +936,16 @@ export function CommandPalette() {
                   >
                     <GitMerge size={16} className="text-text-muted" />
                     <span className="flex-1">Merge Branch...</span>
+                    <CaretRight size={16} className="text-text-muted" />
+                  </Command.Item>
+
+                  <Command.Item
+                    onSelect={() => handleOpenRebasePage()}
+                    className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                    keywords={["rebase", "branch", "onto", "base"]}
+                  >
+                    <GitFork size={16} className="text-text-muted" />
+                    <span className="flex-1">Rebase Onto...</span>
                     <CaretRight size={16} className="text-text-muted" />
                   </Command.Item>
                 </Command.Group>

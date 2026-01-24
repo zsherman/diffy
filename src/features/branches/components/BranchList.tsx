@@ -2,13 +2,16 @@ import { useMemo, useState, useCallback, useEffect, memo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { VList } from "virtua";
 import type { VListHandle } from "virtua";
-import { GitMerge } from "@phosphor-icons/react";
+import { GitMerge, GitFork } from "@phosphor-icons/react";
 import {
   listBranches,
   checkoutBranch,
   mergeBranch,
   getMergeStatus,
   parseFileConflicts,
+  getStatus,
+  rebaseOnto,
+  getRebaseStatus,
 } from "../../../lib/tauri";
 import {
   useTabsStore,
@@ -101,11 +104,12 @@ export function BranchList() {
   const { activePanel } = useActivePanel();
   const { setShowMergeConflictPanel } = useActiveTabPanels();
   const panelFontSize = usePanelFontSize();
-  const { enterMergeMode } = useMergeConflictStore();
+  const { enterMergeMode, enterConflictMode } = useMergeConflictStore();
   const queryClient = useQueryClient();
   const toast = useToast();
   const listRef = useRef<VListHandle>(null);
   const [focusedIndex, setFocusedIndex] = useState(0);
+  const [isRebasing, setIsRebasing] = useState(false);
 
   const { data: branches = [], isLoading } = useQuery({
     queryKey: ["branches", repository?.path],
@@ -186,6 +190,89 @@ export function BranchList() {
     mergeMutation.mutate({ branch: selectedBranch });
   }, [selectedBranch, repository, branches, mergeMutation, toast]);
 
+  const handleRebase = useCallback(async () => {
+    if (!selectedBranch || !repository || isRebasing) return;
+
+    // Find the selected branch info
+    const branch = branches.find((b) => b.name === selectedBranch);
+    if (!branch) return;
+
+    // Don't rebase onto the current branch
+    if (branch.isHead) {
+      toast.warning("Cannot rebase", "Cannot rebase onto the current branch");
+      return;
+    }
+
+    setIsRebasing(true);
+
+    // Preflight check: ensure clean working tree
+    try {
+      const status = await getStatus(repository.path);
+      const hasChanges = status.staged.length > 0 || status.unstaged.length > 0 || status.untracked.length > 0;
+      
+      if (hasChanges) {
+        toast.error(
+          "Cannot rebase with uncommitted changes",
+          "Please commit or stash your changes before rebasing",
+        );
+        setIsRebasing(false);
+        return;
+      }
+    } catch (error) {
+      toast.error("Failed to check status", getErrorMessage(error));
+      setIsRebasing(false);
+      return;
+    }
+
+    // Perform the rebase
+    try {
+      await rebaseOnto(repository.path, selectedBranch);
+      toast.success(
+        "Rebase successful",
+        `Rebased current branch onto ${selectedBranch}`,
+      );
+      queryClient.invalidateQueries({ queryKey: ["branches"] });
+      queryClient.invalidateQueries({ queryKey: ["commits"] });
+      queryClient.invalidateQueries({ queryKey: ["status"] });
+      queryClient.invalidateQueries({ queryKey: ["aheadBehind"] });
+      queryClient.invalidateQueries({ queryKey: ["graph-commits"] });
+      queryClient.invalidateQueries({ queryKey: ["graphTableGraph"] });
+    } catch (error) {
+      const errorMsg = getErrorMessage(error);
+      if (errorMsg.includes("conflict") || errorMsg.includes("CONFLICT")) {
+        toast.warning(
+          "Rebase conflicts",
+          "The rebase has conflicts that need to be resolved",
+        );
+        // Open the conflict panel
+        try {
+          const rebaseStatus = await getRebaseStatus(repository.path);
+          if (rebaseStatus.conflictingFiles.length > 0) {
+            const fileInfos = await Promise.all(
+              rebaseStatus.conflictingFiles.map((filePath) =>
+                parseFileConflicts(repository.path, filePath),
+              ),
+            );
+            enterConflictMode(fileInfos, rebaseStatus.ontoRef, 'rebase');
+            setShowMergeConflictPanel(true);
+            // Switch to merge conflict layout
+            const api = getDockviewApi();
+            if (api) {
+              applyLayout(api, "merge-conflict");
+            }
+          }
+        } catch (e) {
+          console.error("Failed to load conflict info:", e);
+        }
+        queryClient.invalidateQueries({ queryKey: ["rebase-status"] });
+      } else {
+        toast.error("Rebase failed", errorMsg);
+      }
+    } finally {
+      setIsRebasing(false);
+    }
+  }, [selectedBranch, repository, isRebasing, branches, toast, queryClient, enterConflictMode, setShowMergeConflictPanel]);
+
   // Filter branches
   const filteredBranches = useMemo(() => {
     if (!branchFilter) return branches;
@@ -262,6 +349,9 @@ export function BranchList() {
       } else if (e.key === "m" || e.key === "M") {
         e.preventDefault();
         handleMerge();
+      } else if (e.key === "r" || e.key === "R") {
+        e.preventDefault();
+        handleRebase();
       }
     };
 
@@ -275,6 +365,7 @@ export function BranchList() {
     setSelectedCommit,
     checkoutMutation,
     handleMerge,
+    handleRebase,
   ]);
 
   // Scroll focused item into view
@@ -333,16 +424,28 @@ export function BranchList() {
           style={{ fontSize: `${panelFontSize}px` }}
         />
         {canMerge && (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleMerge}
-            loading={mergeMutation.isPending}
-            leftIcon={<GitMerge size={12} weight="bold" />}
-            className="w-full"
-          >
-            Merge "{selectedBranch?.replace(/^[^/]+\//, "")}" into current
-          </Button>
+          <div className="flex flex-col gap-1.5">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleMerge}
+              loading={mergeMutation.isPending}
+              leftIcon={<GitMerge size={12} weight="bold" />}
+              className="w-full"
+            >
+              Merge "{selectedBranch?.replace(/^[^/]+\//, "")}" into current
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRebase}
+              loading={isRebasing}
+              leftIcon={<GitFork size={12} weight="bold" />}
+              className="w-full text-text-muted hover:text-text-primary"
+            >
+              Rebase current onto "{selectedBranch?.replace(/^[^/]+\//, "")}"
+            </Button>
+          </div>
         )}
       </div>
 

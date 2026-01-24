@@ -16,15 +16,20 @@ import {
   markFileResolved,
   abortMerge,
   continueMerge,
+  abortRebase,
+  continueRebase,
+  getRebaseStatus,
+  parseFileConflicts,
 } from '../../../lib/tauri';
 import { getErrorMessage } from '../../../lib/errors';
 
 export function MergeConflictView() {
-  const [isCompletingMerge, setIsCompletingMerge] = useState(false);
-  const [mergeCompleted, setMergeCompleted] = useState(false);
+  const [isCompleting, setIsCompleting] = useState(false);
+  const [operationCompleted, setOperationCompleted] = useState(false);
 
   const {
     isActive,
+    operation,
     files,
     currentFile,
     resolvedContent,
@@ -36,10 +41,16 @@ export function MergeConflictView() {
     setResolvedContent,
     setNotes,
     markFileResolved: markFileResolvedInStore,
-    exitMergeMode,
+    exitConflictMode,
+    enterConflictMode,
     nextFile,
     prevFile,
   } = useMergeConflictStore();
+
+  // Computed values based on operation type
+  const isRebase = operation === 'rebase';
+  const operationLabel = isRebase ? 'Rebase' : 'Merge';
+  const operationLabelLower = isRebase ? 'rebase' : 'merge';
 
   const { repository } = useTabsStore();
   const { activePanel, setShowMergeConflictPanel } = useUIStore();
@@ -103,86 +114,142 @@ export function MergeConflictView() {
       // Refresh status
       queryClient.invalidateQueries({ queryKey: ['status'] });
       queryClient.invalidateQueries({ queryKey: ['merge-status'] });
+      queryClient.invalidateQueries({ queryKey: ['rebase-status'] });
     } catch (error) {
       toast.error('Failed to save', getErrorMessage(error));
     }
   }, [repository, currentFile, resolvedContent, markFileResolvedInStore, toast, queryClient]);
 
-  // Abort merge
-  const handleAbortMerge = useCallback(async () => {
+  // Abort operation (merge or rebase)
+  const handleAbort = useCallback(async () => {
     if (!repository) return;
 
-    if (!confirm('Are you sure you want to abort the merge? All conflict resolutions will be lost.')) {
+    if (!confirm(`Are you sure you want to abort the ${operationLabelLower}? All conflict resolutions will be lost.`)) {
       return;
     }
 
     try {
-      await abortMerge(repository.path);
-      exitMergeMode();
+      if (isRebase) {
+        await abortRebase(repository.path);
+      } else {
+        await abortMerge(repository.path);
+      }
+      exitConflictMode();
       setShowMergeConflictPanel(false);
-      toast.success('Merge aborted', 'The merge has been aborted');
+      toast.success(`${operationLabel} aborted`, `The ${operationLabelLower} has been aborted`);
       queryClient.invalidateQueries({ queryKey: ['status'] });
       queryClient.invalidateQueries({ queryKey: ['merge-status'] });
+      queryClient.invalidateQueries({ queryKey: ['rebase-status'] });
       queryClient.invalidateQueries({ queryKey: ['branches'] });
+      queryClient.invalidateQueries({ queryKey: ['commits'] });
+      queryClient.invalidateQueries({ queryKey: ['graph-commits'] });
+      queryClient.invalidateQueries({ queryKey: ['graphTableGraph'] });
     } catch (error) {
       toast.error('Failed to abort', getErrorMessage(error));
     }
-  }, [repository, exitMergeMode, setShowMergeConflictPanel, toast, queryClient]);
+  }, [repository, exitConflictMode, setShowMergeConflictPanel, toast, queryClient, isRebase, operationLabel, operationLabelLower]);
 
-  // Continue/complete merge
-  const handleContinueMerge = useCallback(async () => {
-    if (!repository || isCompletingMerge) return;
+  // Continue/complete operation (merge or rebase)
+  const handleContinue = useCallback(async () => {
+    if (!repository || isCompleting) return;
 
-    setIsCompletingMerge(true);
+    setIsCompleting(true);
     try {
-      console.log('Attempting to complete merge...');
-      const result = await continueMerge(repository.path);
-      console.log('Merge completed:', result);
-      setMergeCompleted(true);
+      if (isRebase) {
+        // Rebase continue might hit more conflicts
+        await continueRebase(repository.path);
+        
+        // Check if there are more conflicts (rebase can stop at next commit)
+        const rebaseStatus = await getRebaseStatus(repository.path);
+        if (rebaseStatus.inRebase && rebaseStatus.conflictingFiles.length > 0) {
+          // More conflicts - reload conflict files and stay in conflict mode
+          const fileInfos = await Promise.all(
+            rebaseStatus.conflictingFiles.map((filePath) =>
+              parseFileConflicts(repository.path, filePath),
+            ),
+          );
+          enterConflictMode(fileInfos, rebaseStatus.ontoRef, 'rebase');
+          toast.warning('More conflicts', 'Rebase continued but hit more conflicts on the next commit');
+          setIsCompleting(false);
+          queryClient.invalidateQueries({ queryKey: ['rebase-status'] });
+          return;
+        }
+      } else {
+        await continueMerge(repository.path);
+      }
+      
+      setOperationCompleted(true);
       queryClient.invalidateQueries({ queryKey: ['status'] });
       queryClient.invalidateQueries({ queryKey: ['merge-status'] });
+      queryClient.invalidateQueries({ queryKey: ['rebase-status'] });
       queryClient.invalidateQueries({ queryKey: ['commits'] });
       queryClient.invalidateQueries({ queryKey: ['branches'] });
+      queryClient.invalidateQueries({ queryKey: ['aheadBehind'] });
+      queryClient.invalidateQueries({ queryKey: ['graph-commits'] });
+      queryClient.invalidateQueries({ queryKey: ['graphTableGraph'] });
     } catch (error) {
-      console.error('Merge failed:', error);
       const errorMsg = getErrorMessage(error);
-      toast.error('Failed to complete merge', errorMsg);
-      setIsCompletingMerge(false);
+      
+      // For rebase, check if there are more conflicts
+      if (isRebase && (errorMsg.includes('conflict') || errorMsg.includes('CONFLICT'))) {
+        try {
+          const rebaseStatus = await getRebaseStatus(repository.path);
+          if (rebaseStatus.inRebase && rebaseStatus.conflictingFiles.length > 0) {
+            const fileInfos = await Promise.all(
+              rebaseStatus.conflictingFiles.map((filePath) =>
+                parseFileConflicts(repository.path, filePath),
+              ),
+            );
+            enterConflictMode(fileInfos, rebaseStatus.ontoRef, 'rebase');
+            toast.warning('More conflicts', 'Rebase continued but hit more conflicts on the next commit');
+            setIsCompleting(false);
+            queryClient.invalidateQueries({ queryKey: ['rebase-status'] });
+            return;
+          }
+        } catch {
+          // Fall through to error handling
+        }
+      }
+      
+      toast.error(`Failed to complete ${operationLabelLower}`, errorMsg);
+      setIsCompleting(false);
     }
-  }, [repository, isCompletingMerge, toast, queryClient]);
+  }, [repository, isCompleting, toast, queryClient, isRebase, operationLabelLower, enterConflictMode]);
 
-  // Handle closing after merge is complete
-  const handleCloseAfterMerge = useCallback(() => {
-    exitMergeMode();
+  // Handle closing after operation is complete
+  const handleCloseAfterComplete = useCallback(() => {
+    exitConflictMode();
     setShowMergeConflictPanel(false);
-    setMergeCompleted(false);
-    setIsCompletingMerge(false);
+    setOperationCompleted(false);
+    setIsCompleting(false);
     // Switch back to standard layout
     const api = getDockviewApi();
     if (api) {
       applyLayout(api, 'standard');
     }
-  }, [exitMergeMode, setShowMergeConflictPanel]);
+  }, [exitConflictMode, setShowMergeConflictPanel]);
 
   // Close panel
   const handleClose = useCallback(() => {
-    exitMergeMode();
+    exitConflictMode();
     setShowMergeConflictPanel(false);
-  }, [exitMergeMode, setShowMergeConflictPanel]);
+  }, [exitConflictMode, setShowMergeConflictPanel]);
 
-  // Show success state after merge is completed
-  if (mergeCompleted) {
+  // Show success state after operation is completed
+  if (operationCompleted) {
     return (
       <div className="flex flex-col h-full items-center justify-center gap-4">
         <div className="text-center">
           <CheckCircle size={64} weight="fill" className="text-accent-green mx-auto mb-4" />
-          <p className="text-text-primary font-medium text-xl">Merge Complete!</p>
-          <p className="text-text-muted text-sm mt-2">The merge has been committed successfully</p>
+          <p className="text-text-primary font-medium text-xl">{operationLabel} Complete!</p>
+          <p className="text-text-muted text-sm mt-2">
+            {isRebase ? 'The rebase has been completed successfully' : 'The merge has been committed successfully'}
+          </p>
         </div>
         <Button
           variant="primary"
           size="md"
-          onClick={handleCloseAfterMerge}
+          onClick={handleCloseAfterComplete}
           className="mt-2"
         >
           Close and Return to Editor
@@ -191,14 +258,14 @@ export function MergeConflictView() {
     );
   }
 
-  // Show "all resolved" state when files are empty but we might still need to complete merge
+  // Show "all resolved" state when files are empty but we might still need to complete operation
   if (!isActive || !currentFile) {
     return (
       <div className="flex flex-col h-full items-center justify-center gap-4">
         <div className="text-center">
           <Check size={48} weight="bold" className="text-accent-green mx-auto mb-3" />
           <p className="text-text-primary font-medium text-lg">All conflicts resolved!</p>
-          <p className="text-text-muted text-sm mt-1">Click below to complete the merge</p>
+          <p className="text-text-muted text-sm mt-1">Click below to complete the {operationLabelLower}</p>
         </div>
         <div className="flex items-center gap-3">
           <Button
@@ -211,12 +278,12 @@ export function MergeConflictView() {
           <Button
             variant="primary"
             size="md"
-            onClick={handleContinueMerge}
-            loading={isCompletingMerge}
-            leftIcon={!isCompletingMerge ? <Check size={14} weight="bold" /> : undefined}
+            onClick={handleContinue}
+            loading={isCompleting}
+            leftIcon={!isCompleting ? <Check size={14} weight="bold" /> : undefined}
             className="bg-accent-green hover:bg-accent-green/90"
           >
-            {isCompletingMerge ? 'Completing...' : 'Complete Merge'}
+            {isCompleting ? 'Completing...' : `Complete ${operationLabel}`}
           </Button>
         </div>
       </div>
@@ -348,11 +415,11 @@ export function MergeConflictView() {
         <Button
           variant="ghost"
           size="md"
-          onClick={handleAbortMerge}
+          onClick={handleAbort}
           leftIcon={<X size={14} weight="bold" />}
           className="text-accent-red hover:bg-accent-red/10"
         >
-          Abort Merge
+          Abort {operationLabel}
         </Button>
 
         <Button
@@ -368,11 +435,11 @@ export function MergeConflictView() {
           <Button
             variant="primary"
             size="md"
-            onClick={handleContinueMerge}
+            onClick={handleContinue}
             leftIcon={<Check size={14} weight="bold" />}
             className="bg-accent-green hover:bg-accent-green/90"
           >
-            Complete Merge
+            Complete {operationLabel}
           </Button>
         )}
 

@@ -1,19 +1,19 @@
-import { memo, useMemo } from 'react';
-import type { GraphNode, CommitGraph } from '../../../types/git';
-import { AuthorAvatar } from './AuthorAvatar';
+import { memo, useMemo } from "react";
+import type { GraphNode, CommitGraph } from "../../../types/git";
+import { AuthorAvatar } from "./AuthorAvatar";
 
 const COLUMN_WIDTH = 20;
 const NODE_RADIUS = 5;
 const STROKE_WIDTH = 2.5;
 const COLORS = [
-  '#5B9BD5', // blue
-  '#6CC070', // green
-  '#E5A84B', // amber
-  '#B07CC6', // purple
-  '#E86A6A', // red
-  '#4ECDC4', // teal
-  '#F5A962', // orange
-  '#7C9EB2', // slate
+  "#5B9BD5", // blue
+  "#6CC070", // green
+  "#E5A84B", // amber
+  "#B07CC6", // purple
+  "#E86A6A", // red
+  "#4ECDC4", // teal
+  "#F5A962", // orange
+  "#7C9EB2", // slate
 ];
 
 interface GraphCellProps {
@@ -40,7 +40,7 @@ interface PassThroughLine {
 // Calculate lines coming INTO this row from previous rows
 function getIncomingLines(
   graph: CommitGraph,
-  rowIndex: number
+  rowIndex: number,
 ): IncomingLine[] {
   const lines: IncomingLine[] = [];
 
@@ -67,7 +67,7 @@ function getIncomingLines(
 // Calculate lines passing THROUGH this row (not ending here)
 function getPassThroughLines(
   graph: CommitGraph,
-  rowIndex: number
+  rowIndex: number,
 ): PassThroughLine[] {
   const lines: PassThroughLine[] = [];
   const seen = new Set<number>();
@@ -105,31 +105,20 @@ export const GraphCell = memo(function GraphCell({
 }: GraphCellProps) {
   const incomingLines = useMemo(
     () => getIncomingLines(graph, rowIndex),
-    [graph, rowIndex]
+    [graph, rowIndex],
   );
 
   const passThroughLines = useMemo(
     () => getPassThroughLines(graph, rowIndex),
-    [graph, rowIndex]
+    [graph, rowIndex],
   );
 
   const nodeColor = node ? COLORS[node.column % COLORS.length] : COLORS[0];
   const graphWidth = (graph.maxColumns + 1) * COLUMN_WIDTH;
   const centerY = rowHeight / 2;
 
-  // Find the rightmost element for avatar positioning
-  const rightmostColumn = useMemo(() => {
-    let max = node ? node.column : -1;
-    for (const line of passThroughLines) {
-      if (line.column > max) max = line.column;
-    }
-    for (const line of incomingLines) {
-      if (line.column > max) max = line.column;
-    }
-    return max;
-  }, [node, passThroughLines, incomingLines]);
-
-  const avatarX = (rightmostColumn + 1) * COLUMN_WIDTH + 8;
+  // Position avatar consistently at the right edge of the graph area
+  const avatarX = graphWidth + 8;
 
   return (
     <div style={{ width }} className="shrink-0 relative flex items-center">
@@ -199,7 +188,9 @@ export const GraphCell = memo(function GraphCell({
         {node?.connections.map((conn, connIdx) => {
           const x = node.column * COLUMN_WIDTH + COLUMN_WIDTH / 2;
           const targetX = conn.toColumn * COLUMN_WIDTH + COLUMN_WIDTH / 2;
-          const lineColor = conn.isMerge ? COLORS[conn.toColumn % COLORS.length] : nodeColor;
+          const lineColor = conn.isMerge
+            ? COLORS[conn.toColumn % COLORS.length]
+            : nodeColor;
 
           if (conn.isMerge || conn.fromColumn !== conn.toColumn) {
             // Smooth S-curve - start from node, go vertical briefly, then curve to target

@@ -4,6 +4,12 @@ export interface MergeStatus {
   theirBranch: string | null;
 }
 
+export interface RebaseStatus {
+  inRebase: boolean;
+  conflictingFiles: string[];
+  ontoRef: string | null;
+}
+
 export interface ConflictRegion {
   startLine: number;
   endLine: number;
