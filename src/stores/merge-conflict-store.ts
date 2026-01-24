@@ -140,6 +140,14 @@ export const mergeConflictStore = createStore({
         }
       }),
 
+    resetToConflicted: (ctx) =>
+      produce(ctx, (draft) => {
+        const currentFile = draft.files[draft.currentFileIndex];
+        if (currentFile) {
+          draft.resolvedByFile[currentFile.filePath] = currentFile.originalContent;
+        }
+      }),
+
     setResolvedContent: (ctx, event: { filePath: string; content: string }) =>
       produce(ctx, (draft) => {
         draft.resolvedByFile[event.filePath] = event.content;
@@ -249,6 +257,7 @@ export function useMergeConflictStore() {
       mergeConflictStore.send({ type: 'setCurrentConflict', index }),
     chooseOurs: () => mergeConflictStore.send({ type: 'chooseOurs' }),
     chooseTheirs: () => mergeConflictStore.send({ type: 'chooseTheirs' }),
+    resetToConflicted: () => mergeConflictStore.send({ type: 'resetToConflicted' }),
     setResolvedContent: (filePath: string, content: string) =>
       mergeConflictStore.send({ type: 'setResolvedContent', filePath, content }),
     setNotes: (filePath: string, notes: string) =>

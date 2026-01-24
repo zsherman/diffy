@@ -298,7 +298,7 @@ export function RepoHeader() {
             {hasConflicts && (
               <button
                 onClick={handleOpenMergeConflicts}
-                className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-accent-yellow/20 text-xs hover:bg-accent-yellow/30 transition-colors"
+                className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-accent-yellow/20 text-xs hover:bg-accent-yellow/30 transition-colors whitespace-nowrap shrink-0"
                 title="Click to resolve merge conflicts"
               >
                 <Warning size={14} weight="fill" className="text-accent-yellow" />

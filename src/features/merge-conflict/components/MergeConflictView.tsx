@@ -32,6 +32,7 @@ export function MergeConflictView() {
     aiExplanation,
     chooseOurs,
     chooseTheirs,
+    resetToConflicted,
     setResolvedContent,
     setNotes,
     markFileResolved: markFileResolvedInStore,
@@ -72,11 +73,16 @@ export function MergeConflictView() {
         e.preventDefault();
         chooseTheirs();
       }
+      // Ctrl+0 for reset to conflicted
+      else if (e.ctrlKey && e.key === '0') {
+        e.preventDefault();
+        resetToConflicted();
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activePanel, prevFile, nextFile, chooseOurs, chooseTheirs]);
+  }, [activePanel, prevFile, nextFile, chooseOurs, chooseTheirs, resetToConflicted]);
 
   // Save and mark file as resolved
   const handleSaveAndResolve = useCallback(async () => {
@@ -290,6 +296,7 @@ export function MergeConflictView() {
               content={resolvedContent}
               filePath={currentFile.filePath}
               onChange={(value) => setResolvedContent(currentFile.filePath, value)}
+              onReset={resetToConflicted}
             />
           </div>
         </div>
@@ -329,6 +336,7 @@ export function MergeConflictView() {
             <ul className="space-y-1">
               <li><kbd className="px-1.5 py-0.5 bg-bg-secondary rounded-sm text-[10px]">Ctrl+1</kbd> Use Ours</li>
               <li><kbd className="px-1.5 py-0.5 bg-bg-secondary rounded-sm text-[10px]">Ctrl+2</kbd> Use Theirs</li>
+              <li><kbd className="px-1.5 py-0.5 bg-bg-secondary rounded-sm text-[10px]">Ctrl+0</kbd> Reset to Conflicted</li>
               <li><kbd className="px-1.5 py-0.5 bg-bg-secondary rounded-sm text-[10px]">Ctrl+↑↓</kbd> Navigate files</li>
             </ul>
           </div>

@@ -1,4 +1,4 @@
-import { GitBranch, ArrowRight, CheckCircle } from '@phosphor-icons/react';
+import { GitBranch, ArrowRight, CheckCircle, ArrowCounterClockwise } from '@phosphor-icons/react';
 import { ConflictEditor } from './ConflictEditor';
 import { Button } from '../../../components/ui/Button';
 
@@ -10,6 +10,7 @@ interface ConflictPanelProps {
   filePath: string;
   onChange?: (value: string) => void;
   onChoose?: () => void;
+  onReset?: () => void;
   highlightLines?: { start: number; end: number } | null;
 }
 
@@ -21,6 +22,7 @@ export function ConflictPanel({
   filePath,
   onChange,
   onChoose,
+  onReset,
   highlightLines,
 }: ConflictPanelProps) {
   const isReadOnly = type !== 'resolved';
@@ -57,20 +59,33 @@ export function ConflictPanel({
           )}
         </div>
 
-        {onChoose && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onChoose}
-            className={
-              type === 'ours'
-                ? 'text-accent-blue hover:bg-accent-blue/20'
-                : 'text-accent-purple hover:bg-accent-purple/20'
-            }
-          >
-            Use This
-          </Button>
-        )}
+        <div className="flex items-center gap-1">
+          {onReset && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onReset}
+              leftIcon={<ArrowCounterClockwise size={12} weight="bold" />}
+              className="text-text-muted hover:text-text-primary hover:bg-bg-tertiary"
+            >
+              Reset
+            </Button>
+          )}
+          {onChoose && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onChoose}
+              className={
+                type === 'ours'
+                  ? 'text-accent-blue hover:bg-accent-blue/20'
+                  : 'text-accent-purple hover:bg-accent-purple/20'
+              }
+            >
+              Use This
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Editor */}
