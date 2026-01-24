@@ -93,6 +93,7 @@ export type PanelId =
   | "branches"
   | "commits"
   | "files"
+  | "file-tree"
   | "diff"
   | "staging"
   | "ai-review"

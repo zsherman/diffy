@@ -24,3 +24,14 @@ export { FileContextMenu } from "./FileContextMenu";
 export { CommitContextMenu } from "./CommitContextMenu";
 export { WorktreeContextMenu } from "./WorktreeContextMenu";
 export { RemoteActionSelect } from "./RemoteActionSelect";
+export {
+  FileStatusIndicator,
+  StatusIcon,
+  StatusLabel,
+  STATUS_COLORS,
+  STATUS_LABELS,
+  STATUS_TOOLTIPS,
+  getStatusColor,
+  getStatusLabel,
+  getStatusTooltip,
+} from "./FileStatusIndicator";

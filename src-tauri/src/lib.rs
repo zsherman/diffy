@@ -98,6 +98,12 @@ pub fn run() {
             commands::rebase_onto,
             commands::continue_rebase,
             commands::abort_rebase,
+            commands::skip_rebase,
+            // Interactive rebase commands
+            commands::get_interactive_rebase_commits,
+            commands::start_interactive_rebase,
+            commands::get_interactive_rebase_state,
+            commands::continue_interactive_rebase,
             // Ahead/behind
             commands::get_ahead_behind,
             // Watcher commands

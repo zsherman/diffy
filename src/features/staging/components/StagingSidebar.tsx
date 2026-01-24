@@ -6,11 +6,7 @@ import {
   Separator as PanelResizeHandle,
 } from "react-resizable-panels";
 import {
-  FilePlus,
-  PencilSimple,
   Trash,
-  ArrowRight,
-  Question,
   CaretDown,
   CaretRight,
   Sparkle,
@@ -35,39 +31,11 @@ import {
   normalizeError,
   getErrorMessage,
 } from "../../../lib/tauri";
-import { FileContextMenu } from "../../../components/ui";
+import { FileContextMenu, StatusIcon } from "../../../components/ui";
 import { useTabsStore, useActiveTabState } from "../../../stores/tabs-store";
 import { useUIStore } from "../../../stores/ui-store";
 import { usePanelFontSize } from "../../../stores/ui-store";
 import type { FileStatus, StashEntry } from "../../../types/git";
-
-const STATUS_COLORS: Record<string, string> = {
-  A: "text-accent-green",
-  M: "text-accent-yellow",
-  D: "text-accent-red",
-  R: "text-accent-purple",
-  "?": "text-accent-green",
-};
-
-const StatusIcon = ({ status }: { status: string }) => {
-  const color = STATUS_COLORS[status] || "text-text-muted";
-  const iconProps = { size: 14, className: color, weight: "bold" as const };
-
-  switch (status) {
-    case "A":
-      return <FilePlus {...iconProps} />;
-    case "M":
-      return <PencilSimple {...iconProps} />;
-    case "D":
-      return <Trash {...iconProps} />;
-    case "R":
-      return <ArrowRight {...iconProps} />;
-    case "?":
-      return <FilePlus {...iconProps} />;
-    default:
-      return <Question {...iconProps} />;
-  }
-};
 
 // Memoized file row with hover actions
 const StagingFileRow = memo(function StagingFileRow({

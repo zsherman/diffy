@@ -2,7 +2,7 @@ import { useMemo, useState, useCallback, useEffect, memo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { VList } from "virtua";
 import type { VListHandle } from "virtua";
-import { GitMerge, GitFork } from "@phosphor-icons/react";
+import { GitMerge, GitFork, Rows } from "@phosphor-icons/react";
 import {
   listBranches,
   checkoutBranch,
@@ -30,6 +30,7 @@ import { useToast } from "../../../components/ui/Toast";
 import { getErrorMessage } from "../../../lib/errors";
 import { applyLayout } from "../../../lib/layouts";
 import type { BranchInfo } from "../../../types/git";
+import { InteractiveRebaseDialog } from "../../commits/components/InteractiveRebaseDialog";
 
 // Memoized header row
 const BranchHeaderRow = memo(function BranchHeaderRow({
@@ -110,6 +111,8 @@ export function BranchList() {
   const listRef = useRef<VListHandle>(null);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [isRebasing, setIsRebasing] = useState(false);
+  const [showInteractiveRebaseDialog, setShowInteractiveRebaseDialog] =
+    useState(false);
 
   const { data: branches = [], isLoading } = useQuery({
     queryKey: ["branches", repository?.path],
@@ -208,8 +211,11 @@ export function BranchList() {
     // Preflight check: ensure clean working tree
     try {
       const status = await getStatus(repository.path);
-      const hasChanges = status.staged.length > 0 || status.unstaged.length > 0 || status.untracked.length > 0;
-      
+      const hasChanges =
+        status.staged.length > 0 ||
+        status.unstaged.length > 0 ||
+        status.untracked.length > 0;
+
       if (hasChanges) {
         toast.error(
           "Cannot rebase with uncommitted changes",
@@ -253,7 +259,7 @@ export function BranchList() {
                 parseFileConflicts(repository.path, filePath),
               ),
             );
-            enterConflictMode(fileInfos, rebaseStatus.ontoRef, 'rebase');
+            enterConflictMode(fileInfos, rebaseStatus.ontoRef, "rebase");
             setShowMergeConflictPanel(true);
             // Switch to merge conflict layout
             const api = getDockviewApi();
@@ -271,7 +277,16 @@ export function BranchList() {
     } finally {
       setIsRebasing(false);
     }
-  }, [selectedBranch, repository, isRebasing, branches, toast, queryClient, enterConflictMode, setShowMergeConflictPanel]);
+  }, [
+    selectedBranch,
+    repository,
+    isRebasing,
+    branches,
+    toast,
+    queryClient,
+    enterConflictMode,
+    setShowMergeConflictPanel,
+  ]);
 
   // Filter branches
   const filteredBranches = useMemo(() => {
@@ -445,6 +460,16 @@ export function BranchList() {
             >
               Rebase current onto "{selectedBranch?.replace(/^[^/]+\//, "")}"
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowInteractiveRebaseDialog(true)}
+              leftIcon={<Rows size={12} weight="bold" />}
+              className="w-full text-accent-purple hover:text-accent-purple/80"
+            >
+              Interactive rebase onto "{selectedBranch?.replace(/^[^/]+\//, "")}
+              "
+            </Button>
           </div>
         )}
       </div>
@@ -475,6 +500,20 @@ export function BranchList() {
           );
         })}
       </VList>
+
+      {/* Interactive Rebase Dialog */}
+      {showInteractiveRebaseDialog && repository && selectedBranch && (
+        <InteractiveRebaseDialog
+          repoPath={repository.path}
+          ontoRef={selectedBranch}
+          onClose={() => setShowInteractiveRebaseDialog(false)}
+          onSuccess={() => {
+            setShowInteractiveRebaseDialog(false);
+            queryClient.invalidateQueries({ queryKey: ["branches"] });
+            queryClient.invalidateQueries({ queryKey: ["commits"] });
+          }}
+        />
+      )}
     </div>
   );
 }

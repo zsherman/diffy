@@ -24,6 +24,9 @@ import type {
   FileConflictInfo,
   AIResolveConflictResponse,
   RebaseStatus,
+  InteractiveRebaseCommit,
+  InteractiveRebasePlanEntry,
+  InteractiveRebaseState,
 } from "../features/merge-conflict/types";
 import { isPerfTracingEnabled } from "../stores/ui-store";
 
@@ -327,7 +330,10 @@ export async function gitPush(repoPath: string): Promise<string> {
   return invoke<string>("git_push", { repoPath });
 }
 
-export async function gitRemoteAction(repoPath: string, action: string): Promise<string> {
+export async function gitRemoteAction(
+  repoPath: string,
+  action: string,
+): Promise<string> {
   return invoke<string>("git_remote_action", { repoPath, action });
 }
 
@@ -363,7 +369,11 @@ export async function squashCommits(
   commitIds: string[],
   message: string,
 ): Promise<SquashResult> {
-  return invoke<SquashResult>("squash_commits", { repoPath, commitIds, message });
+  return invoke<SquashResult>("squash_commits", {
+    repoPath,
+    commitIds,
+    message,
+  });
 }
 
 // Commit
@@ -455,7 +465,9 @@ export interface ContributorReviewData {
 export async function generateContributorReview(
   request: ContributorReviewRequest,
 ): Promise<ContributorReviewData> {
-  return invoke<ContributorReviewData>("generate_contributor_review", { request });
+  return invoke<ContributorReviewData>("generate_contributor_review", {
+    request,
+  });
 }
 
 // Worktrees
@@ -647,6 +659,51 @@ export async function continueRebase(repoPath: string): Promise<string> {
 
 export async function abortRebase(repoPath: string): Promise<string> {
   return invoke<string>("abort_rebase", { repoPath });
+}
+
+export async function skipRebase(repoPath: string): Promise<string> {
+  return invoke<string>("skip_rebase", { repoPath });
+}
+
+// Interactive rebase operations
+export async function getInteractiveRebaseCommits(
+  repoPath: string,
+  ontoRef: string,
+): Promise<InteractiveRebaseCommit[]> {
+  return invoke<InteractiveRebaseCommit[]>("get_interactive_rebase_commits", {
+    repoPath,
+    ontoRef,
+  });
+}
+
+export async function startInteractiveRebase(
+  repoPath: string,
+  ontoRef: string,
+  plan: InteractiveRebasePlanEntry[],
+): Promise<string> {
+  return invoke<string>("start_interactive_rebase", {
+    repoPath,
+    ontoRef,
+    plan,
+  });
+}
+
+export async function getInteractiveRebaseState(
+  repoPath: string,
+): Promise<InteractiveRebaseState> {
+  return invoke<InteractiveRebaseState>("get_interactive_rebase_state", {
+    repoPath,
+  });
+}
+
+export async function continueInteractiveRebase(
+  repoPath: string,
+  message?: string,
+): Promise<string> {
+  return invoke<string>("continue_interactive_rebase", {
+    repoPath,
+    message,
+  });
 }
 
 export async function aiResolveConflict(

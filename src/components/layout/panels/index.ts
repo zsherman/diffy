@@ -1,6 +1,7 @@
 export { BranchesPanel } from './BranchesPanel';
 export { CommitsPanel } from './CommitsPanel';
 export { FilesPanel } from './FilesPanel';
+export { FileTreePanel } from './FileTreePanel';
 export { DiffPanel } from './DiffPanel';
 export { StagingPanel } from './StagingPanel';
 export { AIReviewPanel } from './AIReviewPanel';

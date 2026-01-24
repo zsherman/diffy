@@ -17,3 +17,10 @@ pub use repository::ReflogEntry;
 
 // Re-export rebase types
 pub use merge::RebaseStatus;
+
+// Re-export interactive rebase types
+pub use merge::RebaseTodoAction;
+pub use merge::InteractiveRebaseCommit;
+pub use merge::InteractiveRebasePlanEntry;
+pub use merge::RebaseStopReason;
+pub use merge::InteractiveRebaseState;

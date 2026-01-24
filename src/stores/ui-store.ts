@@ -559,6 +559,10 @@ export function useUIStore() {
     tabsStore,
     (s) => getActiveTabPanels(s).showFilesPanel,
   );
+  const showFileTreePanel = useSelector(
+    tabsStore,
+    (s) => getActiveTabPanels(s).showFileTreePanel,
+  );
   const showDiffPanel = useSelector(
     tabsStore,
     (s) => getActiveTabPanels(s).showDiffPanel,
@@ -688,6 +692,14 @@ export function useUIStore() {
     (show: boolean) => tabsStore.send({ type: "setShowFilesPanel", show }),
     [],
   );
+  const setShowFileTreePanel = useCallback(
+    (show: boolean) => tabsStore.send({ type: "setShowFileTreePanel", show }),
+    [],
+  );
+  const toggleFileTreePanel = useCallback(
+    () => tabsStore.send({ type: "toggleFileTreePanel" }),
+    [],
+  );
   const setShowDiffPanel = useCallback(
     (show: boolean) => tabsStore.send({ type: "setShowDiffPanel", show }),
     [],
@@ -768,6 +780,7 @@ export function useUIStore() {
     // Panel visibility (from tabs-store per-tab state)
     showBranchesPanel,
     showFilesPanel,
+    showFileTreePanel,
     showDiffPanel,
     showStagingSidebar,
     showAIReviewPanel,
@@ -801,6 +814,8 @@ export function useUIStore() {
     setShowBranchesPanel,
     toggleBranchesPanel,
     setShowFilesPanel,
+    setShowFileTreePanel,
+    toggleFileTreePanel,
     setShowDiffPanel,
     setShowStagingSidebar,
     toggleStagingSidebar,

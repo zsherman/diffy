@@ -15,13 +15,20 @@ import {
   getStatus,
   getMergeStatus,
   getRebaseStatus,
+  getInteractiveRebaseState,
   parseFileConflicts,
   gitRemoteAction,
   gitPush,
   getAheadBehind,
 } from "../../../lib/tauri";
+import { RebaseStopDialog } from "../../merge-conflict/components/RebaseStopDialog";
 import { useTabsStore, useActiveTabState } from "../../../stores/tabs-store";
-import { useUIStore, useAppView, getDockviewApi, useDefaultRemoteAction } from "../../../stores/ui-store";
+import {
+  useUIStore,
+  useAppView,
+  getDockviewApi,
+  useDefaultRemoteAction,
+} from "../../../stores/ui-store";
 import { useMergeConflictStore } from "../../../stores/merge-conflict-store";
 import { GitFork } from "@phosphor-icons/react";
 import { useToast } from "../../../components/ui/Toast";
@@ -37,7 +44,7 @@ type MainView = "repository" | "statistics" | "changelog";
 /**
  * Invalidates git-related queries after remote operations.
  * Uses predicate-based invalidation to match queries regardless of key structure.
- * 
+ *
  * Query invalidation strategy by operation:
  * - fetch: branches, commits, aheadBehind (remote refs change, no local working dir impact)
  * - pull: branches, commits, status, aheadBehind, working-diff-* (can modify working directory)
@@ -60,7 +67,11 @@ export function RepoHeader() {
   const { mainView, setMainView } = useActiveTabState();
   const { appView, setAppView } = useAppView();
   const { showMergeConflictPanel, setShowMergeConflictPanel } = useUIStore();
-  const { enterMergeMode, enterConflictMode, isActive: isConflictModeActive } = useMergeConflictStore();
+  const {
+    enterMergeMode,
+    enterConflictMode,
+    isActive: isConflictModeActive,
+  } = useMergeConflictStore();
   const toast = useToast();
   const queryClient = useQueryClient();
   const hasShownMergeToast = useRef(false);
@@ -97,6 +108,18 @@ export function RepoHeader() {
     refetchInterval: 60000,
     staleTime: 10000,
   });
+
+  // Fetch interactive rebase state (more detailed)
+  const { data: interactiveRebaseState } = useQuery({
+    queryKey: ["interactive-rebase-state", repository?.path],
+    queryFn: () => getInteractiveRebaseState(repository!.path),
+    enabled: !!repository?.path,
+    refetchInterval: 5000, // More frequent polling during interactive rebase
+    staleTime: 2000,
+  });
+
+  // State for showing the rebase stop dialog
+  const [showRebaseStopDialog, setShowRebaseStopDialog] = useState(false);
 
   // Fetch ahead/behind counts
   const { data: aheadBehind } = useQuery({
@@ -183,7 +206,7 @@ export function RepoHeader() {
                   parseFileConflicts(repository.path, filePath),
                 ),
               );
-              enterConflictMode(fileInfos, rebaseStatus.ontoRef, 'rebase');
+              enterConflictMode(fileInfos, rebaseStatus.ontoRef, "rebase");
               setShowMergeConflictPanel(true);
               const api = getDockviewApi();
               if (api) {
@@ -210,6 +233,31 @@ export function RepoHeader() {
     toast,
   ]);
 
+  // Auto-show rebase stop dialog when in interactive rebase with a stop reason
+  const hasShownInteractiveRebaseToast = useRef(false);
+  useEffect(() => {
+    if (
+      interactiveRebaseState?.inRebase &&
+      interactiveRebaseState.isInteractive &&
+      interactiveRebaseState.stopReason !== "none" &&
+      interactiveRebaseState.stopReason !== "conflict" &&
+      !showRebaseStopDialog &&
+      !hasShownInteractiveRebaseToast.current
+    ) {
+      hasShownInteractiveRebaseToast.current = true;
+      // Show the dialog for edit/reword/squashMessage stops
+      setShowRebaseStopDialog(true);
+    }
+
+    // Reset when not in rebase or stop reason clears
+    if (
+      !interactiveRebaseState?.inRebase ||
+      interactiveRebaseState.stopReason === "none"
+    ) {
+      hasShownInteractiveRebaseToast.current = false;
+    }
+  }, [interactiveRebaseState, showRebaseStopDialog]);
+
   // Count total uncommitted files
   const uncommittedCount = status
     ? status.staged.length + status.unstaged.length + status.untracked.length
@@ -220,6 +268,13 @@ export function RepoHeader() {
     mergeStatus?.inMerge && mergeStatus.conflictingFiles.length > 0;
   const hasRebaseConflicts =
     rebaseStatus?.inRebase && rebaseStatus.conflictingFiles.length > 0;
+
+  // Check for interactive rebase with non-conflict stop
+  const hasInteractiveRebaseStop =
+    interactiveRebaseState?.inRebase &&
+    interactiveRebaseState.isInteractive &&
+    interactiveRebaseState.stopReason !== "none" &&
+    interactiveRebaseState.stopReason !== "conflict";
 
   // Update window title when repository changes
   useEffect(() => {
@@ -258,20 +313,27 @@ export function RepoHeader() {
   const handleRemoteAction = async () => {
     if (!repository || isRemoteActionLoading) return;
     setIsRemoteActionLoading(true);
-    
+
     const isFetchAction = defaultRemoteAction === "fetch_all";
     const actionLabel = isFetchAction ? "Fetch" : "Pull";
-    
+
     try {
-      const result = await gitRemoteAction(repository.path, defaultRemoteAction);
+      const result = await gitRemoteAction(
+        repository.path,
+        defaultRemoteAction,
+      );
       toast.success(
         `${actionLabel} complete`,
         result || `Successfully ${actionLabel.toLowerCase()}ed from remote`,
       );
-      
+
       if (isFetchAction) {
         // Fetch updates remote refs but doesn't modify working directory
-        invalidateGitQueries(queryClient, ["branches", "commits", "aheadBehind"]);
+        invalidateGitQueries(queryClient, [
+          "branches",
+          "commits",
+          "aheadBehind",
+        ]);
       } else {
         // Pull can modify working directory, so invalidate status and diffs too
         invalidateGitQueries(queryClient, [
@@ -346,7 +408,7 @@ export function RepoHeader() {
           parseFileConflicts(repository.path, filePath),
         ),
       );
-      enterConflictMode(fileInfos, rebaseStatus.ontoRef, 'rebase');
+      enterConflictMode(fileInfos, rebaseStatus.ontoRef, "rebase");
       setShowMergeConflictPanel(true);
       const api = getDockviewApi();
       if (api) {
@@ -365,9 +427,12 @@ export function RepoHeader() {
 
   // Determine which workspace view button is active (only when not in skills view and we have a repo)
   const isWorkspaceActive = appView === "workspace";
-  const isRepoViewActive = isWorkspaceActive && repository && mainView === "repository";
-  const isStatisticsActive = isWorkspaceActive && repository && mainView === "statistics";
-  const isChangelogActive = isWorkspaceActive && repository && mainView === "changelog";
+  const isRepoViewActive =
+    isWorkspaceActive && repository && mainView === "repository";
+  const isStatisticsActive =
+    isWorkspaceActive && repository && mainView === "statistics";
+  const isChangelogActive =
+    isWorkspaceActive && repository && mainView === "changelog";
   const isSkillsActive = appView === "skills";
 
   return (
@@ -386,7 +451,11 @@ export function RepoHeader() {
                 className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-accent-yellow/20 text-xs hover:bg-accent-yellow/30 transition-colors whitespace-nowrap shrink-0"
                 title="Click to resolve merge conflicts"
               >
-                <Warning size={14} weight="fill" className="text-accent-yellow" />
+                <Warning
+                  size={14}
+                  weight="fill"
+                  className="text-accent-yellow"
+                />
                 <span className="text-accent-yellow font-medium">
                   {mergeStatus!.conflictingFiles.length} merge conflict
                   {mergeStatus!.conflictingFiles.length > 1 ? "s" : ""}
@@ -401,10 +470,46 @@ export function RepoHeader() {
                 className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-accent-orange/20 text-xs hover:bg-accent-orange/30 transition-colors whitespace-nowrap shrink-0"
                 title="Click to resolve rebase conflicts"
               >
-                <GitFork size={14} weight="fill" className="text-accent-orange" />
+                <GitFork
+                  size={14}
+                  weight="fill"
+                  className="text-accent-orange"
+                />
                 <span className="text-accent-orange font-medium">
                   {rebaseStatus!.conflictingFiles.length} rebase conflict
                   {rebaseStatus!.conflictingFiles.length > 1 ? "s" : ""}
+                </span>
+              </button>
+            )}
+
+            {/* Interactive rebase stop indicator */}
+            {hasInteractiveRebaseStop && !hasRebaseConflicts && (
+              <button
+                onClick={() => setShowRebaseStopDialog(true)}
+                className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-accent-purple/20 text-xs hover:bg-accent-purple/30 transition-colors whitespace-nowrap shrink-0"
+                title="Click to continue interactive rebase"
+              >
+                <GitFork
+                  size={14}
+                  weight="fill"
+                  className="text-accent-purple"
+                />
+                <span className="text-accent-purple font-medium">
+                  Rebase:{" "}
+                  {interactiveRebaseState?.stopReason === "edit"
+                    ? "Edit mode"
+                    : interactiveRebaseState?.stopReason === "reword"
+                      ? "Reword"
+                      : interactiveRebaseState?.stopReason === "squashMessage"
+                        ? "Squash"
+                        : "Paused"}
+                  {interactiveRebaseState?.currentStep &&
+                    interactiveRebaseState?.totalSteps && (
+                      <span className="ml-1 opacity-75">
+                        ({interactiveRebaseState.currentStep}/
+                        {interactiveRebaseState.totalSteps})
+                      </span>
+                    )}
                 </span>
               </button>
             )}
@@ -428,11 +533,14 @@ export function RepoHeader() {
                   onExecute={handleRemoteAction}
                 />
                 {/* Behind badge - show when pull action is selected and there are commits behind */}
-                {aheadBehind && aheadBehind.behind > 0 && !isRemoteActionLoading && defaultRemoteAction !== "fetch_all" && (
-                  <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 flex items-center justify-center text-[9px] font-medium bg-accent-orange text-white rounded-full pointer-events-none">
-                    {aheadBehind.behind > 99 ? "99+" : aheadBehind.behind}
-                  </span>
-                )}
+                {aheadBehind &&
+                  aheadBehind.behind > 0 &&
+                  !isRemoteActionLoading &&
+                  defaultRemoteAction !== "fetch_all" && (
+                    <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 flex items-center justify-center text-[9px] font-medium bg-accent-orange text-white rounded-full pointer-events-none">
+                      {aheadBehind.behind > 99 ? "99+" : aheadBehind.behind}
+                    </span>
+                  )}
               </div>
 
               <Toolbar.Button
@@ -513,6 +621,24 @@ export function RepoHeader() {
       <div className="flex items-center justify-end">
         {isRepoViewActive && <PanelSelector />}
       </div>
+
+      {/* Interactive Rebase Stop Dialog */}
+      {showRebaseStopDialog && repository && interactiveRebaseState && (
+        <RebaseStopDialog
+          repoPath={repository.path}
+          state={interactiveRebaseState}
+          onClose={() => setShowRebaseStopDialog(false)}
+          onComplete={() => {
+            setShowRebaseStopDialog(false);
+            queryClient.invalidateQueries({
+              queryKey: ["interactive-rebase-state"],
+            });
+            queryClient.invalidateQueries({ queryKey: ["rebase-status"] });
+            queryClient.invalidateQueries({ queryKey: ["branches"] });
+            queryClient.invalidateQueries({ queryKey: ["commits"] });
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 use crate::error::{AppError, Result};
-use crate::git::{self, BranchInfo, CommitActivity, CommitGraph, CommitInfo, FileDiff, RepositoryInfo, StatusInfo, UnifiedDiff, WorktreeInfo, WorktreeCreateOptions, MergeStatus, FileConflictInfo, StashEntry, AheadBehind, ChangelogCommit, ReflogEntry, RebaseStatus};
+use crate::git::{self, BranchInfo, CommitActivity, CommitGraph, CommitInfo, FileDiff, RepositoryInfo, StatusInfo, UnifiedDiff, WorktreeInfo, WorktreeCreateOptions, MergeStatus, FileConflictInfo, StashEntry, AheadBehind, ChangelogCommit, ReflogEntry, RebaseStatus, InteractiveRebaseCommit, InteractiveRebasePlanEntry, InteractiveRebaseState};
 use std::process::Command;
 use std::path::PathBuf;
 use std::fs;
@@ -1781,6 +1781,62 @@ pub async fn continue_rebase(repo_path: String) -> Result<String> {
 #[instrument(skip_all, err(Debug))]
 pub async fn abort_rebase(repo_path: String) -> Result<String> {
     Ok(git::abort_rebase(&repo_path)?)
+}
+
+#[tauri::command]
+#[instrument(skip_all, err(Debug))]
+pub async fn skip_rebase(repo_path: String) -> Result<String> {
+    Ok(git::skip_rebase(&repo_path)?)
+}
+
+// Interactive rebase commands
+#[tauri::command]
+#[instrument(skip_all, fields(onto_ref = %onto_ref), err(Debug))]
+pub async fn get_interactive_rebase_commits(
+    repo_path: String,
+    onto_ref: String,
+) -> Result<Vec<InteractiveRebaseCommit>> {
+    tokio::task::spawn_blocking(move || {
+        Ok(git::get_interactive_rebase_commits(&repo_path, &onto_ref)?)
+    })
+    .await
+    .map_err(|e| AppError::io(format!("Task join error: {}", e)))?
+}
+
+#[tauri::command]
+#[instrument(skip_all, fields(onto_ref = %onto_ref, plan_len = plan.len()), err(Debug))]
+pub async fn start_interactive_rebase(
+    repo_path: String,
+    onto_ref: String,
+    plan: Vec<InteractiveRebasePlanEntry>,
+) -> Result<String> {
+    tokio::task::spawn_blocking(move || {
+        git::start_interactive_rebase(&repo_path, &onto_ref, plan)
+    })
+    .await
+    .map_err(|e| AppError::io(format!("Task join error: {}", e)))?
+    .map_err(AppError::from)
+}
+
+#[tauri::command]
+#[instrument(skip_all, err(Debug))]
+pub async fn get_interactive_rebase_state(repo_path: String) -> Result<InteractiveRebaseState> {
+    let repo = git::open_repo(&repo_path)?;
+    Ok(git::get_interactive_rebase_state(&repo)?)
+}
+
+#[tauri::command]
+#[instrument(skip_all, fields(has_message = message.is_some()), err(Debug))]
+pub async fn continue_interactive_rebase(
+    repo_path: String,
+    message: Option<String>,
+) -> Result<String> {
+    tokio::task::spawn_blocking(move || {
+        git::continue_interactive_rebase(&repo_path, message)
+    })
+    .await
+    .map_err(|e| AppError::io(format!("Task join error: {}", e)))?
+    .map_err(AppError::from)
 }
 
 #[derive(serde::Serialize)]

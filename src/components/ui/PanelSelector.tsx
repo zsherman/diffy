@@ -104,6 +104,7 @@ export function PanelSelector() {
   const {
     showCommitsPanel,
     showFilesPanel,
+    showFileTreePanel,
     showDiffPanel,
     showStagingSidebar,
     showGraphPanel,
@@ -112,6 +113,7 @@ export function PanelSelector() {
     toggleCommitsPanel,
     toggleGraphPanel,
     setShowFilesPanel,
+    setShowFileTreePanel,
     setShowDiffPanel,
     toggleStagingSidebar,
     toggleWorktreesPanel,
@@ -138,7 +140,15 @@ export function PanelSelector() {
       icon: <Files size={15} />,
       isActive: showFilesPanel,
       toggle: () => setShowFilesPanel(!showFilesPanel),
-      keywords: ["tree", "list"],
+      keywords: ["list"],
+    },
+    {
+      id: "file-tree",
+      label: "File Tree",
+      icon: <TreeStructure size={15} />,
+      isActive: showFileTreePanel,
+      toggle: () => setShowFileTreePanel(!showFileTreePanel),
+      keywords: ["tree", "folder", "hierarchy"],
     },
     {
       id: "diff",

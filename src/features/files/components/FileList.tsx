@@ -16,7 +16,10 @@ import {
   unstageFiles,
   discardChanges,
 } from "../../../lib/tauri";
-import { FileContextMenu } from "../../../components/ui";
+import {
+  FileContextMenu,
+  StatusLabel,
+} from "../../../components/ui";
 import { createMountLogger } from "../../../lib/perf";
 import {
   useTabsStore,
@@ -25,33 +28,6 @@ import {
 } from "../../../stores/tabs-store";
 import { useActivePanel, usePanelFontSize } from "../../../stores/ui-store";
 import type { FileStatus, DiffFile, CommitInfo } from "../../../types/git";
-
-const STATUS_COLORS: Record<string, string> = {
-  A: "text-accent-green",
-  M: "text-accent-yellow",
-  D: "text-accent-red",
-  R: "text-accent-purple",
-  C: "text-accent-blue",
-  "?": "text-text-muted",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  A: "Added",
-  M: "Modified",
-  D: "Deleted",
-  R: "Renamed",
-  C: "Copied",
-  "?": "Untracked",
-};
-
-const STATUS_TOOLTIPS: Record<string, string> = {
-  A: "Added — New file added to the repository",
-  M: "Modified — File has been changed",
-  D: "Deleted — File has been removed",
-  R: "Renamed — File has been renamed or moved",
-  C: "Copied — File has been copied from another file",
-  "?": "Untracked — File is not tracked by git",
-};
 
 interface FileItem {
   type: "header" | "file";
@@ -92,9 +68,6 @@ const FileRow = memo(function FileRow({
   onUnstage?: () => void;
   onDiscard?: () => void;
 }) {
-  const status = file.status;
-  const statusColor = STATUS_COLORS[status] || "text-text-primary";
-
   // Only show staging actions for working directory files (not commit files)
   const stagingActions =
     section && section !== "commit" && onStage && onUnstage && onDiscard
@@ -123,12 +96,7 @@ const FileRow = memo(function FileRow({
         style={{ fontSize: `${fontSize}px` }}
         onClick={onClick}
       >
-        <span
-          className={`shrink-0 font-mono text-xs ${statusColor}`}
-          title={STATUS_TOOLTIPS[status] ?? status}
-        >
-          {STATUS_LABELS[status] ?? status}
-        </span>
+        <StatusLabel status={file.status} className="shrink-0" />
         <span className="truncate text-text-primary ml-1">{file.path}</span>
         {"additions" in file && file.additions > 0 && (
           <span className="ml-auto text-xs text-accent-green">

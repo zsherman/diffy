@@ -3,8 +3,82 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 use std::process::Command;
+use std::io::Write;
 
 use super::GitError;
+
+// =============================================================================
+// Interactive Rebase Types
+// =============================================================================
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum RebaseTodoAction {
+    Pick,
+    Reword,
+    Edit,
+    Squash,
+    Fixup,
+    Drop,
+}
+
+impl RebaseTodoAction {
+    pub fn to_git_command(&self) -> &'static str {
+        match self {
+            RebaseTodoAction::Pick => "pick",
+            RebaseTodoAction::Reword => "reword",
+            RebaseTodoAction::Edit => "edit",
+            RebaseTodoAction::Squash => "squash",
+            RebaseTodoAction::Fixup => "fixup",
+            RebaseTodoAction::Drop => "drop",
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct InteractiveRebaseCommit {
+    pub id: String,
+    pub short_id: String,
+    pub summary: String,
+    pub message: String,
+    pub author_name: String,
+    pub author_email: String,
+    pub time: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct InteractiveRebasePlanEntry {
+    pub commit_id: String,
+    pub action: RebaseTodoAction,
+    pub new_message: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum RebaseStopReason {
+    None,
+    Conflict,
+    Edit,
+    Reword,
+    SquashMessage,
+    Other,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct InteractiveRebaseState {
+    pub in_rebase: bool,
+    pub is_interactive: bool,
+    pub current_step: Option<usize>,
+    pub total_steps: Option<usize>,
+    pub stop_reason: RebaseStopReason,
+    pub stopped_commit_id: Option<String>,
+    pub conflicting_files: Vec<String>,
+    pub onto_ref: Option<String>,
+    pub current_message: Option<String>,
+}
 
 // =============================================================================
 // Rebase Types and Functions
@@ -187,6 +261,400 @@ pub fn abort_rebase(repo_path: &str) -> Result<String, GitError> {
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
         Err(git2::Error::from_str(&format!("git rebase --abort failed: {}", stderr)).into())
+    }
+}
+
+/// Skip the current commit during rebase
+pub fn skip_rebase(repo_path: &str) -> Result<String, GitError> {
+    let output = git_command()
+        .args(["rebase", "--skip"])
+        .current_dir(repo_path)
+        .env("GIT_EDITOR", "true")
+        .output()
+        .map_err(|e| git2::Error::from_str(&format!("Failed to run git rebase --skip: {}", e)))?;
+
+    if output.status.success() {
+        Ok("Skipped commit successfully".to_string())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let combined = format!("{}{}", stderr, stdout);
+        
+        if combined.contains("CONFLICT") || combined.contains("could not apply") {
+            Err(git2::Error::from_str("Rebase has conflicts that need to be resolved").into())
+        } else {
+            Err(git2::Error::from_str(&format!("git rebase --skip failed: {}", combined.trim())).into())
+        }
+    }
+}
+
+// =============================================================================
+// Interactive Rebase Functions
+// =============================================================================
+
+/// Get the list of commits that would be rebased onto a target ref
+/// Returns commits in oldest-to-newest order (the order they would be replayed)
+pub fn get_interactive_rebase_commits(repo_path: &str, onto_ref: &str) -> Result<Vec<InteractiveRebaseCommit>, GitError> {
+    // Get commits that are reachable from HEAD but not from onto_ref
+    // This is equivalent to `git log onto_ref..HEAD --reverse`
+    // Use record separator (\x1e) between commits and unit separator (\x1f) between fields
+    let output = git_command()
+        .args([
+            "log",
+            &format!("{}..HEAD", onto_ref),
+            "--reverse",
+            "--format=%H%x1f%h%x1f%s%x1f%B%x1f%an%x1f%ae%x1f%at%x1e",
+        ])
+        .current_dir(repo_path)
+        .output()
+        .map_err(|e| git2::Error::from_str(&format!("Failed to run git log: {}", e)))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(git2::Error::from_str(&format!("git log failed: {}", stderr)).into());
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut commits = Vec::new();
+
+    // Split by record separator (each commit entry)
+    for entry in stdout.split('\x1e') {
+        let entry = entry.trim();
+        if entry.is_empty() {
+            continue;
+        }
+
+        // Split by unit separator to get fields
+        let parts: Vec<&str> = entry.split('\x1f').collect();
+        if parts.len() < 7 {
+            continue;
+        }
+
+        let id = parts[0].to_string();
+        let short_id = parts[1].to_string();
+        let summary = parts[2].to_string();
+        let message = parts[3].trim().to_string();
+        let author_name = parts[4].to_string();
+        let author_email = parts[5].to_string();
+        let time = parts[6].trim().parse::<i64>().unwrap_or(0);
+
+        commits.push(InteractiveRebaseCommit {
+            id,
+            short_id,
+            summary,
+            message,
+            author_name,
+            author_email,
+            time,
+        });
+    }
+
+    Ok(commits)
+}
+
+/// Start an interactive rebase with a pre-defined plan
+/// Uses GIT_SEQUENCE_EDITOR to inject our todo list
+pub fn start_interactive_rebase(
+    repo_path: &str,
+    onto_ref: &str,
+    plan: Vec<InteractiveRebasePlanEntry>,
+) -> Result<String, GitError> {
+    if plan.is_empty() {
+        return Err(git2::Error::from_str("Rebase plan cannot be empty").into());
+    }
+
+    // Build the todo content
+    let mut todo_content = String::new();
+    for entry in &plan {
+        let short_id = if entry.commit_id.len() > 7 {
+            &entry.commit_id[..7]
+        } else {
+            &entry.commit_id
+        };
+        todo_content.push_str(&format!(
+            "{} {} \n",
+            entry.action.to_git_command(),
+            short_id
+        ));
+    }
+
+    // Create a temporary script that will write our todo content
+    // The script receives the todo file path as an argument
+    let temp_dir = std::env::temp_dir();
+    let script_path = temp_dir.join(format!("diffy-rebase-editor-{}.sh", std::process::id()));
+    let todo_file_path = temp_dir.join(format!("diffy-rebase-todo-{}.txt", std::process::id()));
+
+    // Write the todo content to a temporary file
+    fs::write(&todo_file_path, &todo_content)
+        .map_err(|e| git2::Error::from_str(&format!("Failed to write todo file: {}", e)))?;
+
+    // Create a script that copies our todo content to the file git passes
+    let script_content = format!(
+        "#!/bin/sh\ncat '{}' > \"$1\"\n",
+        todo_file_path.display()
+    );
+    fs::write(&script_path, &script_content)
+        .map_err(|e| git2::Error::from_str(&format!("Failed to write editor script: {}", e)))?;
+
+    // Make the script executable
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&script_path)
+            .map_err(|e| git2::Error::from_str(&format!("Failed to get script permissions: {}", e)))?
+            .permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&script_path, perms)
+            .map_err(|e| git2::Error::from_str(&format!("Failed to set script permissions: {}", e)))?;
+    }
+
+    // Run git rebase -i with our custom sequence editor
+    let output = git_command()
+        .args(["rebase", "-i", onto_ref])
+        .current_dir(repo_path)
+        .env("GIT_SEQUENCE_EDITOR", &script_path)
+        .env("GIT_EDITOR", "true") // Prevent editor for commit messages during initial start
+        .output()
+        .map_err(|e| git2::Error::from_str(&format!("Failed to run git rebase -i: {}", e)))?;
+
+    // Clean up temporary files
+    let _ = fs::remove_file(&script_path);
+    let _ = fs::remove_file(&todo_file_path);
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        Ok(stdout.trim().to_string())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let combined = format!("{}{}", stderr, stdout);
+
+        // Check if it stopped for conflicts or other interactive reasons
+        if combined.contains("CONFLICT") || combined.contains("could not apply") {
+            Err(git2::Error::from_str("Rebase has conflicts that need to be resolved").into())
+        } else if combined.contains("Stopped at") || combined.contains("You can amend") {
+            // This is expected for edit/reword - the rebase is in progress
+            Ok("Rebase started, stopped for editing".to_string())
+        } else {
+            Err(git2::Error::from_str(&format!("git rebase -i failed: {}", combined.trim())).into())
+        }
+    }
+}
+
+/// Get detailed interactive rebase state
+pub fn get_interactive_rebase_state(repo: &Repository) -> Result<InteractiveRebaseState, GitError> {
+    let state = repo.state();
+    let in_rebase = matches!(
+        state,
+        RepositoryState::Rebase
+            | RepositoryState::RebaseInteractive
+            | RepositoryState::RebaseMerge
+    );
+
+    if !in_rebase {
+        return Ok(InteractiveRebaseState {
+            in_rebase: false,
+            is_interactive: false,
+            current_step: None,
+            total_steps: None,
+            stop_reason: RebaseStopReason::None,
+            stopped_commit_id: None,
+            conflicting_files: Vec::new(),
+            onto_ref: None,
+            current_message: None,
+        });
+    }
+
+    let git_dir = repo.path();
+    let rebase_merge_dir = git_dir.join("rebase-merge");
+    let rebase_apply_dir = git_dir.join("rebase-apply");
+
+    let is_interactive = rebase_merge_dir.exists();
+    let rebase_dir = if is_interactive {
+        &rebase_merge_dir
+    } else {
+        &rebase_apply_dir
+    };
+
+    // Read progress
+    let current_step = fs::read_to_string(rebase_dir.join("msgnum"))
+        .ok()
+        .and_then(|s| s.trim().parse::<usize>().ok());
+    let total_steps = fs::read_to_string(rebase_dir.join("end"))
+        .ok()
+        .and_then(|s| s.trim().parse::<usize>().ok());
+
+    // Read onto ref
+    let onto_ref = get_rebase_onto_ref(repo);
+
+    // Read stopped commit
+    let stopped_commit_id = fs::read_to_string(rebase_dir.join("stopped-sha"))
+        .ok()
+        .map(|s| s.trim().to_string())
+        .or_else(|| {
+            fs::read_to_string(rebase_dir.join("current-commit"))
+                .ok()
+                .map(|s| s.trim().to_string())
+        });
+
+    // Read current message (for reword/squash)
+    let current_message = fs::read_to_string(rebase_dir.join("message"))
+        .ok()
+        .map(|s| s.trim().to_string());
+
+    // Check for conflicts
+    let mut conflicting_files = Vec::new();
+    let mut opts = StatusOptions::new();
+    opts.include_untracked(false);
+    if let Ok(statuses) = repo.statuses(Some(&mut opts)) {
+        for entry in statuses.iter() {
+            let status = entry.status();
+            if status.is_conflicted() {
+                if let Some(path) = entry.path() {
+                    conflicting_files.push(path.to_string());
+                }
+            }
+        }
+    }
+
+    // Determine stop reason
+    let stop_reason = if !conflicting_files.is_empty() {
+        RebaseStopReason::Conflict
+    } else if is_interactive {
+        // Check what action caused the stop by examining the done file
+        let done_content = fs::read_to_string(rebase_dir.join("done"))
+            .ok()
+            .unwrap_or_default();
+        let last_action = done_content
+            .lines()
+            .last()
+            .unwrap_or("")
+            .split_whitespace()
+            .next()
+            .unwrap_or("");
+
+        match last_action {
+            "edit" | "e" => RebaseStopReason::Edit,
+            "reword" | "r" => RebaseStopReason::Reword,
+            "squash" | "s" | "fixup" | "f" => {
+                // Check if we're waiting for a squash message
+                if rebase_dir.join("message-squash").exists() || rebase_dir.join("message-fixup").exists() {
+                    RebaseStopReason::SquashMessage
+                } else {
+                    RebaseStopReason::Other
+                }
+            }
+            _ => {
+                // Check if amend file exists (edit mode)
+                if rebase_dir.join("amend").exists() {
+                    RebaseStopReason::Edit
+                } else if current_message.is_some() {
+                    RebaseStopReason::Reword
+                } else {
+                    RebaseStopReason::Other
+                }
+            }
+        }
+    } else {
+        RebaseStopReason::Other
+    };
+
+    Ok(InteractiveRebaseState {
+        in_rebase,
+        is_interactive,
+        current_step,
+        total_steps,
+        stop_reason,
+        stopped_commit_id,
+        conflicting_files,
+        onto_ref,
+        current_message,
+    })
+}
+
+/// Continue interactive rebase with an optional new commit message
+/// Used for reword/squash operations where a message is needed
+pub fn continue_interactive_rebase(repo_path: &str, message: Option<String>) -> Result<String, GitError> {
+    // First check if there are still unresolved conflicts
+    let repo = super::open_repo(repo_path)?;
+    let state = get_interactive_rebase_state(&repo)?;
+
+    if !state.conflicting_files.is_empty() {
+        return Err(git2::Error::from_str(&format!(
+            "Cannot continue rebase: {} file(s) still have conflicts",
+            state.conflicting_files.len()
+        ))
+        .into());
+    }
+
+    // If a message is provided, we need to use a custom editor
+    let mut cmd = git_command();
+    cmd.args(["rebase", "--continue"]).current_dir(repo_path);
+
+    if let Some(msg) = message {
+        // Create a temporary script that writes the message
+        let temp_dir = std::env::temp_dir();
+        let msg_file_path = temp_dir.join(format!("diffy-commit-msg-{}.txt", std::process::id()));
+        let script_path = temp_dir.join(format!("diffy-msg-editor-{}.sh", std::process::id()));
+
+        // Write the message to a temp file
+        fs::write(&msg_file_path, &msg)
+            .map_err(|e| git2::Error::from_str(&format!("Failed to write message file: {}", e)))?;
+
+        // Create editor script that copies our message
+        let script_content = format!(
+            "#!/bin/sh\ncat '{}' > \"$1\"\n",
+            msg_file_path.display()
+        );
+        fs::write(&script_path, &script_content)
+            .map_err(|e| git2::Error::from_str(&format!("Failed to write editor script: {}", e)))?;
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = fs::metadata(&script_path)
+                .map_err(|e| git2::Error::from_str(&format!("Failed to get script permissions: {}", e)))?
+                .permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&script_path, perms)
+                .map_err(|e| git2::Error::from_str(&format!("Failed to set script permissions: {}", e)))?;
+        }
+
+        cmd.env("GIT_EDITOR", &script_path);
+
+        let output = cmd.output()
+            .map_err(|e| git2::Error::from_str(&format!("Failed to run git rebase --continue: {}", e)))?;
+
+        // Clean up
+        let _ = fs::remove_file(&script_path);
+        let _ = fs::remove_file(&msg_file_path);
+
+        handle_rebase_continue_output(output)
+    } else {
+        cmd.env("GIT_EDITOR", "true");
+        let output = cmd.output()
+            .map_err(|e| git2::Error::from_str(&format!("Failed to run git rebase --continue: {}", e)))?;
+        handle_rebase_continue_output(output)
+    }
+}
+
+fn handle_rebase_continue_output(output: std::process::Output) -> Result<String, GitError> {
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        Ok(stdout.trim().to_string())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let combined = format!("{}{}", stderr, stdout);
+
+        if combined.contains("CONFLICT") || combined.contains("could not apply") {
+            Err(git2::Error::from_str("Rebase has more conflicts that need to be resolved").into())
+        } else if combined.contains("Stopped at") || combined.contains("You can amend") {
+            // Stopped for another edit/reword
+            Ok("Rebase continued, stopped for editing".to_string())
+        } else {
+            Err(git2::Error::from_str(&format!("git rebase --continue failed: {}", combined.trim())).into())
+        }
     }
 }
 

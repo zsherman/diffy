@@ -14,6 +14,7 @@ export interface PanelVisibility {
   showCommitsPanel: boolean;
   showBranchesPanel: boolean;
   showFilesPanel: boolean;
+  showFileTreePanel: boolean;
   showDiffPanel: boolean;
   showStagingSidebar: boolean;
   showAIReviewPanel: boolean;
@@ -114,6 +115,7 @@ const DEFAULT_PANELS: PanelVisibility = {
   showCommitsPanel: true,
   showBranchesPanel: false,
   showFilesPanel: true,
+  showFileTreePanel: false,
   showDiffPanel: true,
   showStagingSidebar: false,
   showAIReviewPanel: false,
@@ -358,6 +360,22 @@ export const tabsStore = createStore({
           (t) => t.repository.path === draft.activeTabPath,
         );
         if (tab) tab.panels.showFilesPanel = event.show;
+      }),
+
+    setShowFileTreePanel: (ctx, event: { show: boolean }) =>
+      produce(ctx, (draft) => {
+        const tab = draft.tabs.find(
+          (t) => t.repository.path === draft.activeTabPath,
+        );
+        if (tab) tab.panels.showFileTreePanel = event.show;
+      }),
+
+    toggleFileTreePanel: (ctx) =>
+      produce(ctx, (draft) => {
+        const tab = draft.tabs.find(
+          (t) => t.repository.path === draft.activeTabPath,
+        );
+        if (tab) tab.panels.showFileTreePanel = !tab.panels.showFileTreePanel;
       }),
 
     setShowDiffPanel: (ctx, event: { show: boolean }) =>
@@ -623,6 +641,7 @@ const DEFAULT_PANEL_STATE: PanelVisibility = {
   showCommitsPanel: true,
   showBranchesPanel: false,
   showFilesPanel: true,
+  showFileTreePanel: false,
   showDiffPanel: true,
   showStagingSidebar: false,
   showAIReviewPanel: false,
@@ -638,6 +657,7 @@ function panelsEqual(a: PanelVisibility, b: PanelVisibility): boolean {
     a.showCommitsPanel === b.showCommitsPanel &&
     a.showBranchesPanel === b.showBranchesPanel &&
     a.showFilesPanel === b.showFilesPanel &&
+    a.showFileTreePanel === b.showFileTreePanel &&
     a.showDiffPanel === b.showDiffPanel &&
     a.showStagingSidebar === b.showStagingSidebar &&
     a.showAIReviewPanel === b.showAIReviewPanel &&
@@ -663,6 +683,7 @@ export function useActiveTabPanels() {
     showCommitsPanel,
     showBranchesPanel,
     showFilesPanel,
+    showFileTreePanel,
     showDiffPanel,
     showStagingSidebar,
     showAIReviewPanel,
@@ -696,6 +717,14 @@ export function useActiveTabPanels() {
   );
   const setShowFilesPanel = useCallback(
     (show: boolean) => tabsStore.send({ type: "setShowFilesPanel", show }),
+    [],
+  );
+  const setShowFileTreePanel = useCallback(
+    (show: boolean) => tabsStore.send({ type: "setShowFileTreePanel", show }),
+    [],
+  );
+  const toggleFileTreePanel = useCallback(
+    () => tabsStore.send({ type: "toggleFileTreePanel" }),
     [],
   );
   const setShowDiffPanel = useCallback(
@@ -752,6 +781,7 @@ export function useActiveTabPanels() {
     showCommitsPanel,
     showBranchesPanel,
     showFilesPanel,
+    showFileTreePanel,
     showDiffPanel,
     showStagingSidebar,
     showAIReviewPanel,
@@ -765,6 +795,8 @@ export function useActiveTabPanels() {
     setShowBranchesPanel,
     toggleBranchesPanel,
     setShowFilesPanel,
+    setShowFileTreePanel,
+    toggleFileTreePanel,
     setShowDiffPanel,
     setShowStagingSidebar,
     toggleStagingSidebar,

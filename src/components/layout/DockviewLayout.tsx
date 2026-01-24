@@ -23,6 +23,7 @@ import {
   BranchesPanel,
   CommitsPanel,
   FilesPanel,
+  FileTreePanel,
   DiffPanel,
   StagingPanel,
   AIReviewPanel,
@@ -57,6 +58,7 @@ const components = {
   branches: BranchesPanel,
   commits: CommitsPanel,
   files: FilesPanel,
+  "file-tree": FileTreePanel,
   diff: DiffPanel,
   staging: StagingPanel,
   "ai-review": AIReviewPanel,
@@ -217,6 +219,7 @@ function syncPanelsFromDockview(api: DockviewApi): PanelVisibility {
     showCommitsPanel: api.getPanel("commits") !== undefined,
     showBranchesPanel: api.getPanel("branches") !== undefined,
     showFilesPanel: api.getPanel("files") !== undefined,
+    showFileTreePanel: api.getPanel("file-tree") !== undefined,
     showDiffPanel: api.getPanel("diff") !== undefined,
     showAIReviewPanel: api.getPanel("ai-review") !== undefined,
     showGraphPanel: api.getPanel("graph") !== undefined,
@@ -279,6 +282,21 @@ function reconcilePanels(api: DockviewApi, desired: PanelVisibility) {
       getPosition: () => {
         const diff = api.getPanel("diff");
         const commits = api.getPanel("commits");
+        if (diff) return { referencePanel: diff, direction: "above" };
+        if (commits) return { referencePanel: commits, direction: "right" };
+        return { direction: "right" };
+      },
+    },
+    {
+      id: "file-tree",
+      component: "file-tree",
+      title: "File Tree",
+      showKey: "showFileTreePanel",
+      getPosition: () => {
+        const files = api.getPanel("files");
+        const diff = api.getPanel("diff");
+        const commits = api.getPanel("commits");
+        if (files) return { referencePanel: files, direction: "within" };
         if (diff) return { referencePanel: diff, direction: "above" };
         if (commits) return { referencePanel: commits, direction: "right" };
         return { direction: "right" };
@@ -412,6 +430,7 @@ export const DockviewLayout = memo(function DockviewLayout() {
     showCommitsPanel,
     showBranchesPanel,
     showFilesPanel,
+    showFileTreePanel,
     showDiffPanel,
     showStagingSidebar,
     showAIReviewPanel,
@@ -425,7 +444,7 @@ export const DockviewLayout = memo(function DockviewLayout() {
   const perfEnabled = isPerfTracingEnabled();
   if (perfEnabled) {
     renderCount++;
-    const panelsKey = `${showBranchesPanel}-${showFilesPanel}-${showDiffPanel}-${showStagingSidebar}-${showAIReviewPanel}-${showWorktreesPanel}-${showGraphPanel}-${showMergeConflictPanel}-${showReflogPanel}`;
+    const panelsKey = `${showBranchesPanel}-${showFilesPanel}-${showFileTreePanel}-${showDiffPanel}-${showStagingSidebar}-${showAIReviewPanel}-${showWorktreesPanel}-${showGraphPanel}-${showMergeConflictPanel}-${showReflogPanel}`;
     const changes: string[] = [];
     if (prevTheme !== theme) changes.push(`theme: ${prevTheme} -> ${theme}`);
     if (prevActiveTabPath !== activeTabPath)
@@ -487,6 +506,7 @@ export const DockviewLayout = memo(function DockviewLayout() {
     showCommitsPanel,
     showBranchesPanel,
     showFilesPanel,
+    showFileTreePanel,
     showDiffPanel,
     showStagingSidebar,
     showAIReviewPanel,
@@ -729,6 +749,7 @@ export const DockviewLayout = memo(function DockviewLayout() {
       lastPanels.showCommitsPanel === desiredPanels.showCommitsPanel &&
       lastPanels.showBranchesPanel === desiredPanels.showBranchesPanel &&
       lastPanels.showFilesPanel === desiredPanels.showFilesPanel &&
+      lastPanels.showFileTreePanel === desiredPanels.showFileTreePanel &&
       lastPanels.showDiffPanel === desiredPanels.showDiffPanel &&
       lastPanels.showStagingSidebar === desiredPanels.showStagingSidebar &&
       lastPanels.showAIReviewPanel === desiredPanels.showAIReviewPanel &&
@@ -756,6 +777,10 @@ export const DockviewLayout = memo(function DockviewLayout() {
       if (lastPanels.showFilesPanel !== desiredPanels.showFilesPanel)
         changes.push(
           `files: ${lastPanels.showFilesPanel} -> ${desiredPanels.showFilesPanel}`,
+        );
+      if (lastPanels.showFileTreePanel !== desiredPanels.showFileTreePanel)
+        changes.push(
+          `fileTree: ${lastPanels.showFileTreePanel} -> ${desiredPanels.showFileTreePanel}`,
         );
       if (lastPanels.showDiffPanel !== desiredPanels.showDiffPanel)
         changes.push(
@@ -805,6 +830,7 @@ export const DockviewLayout = memo(function DockviewLayout() {
     showCommitsPanel,
     showBranchesPanel,
     showFilesPanel,
+    showFileTreePanel,
     showDiffPanel,
     showStagingSidebar,
     showAIReviewPanel,
