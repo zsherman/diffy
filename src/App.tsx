@@ -17,6 +17,7 @@ import { RepoHeader } from "./features/repository/components";
 import { SkillsDialog, SkillsView } from "./features/skills";
 import { StatisticsView } from "./features/statistics";
 import { ChangelogView } from "./features/changelog";
+import { CompareView } from "./features/compare";
 import {
   openRepository,
   discoverRepository,
@@ -77,7 +78,7 @@ function AppContent() {
 
   // Helper to check if a view is an overlay view (rendered outside Dockview)
   const isOverlayView = (view: string) =>
-    view === "statistics" || view === "changelog";
+    view === "statistics" || view === "changelog" || view === "compare";
 
   // Check if we're in skills view (also an overlay, but global)
   const isSkillsView = appView === "skills";
@@ -290,6 +291,7 @@ function AppContent() {
           {/* Overlay views - rendered outside Dockview when active */}
           {mainView === "statistics" && <StatisticsView />}
           {mainView === "changelog" && <ChangelogView />}
+          {mainView === "compare" && <CompareView />}
           {/* DockviewLayout stays mounted but hidden when overlay views are active */}
           {/* This avoids expensive remount when switching back to history/changes */}
           <div

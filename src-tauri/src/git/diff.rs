@@ -144,6 +144,86 @@ pub fn get_working_diff(repo: &Repository, staged: bool) -> Result<UnifiedDiff, 
     diff_to_unified(&diff, Some(repo))
 }
 
+/// Resolve a ref string (branch name, tag, commit hash) to a tree
+fn resolve_ref_to_tree<'a>(repo: &'a Repository, ref_str: &str) -> Result<git2::Tree<'a>, GitError> {
+    // Try as a branch first
+    if let Ok(branch) = repo.find_branch(ref_str, git2::BranchType::Local) {
+        if let Some(target) = branch.get().target() {
+            let commit = repo.find_commit(target)?;
+            return Ok(commit.tree()?);
+        }
+    }
+    
+    // Try as a remote branch
+    if let Ok(branch) = repo.find_branch(ref_str, git2::BranchType::Remote) {
+        if let Some(target) = branch.get().target() {
+            let commit = repo.find_commit(target)?;
+            return Ok(commit.tree()?);
+        }
+    }
+    
+    // Try as a reference (refs/heads/..., refs/tags/..., etc.)
+    if let Ok(reference) = repo.find_reference(ref_str) {
+        let commit = reference.peel_to_commit()?;
+        return Ok(commit.tree()?);
+    }
+    
+    // Try as refs/heads/{ref}
+    if let Ok(reference) = repo.find_reference(&format!("refs/heads/{}", ref_str)) {
+        let commit = reference.peel_to_commit()?;
+        return Ok(commit.tree()?);
+    }
+    
+    // Try as a commit hash (full or short)
+    let oid = git2::Oid::from_str(ref_str)
+        .or_else(|_| repo.revparse_single(ref_str).and_then(|obj| Ok(obj.id())))?;
+    let commit = repo.find_commit(oid)?;
+    Ok(commit.tree()?)
+}
+
+/// Get diff comparing two refs (branches, tags, or commit hashes)
+pub fn get_compare_diff(repo: &Repository, base_ref: &str, head_ref: &str) -> Result<UnifiedDiff, GitError> {
+    let base_tree = resolve_ref_to_tree(repo, base_ref)?;
+    let head_tree = resolve_ref_to_tree(repo, head_ref)?;
+    
+    let mut opts = DiffOptions::new();
+    opts.context_lines(3);
+    
+    let mut diff = repo.diff_tree_to_tree(Some(&base_tree), Some(&head_tree), Some(&mut opts))?;
+    
+    // Run rename/copy detection
+    detect_renames_and_copies(&mut diff)?;
+    
+    diff_to_unified(&diff, Some(repo))
+}
+
+/// Get diff for a specific file comparing two refs
+pub fn get_compare_file_diff(
+    repo: &Repository,
+    base_ref: &str,
+    head_ref: &str,
+    file_path: &str,
+) -> Result<FileDiff, GitError> {
+    let base_tree = resolve_ref_to_tree(repo, base_ref)?;
+    let head_tree = resolve_ref_to_tree(repo, head_ref)?;
+    
+    let mut opts = DiffOptions::new();
+    opts.context_lines(3);
+    opts.pathspec(file_path);
+    
+    let mut diff = repo.diff_tree_to_tree(Some(&base_tree), Some(&head_tree), Some(&mut opts))?;
+    
+    // Run rename/copy detection (in case file was renamed)
+    detect_renames_and_copies(&mut diff)?;
+    
+    let patch_text = generate_patch_text(&diff, Some(repo))?;
+    
+    Ok(FileDiff {
+        path: file_path.to_string(),
+        patch: patch_text,
+    })
+}
+
 /// Generate proper unified diff patch text using Patch::to_buf for each delta
 fn generate_patch_text(diff: &Diff, repo: Option<&Repository>) -> Result<String, GitError> {
     let mut patch_text = String::new();

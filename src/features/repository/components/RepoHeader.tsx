@@ -10,6 +10,7 @@ import {
   ArrowsClockwise,
   ListBullets,
   BookBookmark,
+  GitMerge,
 } from "@phosphor-icons/react";
 import {
   getStatus,
@@ -39,7 +40,7 @@ import { WorktreeSwitcher } from "../../../components/ui/WorktreeSwitcher";
 import { PanelSelector } from "../../../components/ui/PanelSelector";
 import { RemoteActionSelect } from "../../../components/ui";
 
-type MainView = "repository" | "statistics" | "changelog";
+type MainView = "repository" | "statistics" | "changelog" | "compare";
 
 /**
  * Invalidates git-related queries after remote operations.
@@ -433,6 +434,8 @@ export function RepoHeader() {
     isWorkspaceActive && repository && mainView === "statistics";
   const isChangelogActive =
     isWorkspaceActive && repository && mainView === "changelog";
+  const isCompareActive =
+    isWorkspaceActive && repository && mainView === "compare";
   const isSkillsActive = appView === "skills";
 
   return (
@@ -605,6 +608,16 @@ export function RepoHeader() {
         >
           <ListBullets size={14} weight="bold" />
           <span className="hidden sm:inline">Changelog</span>
+        </button>
+        <button
+          onClick={() => handleModeChange("compare")}
+          aria-label="Compare view"
+          aria-pressed={isCompareActive}
+          disabled={!repository}
+          className={`${toggleButtonClass} ${isCompareActive ? "bg-bg-hover text-text-primary" : ""} ${!repository ? "opacity-50 cursor-not-allowed" : ""}`}
+        >
+          <GitMerge size={14} weight="bold" />
+          <span className="hidden sm:inline">Compare</span>
         </button>
         <button
           onClick={handleSkillsClick}

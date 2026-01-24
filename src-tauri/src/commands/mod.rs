@@ -524,6 +524,52 @@ pub async fn get_working_diff(repo_path: String, staged: bool) -> Result<Unified
 }
 
 #[tauri::command]
+#[instrument(skip_all, fields(base_ref = %base_ref, head_ref = %head_ref), err(Debug))]
+pub async fn get_compare_diff(repo_path: String, base_ref: String, head_ref: String) -> Result<UnifiedDiff> {
+    // Run blocking git operation on dedicated thread pool
+    tokio::task::spawn_blocking(move || {
+        let repo = git::open_repo(&repo_path)?;
+        Ok(git::get_compare_diff(&repo, &base_ref, &head_ref)?)
+    })
+    .await
+    .map_err(|e| AppError::io(format!("Task join error: {}", e)))?
+}
+
+#[tauri::command]
+#[instrument(skip_all, fields(base_ref = %base_ref, head_ref = %head_ref, file_path = %file_path), err(Debug))]
+pub async fn get_compare_file_diff(
+    repo_path: String,
+    base_ref: String,
+    head_ref: String,
+    file_path: String,
+) -> Result<FileDiff> {
+    // Run blocking git operation on dedicated thread pool
+    tokio::task::spawn_blocking(move || {
+        let repo = git::open_repo(&repo_path)?;
+        Ok(git::get_compare_file_diff(&repo, &base_ref, &head_ref, &file_path)?)
+    })
+    .await
+    .map_err(|e| AppError::io(format!("Task join error: {}", e)))?
+}
+
+#[tauri::command]
+#[instrument(skip_all, fields(base_ref = %base_ref, head_ref = %head_ref, limit = %limit), err(Debug))]
+pub async fn get_commit_range(
+    repo_path: String,
+    base_ref: String,
+    head_ref: String,
+    limit: usize,
+) -> Result<Vec<CommitInfo>> {
+    // Run blocking git operation on dedicated thread pool
+    tokio::task::spawn_blocking(move || {
+        let repo = git::open_repo(&repo_path)?;
+        Ok(git::get_commit_range(&repo, &base_ref, &head_ref, limit)?)
+    })
+    .await
+    .map_err(|e| AppError::io(format!("Task join error: {}", e)))?
+}
+
+#[tauri::command]
 #[instrument(skip_all, err(Debug))]
 pub async fn get_status(repo_path: String) -> Result<StatusInfo> {
     use std::time::Instant;
@@ -2245,11 +2291,17 @@ fn run_claude_review(
     repo_path: &str,
     commit_id: Option<&str>,
     skill_ids: Option<&[String]>,
+    base_ref: Option<&str>,
+    head_ref: Option<&str>,
 ) -> Result<ReviewResult> {
     let repo = git::open_repo(repo_path)?;
 
-    // Get diff based on whether we're reviewing a commit or working changes
-    let diff_patch = if let Some(cid) = commit_id {
+    // Get diff based on review type: compare refs, commit, or working changes
+    let diff_patch = if let (Some(base), Some(head)) = (base_ref, head_ref) {
+        // Compare diff between two refs
+        let diff = git::get_compare_diff(&repo, base, head)?;
+        diff.patch
+    } else if let Some(cid) = commit_id {
         let diff = git::get_commit_diff(&repo, cid)?;
         diff.patch
     } else {
@@ -2430,18 +2482,20 @@ Diff to review:
 }
 
 #[tauri::command]
-#[instrument(skip_all, fields(reviewer_id = ?reviewer_id, commit_id = ?commit_id), err(Debug))]
+#[instrument(skip_all, fields(reviewer_id = ?reviewer_id, commit_id = ?commit_id, base_ref = ?base_ref, head_ref = ?head_ref), err(Debug))]
 pub async fn generate_review(
     app: tauri::AppHandle,
     repo_path: String,
     reviewer_id: ReviewerId,
     commit_id: Option<String>,
     skill_ids: Option<Vec<String>>,
+    base_ref: Option<String>,
+    head_ref: Option<String>,
 ) -> Result<ReviewResult> {
     // CodeRabbit v1 only supports working changes - check before spawning
-    if reviewer_id == ReviewerId::CoderabbitCli && commit_id.is_some() {
+    if reviewer_id == ReviewerId::CoderabbitCli && (commit_id.is_some() || base_ref.is_some()) {
         return Err(AppError::validation(
-            "CodeRabbit CLI currently supports working changes only. Select a different reviewer to review commits."
+            "CodeRabbit CLI currently supports working changes only. Select a different reviewer to review commits or compare diffs."
         ));
     }
 
@@ -2452,7 +2506,14 @@ pub async fn generate_review(
     tokio::task::spawn_blocking(move || {
         match reviewer_id {
             ReviewerId::ClaudeCli => {
-                run_claude_review(skills_dir, &repo_path, commit_id.as_deref(), skill_ids.as_deref())
+                run_claude_review(
+                    skills_dir,
+                    &repo_path,
+                    commit_id.as_deref(),
+                    skill_ids.as_deref(),
+                    base_ref.as_deref(),
+                    head_ref.as_deref(),
+                )
             }
             ReviewerId::CoderabbitCli => {
                 run_coderabbit_review(&repo_path)

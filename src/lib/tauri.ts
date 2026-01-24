@@ -290,6 +290,34 @@ export async function getWorkingDiff(
   return tracedInvoke<UnifiedDiff>("get_working_diff", { repoPath, staged });
 }
 
+// Compare diff (between two refs)
+export async function getCompareDiff(
+  repoPath: string,
+  baseRef: string,
+  headRef: string,
+): Promise<UnifiedDiff> {
+  return tracedInvoke<UnifiedDiff>("get_compare_diff", { repoPath, baseRef, headRef });
+}
+
+export async function getCompareFileDiff(
+  repoPath: string,
+  baseRef: string,
+  headRef: string,
+  filePath: string,
+): Promise<FileDiff> {
+  return invoke<FileDiff>("get_compare_file_diff", { repoPath, baseRef, headRef, filePath });
+}
+
+// Commit range (commits between two refs)
+export async function getCommitRange(
+  repoPath: string,
+  baseRef: string,
+  headRef: string,
+  limit: number = 100,
+): Promise<CommitInfo[]> {
+  return tracedInvoke<CommitInfo[]>("get_commit_range", { repoPath, baseRef, headRef, limit });
+}
+
 // Status
 export async function getStatus(repoPath: string): Promise<StatusInfo> {
   return tracedInvoke<StatusInfo>("get_status", { repoPath });
@@ -413,12 +441,16 @@ export async function generateReview(
   reviewerId: AIReviewReviewerId,
   commitId?: string,
   skillIds?: string[],
+  baseRef?: string,
+  headRef?: string,
 ): Promise<ReviewResult> {
   return invoke<ReviewResult>("generate_review", {
     repoPath,
     reviewerId,
     commitId,
     skillIds,
+    baseRef,
+    headRef,
   });
 }
 

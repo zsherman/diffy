@@ -360,6 +360,17 @@ export function StagingSidebar() {
         queryKey: ["branches", repoPath],
         refetchType: "all",
       });
+      // Invalidate compare queries (for Compare view)
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          return (
+            (key[0] === "commit-range" || key[0] === "compare-diff") &&
+            key[1] === repoPath
+          );
+        },
+        refetchType: "all",
+      });
       clearCommitForm();
       setIsCommitting(false);
     },

@@ -241,6 +241,70 @@ pub fn get_commits_all_branches(
     Ok(commits)
 }
 
+/// Resolve a ref string (branch name, tag, or commit hash) to an Oid
+fn resolve_ref_to_oid(repo: &Repository, ref_str: &str) -> Result<git2::Oid, GitError> {
+    // Try as a branch first
+    if let Ok(branch) = repo.find_branch(ref_str, BranchType::Local) {
+        if let Some(target) = branch.get().target() {
+            return Ok(target);
+        }
+    }
+    
+    // Try as a remote branch
+    if let Ok(branch) = repo.find_branch(ref_str, BranchType::Remote) {
+        if let Some(target) = branch.get().target() {
+            return Ok(target);
+        }
+    }
+    
+    // Try as a reference (refs/heads/..., refs/tags/..., etc.)
+    if let Ok(reference) = repo.find_reference(ref_str) {
+        if let Some(target) = reference.target() {
+            return Ok(target);
+        }
+    }
+    
+    // Try as refs/heads/{ref}
+    if let Ok(reference) = repo.find_reference(&format!("refs/heads/{}", ref_str)) {
+        if let Some(target) = reference.target() {
+            return Ok(target);
+        }
+    }
+    
+    // Try as a commit hash (full or short) or other revparse expression
+    let obj = repo.revparse_single(ref_str)?;
+    Ok(obj.id())
+}
+
+/// Get commits in a range (base..head) - commits reachable from head but not from base
+pub fn get_commit_range(
+    repo: &Repository,
+    base_ref: &str,
+    head_ref: &str,
+    limit: usize,
+) -> Result<Vec<CommitInfo>, GitError> {
+    let base_oid = resolve_ref_to_oid(repo, base_ref)?;
+    let head_oid = resolve_ref_to_oid(repo, head_ref)?;
+    
+    let mut revwalk = repo.revwalk()?;
+    revwalk.set_sorting(git2::Sort::TIME | git2::Sort::TOPOLOGICAL)?;
+    
+    // Push head and hide base (this gives us commits in head that aren't in base)
+    revwalk.push(head_oid)?;
+    revwalk.hide(base_oid)?;
+    
+    let commits: Vec<CommitInfo> = revwalk
+        .take(limit)
+        .filter_map(|oid_result| {
+            let oid = oid_result.ok()?;
+            let commit = repo.find_commit(oid).ok()?;
+            Some(commit_to_info(repo, &commit))
+        })
+        .collect();
+    
+    Ok(commits)
+}
+
 fn commit_to_info(repo: &Repository, commit: &git2::Commit) -> CommitInfo {
     let id = commit.id().to_string();
     let short_id = id[..7.min(id.len())].to_string();
