@@ -24,6 +24,7 @@ import {
   getStatus,
   stageFiles,
   unstageFiles,
+  discardChanges,
   createCommit,
   generateCommitMessage,
   listStashes,
@@ -34,6 +35,7 @@ import {
   normalizeError,
   getErrorMessage,
 } from "../../../lib/tauri";
+import { FileContextMenu } from "../../../components/ui";
 import { useTabsStore, useActiveTabState } from "../../../stores/tabs-store";
 import { usePanelFontSize } from "../../../stores/ui-store";
 import type { FileStatus, StashEntry } from "../../../types/git";
@@ -74,6 +76,8 @@ const StagingFileRow = memo(function StagingFileRow({
   onSelect,
   onStage,
   onUnstage,
+  onDiscard,
+  repoPath,
   fontSize,
 }: {
   file: FileStatus;
@@ -82,32 +86,45 @@ const StagingFileRow = memo(function StagingFileRow({
   onSelect: () => void;
   onStage: () => void;
   onUnstage: () => void;
+  onDiscard: () => void;
+  repoPath: string;
   fontSize: number;
 }) {
   return (
-    <div
-      className={`flex items-center px-2 py-1 hover:bg-bg-hover group cursor-pointer ${
-        isSelected ? "bg-accent-blue/20" : ""
-      }`}
-      style={{ fontSize: `${fontSize}px` }}
-      onClick={onSelect}
+    <FileContextMenu
+      relativePath={file.path}
+      repoPath={repoPath}
+      stagingActions={{
+        isStaged,
+        onStage,
+        onUnstage,
+        onDiscard,
+      }}
     >
-      <span className="w-5 flex items-center justify-center shrink-0">
-        <StatusIcon status={file.status} />
-      </span>
-      <span className="truncate text-text-primary ml-1 flex-1 min-w-0">
-        {file.path}
-      </span>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          isStaged ? onUnstage() : onStage();
-        }}
-        className="px-1.5 py-0.5 text-xs rounded bg-bg-tertiary hover:bg-bg-hover border border-border-primary opacity-0 group-hover:opacity-100 shrink-0 ml-1"
+      <div
+        className={`flex items-center px-2 py-1 hover:bg-bg-hover group cursor-pointer ${
+          isSelected ? "bg-accent-blue/20" : ""
+        }`}
+        style={{ fontSize: `${fontSize}px` }}
+        onClick={onSelect}
       >
-        {isStaged ? "Unstage" : "Stage"}
-      </button>
-    </div>
+        <span className="w-5 flex items-center justify-center shrink-0">
+          <StatusIcon status={file.status} />
+        </span>
+        <span className="truncate text-text-primary ml-1 flex-1 min-w-0">
+          {file.path}
+        </span>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            isStaged ? onUnstage() : onStage();
+          }}
+          className="px-1.5 py-0.5 text-xs rounded bg-bg-tertiary hover:bg-bg-hover border border-border-primary opacity-0 group-hover:opacity-100 shrink-0 ml-1"
+        >
+          {isStaged ? "Unstage" : "Stage"}
+        </button>
+      </div>
+    </FileContextMenu>
   );
 });
 
@@ -313,6 +330,19 @@ export function StagingSidebar() {
       queryClient.invalidateQueries({ queryKey: ["status", repoPath] }),
   });
 
+  const discardMutation = useMutation({
+    mutationFn: (paths: string[]) => discardChanges(repository!.path, paths),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["status", repoPath] });
+      queryClient.invalidateQueries({
+        queryKey: ["working-diff-staged", repoPath],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["working-diff-unstaged", repoPath],
+      });
+    },
+  });
+
   const commitMutation = useMutation({
     mutationFn: (message: string) => createCommit(repository!.path, message),
     onSuccess: () => {
@@ -444,6 +474,15 @@ export function StagingSidebar() {
       unstageMutation.mutate([path]);
     },
     [unstageMutation],
+  );
+
+  const handleDiscardFile = useCallback(
+    (path: string) => {
+      if (confirm(`Discard changes to ${path}? This cannot be undone.`)) {
+        discardMutation.mutate([path]);
+      }
+    },
+    [discardMutation],
   );
 
   const handleCommit = useCallback(() => {
@@ -642,6 +681,8 @@ export function StagingSidebar() {
                     }}
                     onStage={() => handleStageFile(file.path)}
                     onUnstage={() => {}}
+                    onDiscard={() => handleDiscardFile(file.path)}
+                    repoPath={repository?.path ?? ""}
                     fontSize={panelFontSize}
                   />
                 ))}
@@ -672,6 +713,8 @@ export function StagingSidebar() {
                     }}
                     onStage={() => {}}
                     onUnstage={() => handleUnstageFile(file.path)}
+                    onDiscard={() => handleDiscardFile(file.path)}
+                    repoPath={repository?.path ?? ""}
                     fontSize={panelFontSize}
                   />
                 ))}

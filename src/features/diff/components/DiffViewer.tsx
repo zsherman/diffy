@@ -7,7 +7,7 @@ import { CaretRight, CaretDown, File, Warning, FolderOpen, GitDiff } from "@phos
 import { getFileDiff, getWorkingDiff, getCommitDiff } from "../../../lib/tauri";
 import { useTabsStore, useActiveTabState } from "../../../stores/tabs-store";
 import { useDiffSettings } from "../../../stores/ui-store";
-import { LoadingSpinner, SkeletonDiff } from "../../../components/ui";
+import { LoadingSpinner, SkeletonDiff, FileContextMenu } from "../../../components/ui";
 import { createMountLogger } from "../../../lib/perf";
 
 // Threshold for auto-collapsing large diffs
@@ -42,6 +42,7 @@ const CollapsibleFileDiff = memo(function CollapsibleFileDiff({
   defaultCollapsed,
   fontSize,
   themeType,
+  repoPath,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   fileDiff: any;
@@ -49,6 +50,7 @@ const CollapsibleFileDiff = memo(function CollapsibleFileDiff({
   defaultCollapsed?: boolean;
   fontSize: number;
   themeType: "light" | "dark";
+  repoPath: string;
 }) {
   const lineCount = getDiffLineCount(fileDiff);
   const isLargeDiff = lineCount > LARGE_DIFF_THRESHOLD;
@@ -65,50 +67,56 @@ const CollapsibleFileDiff = memo(function CollapsibleFileDiff({
 
   return (
     <div className="border-b border-border-primary">
-      <button
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        className="w-full flex items-center gap-2 px-3 py-2 bg-bg-secondary hover:bg-bg-hover transition-colors text-left"
+      <FileContextMenu
+        relativePath={displayName}
+        repoPath={repoPath}
+        previousPath={isRenamed ? previousName : undefined}
       >
-        {isCollapsed ? (
-          <CaretRight
-            size={14}
-            weight="bold"
-            className="text-text-muted shrink-0"
-          />
-        ) : (
-          <CaretDown
-            size={14}
-            weight="bold"
-            className="text-text-muted shrink-0"
-          />
-        )}
-        <File size={14} weight="bold" className="text-accent-blue shrink-0" />
-        {isRenamed ? (
-          <span className="text-text-primary text-sm truncate">
-            {previousName} <span className="text-text-muted">→</span>{" "}
-            {currentName}
-          </span>
-        ) : (
-          <span className="text-text-primary text-sm truncate">
-            {displayName}
-          </span>
-        )}
-        <div className="flex-1" />
-        {isLargeDiff && isCollapsed && (
-          <span className="flex items-center gap-1 text-xs text-accent-yellow mr-2">
-            <Warning size={12} weight="bold" />
-            Large diff
-          </span>
-        )}
-        <span className="flex items-center gap-2 text-xs shrink-0">
-          {deletions > 0 && (
-            <span className="text-accent-red">-{deletions}</span>
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="w-full flex items-center gap-2 px-3 py-2 bg-bg-secondary hover:bg-bg-hover transition-colors text-left"
+        >
+          {isCollapsed ? (
+            <CaretRight
+              size={14}
+              weight="bold"
+              className="text-text-muted shrink-0"
+            />
+          ) : (
+            <CaretDown
+              size={14}
+              weight="bold"
+              className="text-text-muted shrink-0"
+            />
           )}
-          {additions > 0 && (
-            <span className="text-accent-green">+{additions}</span>
+          <File size={14} weight="bold" className="text-accent-blue shrink-0" />
+          {isRenamed ? (
+            <span className="text-text-primary text-sm truncate">
+              {previousName} <span className="text-text-muted">→</span>{" "}
+              {currentName}
+            </span>
+          ) : (
+            <span className="text-text-primary text-sm truncate">
+              {displayName}
+            </span>
           )}
-        </span>
-      </button>
+          <div className="flex-1" />
+          {isLargeDiff && isCollapsed && (
+            <span className="flex items-center gap-1 text-xs text-accent-yellow mr-2">
+              <Warning size={12} weight="bold" />
+              Large diff
+            </span>
+          )}
+          <span className="flex items-center gap-2 text-xs shrink-0">
+            {deletions > 0 && (
+              <span className="text-accent-red">-{deletions}</span>
+            )}
+            {additions > 0 && (
+              <span className="text-accent-green">+{additions}</span>
+            )}
+          </span>
+        </button>
+      </FileContextMenu>
       {!isCollapsed && (
         <div
           style={
@@ -324,6 +332,7 @@ export function DiffViewer() {
             diffStyle={diffViewMode === "split" ? "split" : "unified"}
             fontSize={diffFontSize}
             themeType={themeType}
+            repoPath={repository.path}
           />
         ))}
       </VList>
@@ -382,6 +391,7 @@ export function DiffViewer() {
           diffStyle={diffViewMode === "split" ? "split" : "unified"}
           fontSize={diffFontSize}
           themeType={themeType}
+          repoPath={repository?.path ?? ""}
         />
       ))}
     </VList>

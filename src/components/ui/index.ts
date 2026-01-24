@@ -19,3 +19,4 @@ export {
   GlobalErrorBoundary,
   PanelErrorBoundary,
 } from "./ErrorBoundary";
+export { FileContextMenu } from "./FileContextMenu";

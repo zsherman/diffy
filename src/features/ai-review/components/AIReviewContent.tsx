@@ -29,6 +29,7 @@ import {
 import { useTabsStore, useActiveTabState } from "../../../stores/tabs-store";
 import { useUIStore } from "../../../stores/ui-store";
 import { LoadingSpinner } from "../../../components/ui";
+import { useToast } from "../../../components/ui/Toast";
 import { SkillSelector } from "../../skills";
 import type {
   AIReviewIssue,
@@ -534,6 +535,7 @@ export function AIReviewContent() {
   } = useActiveTabState();
   const { selectedSkillIds } = useUIStore();
   const queryClient = useQueryClient();
+  const toast = useToast();
 
   // Selection state
   const [selectedIssues, setSelectedIssues] = useState<Set<string>>(new Set());
@@ -765,6 +767,12 @@ export function AIReviewContent() {
         const result = await fixAIReviewIssues(repository.path, issues);
         setFixResult({ success: true, message: result });
 
+        // Show success toast
+        toast.success(
+          `Fixed ${issueIds.length} issue${issueIds.length !== 1 ? "s" : ""}`,
+          "Changes have been applied to your files",
+        );
+
         // Mark as accepted and clear selection
         setSessionMetrics((prev) => ({
           ...prev,
@@ -777,15 +785,19 @@ export function AIReviewContent() {
         queryClient.invalidateQueries({ queryKey: ["working-diff-unstaged"] });
         queryClient.invalidateQueries({ queryKey: ["status"] });
       } catch (error) {
+        const errorMessage = getErrorMessage(error);
         setFixResult({
           success: false,
-          message: getErrorMessage(error),
+          message: errorMessage,
         });
+
+        // Show error toast
+        toast.error("Fix failed", errorMessage);
       } finally {
         setIsFixing(false);
       }
     },
-    [repository, aiReview, isFixing, queryClient],
+    [repository, aiReview, isFixing, queryClient, toast],
   );
 
   const handleFixSelected = useCallback(() => {
