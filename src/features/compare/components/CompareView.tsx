@@ -17,28 +17,25 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  ChatCircle,
-  PencilSimple,
   DotsThree,
-  ThumbsUp,
-  Flag,
-  User,
+  Wrench,
+  PencilSimple,
 } from "@phosphor-icons/react";
 import {
   listBranches,
   getCompareDiff,
   getCommitRange,
+  generateReview,
 } from "../../../lib/tauri";
 import {
   useTabsStore,
   useActiveTabCompare,
 } from "../../../stores/tabs-store";
-import { useDiffSettings } from "../../../stores/ui-store";
+import { useDiffSettings, useUIStore } from "../../../stores/ui-store";
 import { getTheme, isLightTheme } from "../../../lib/themes";
 import { AuthorAvatar } from "../../graph/components/AuthorAvatar";
-import { AIReviewContent } from "../../ai-review/components";
 import { LoadingSpinner, SkeletonDiff } from "../../../components/ui";
-import type { BranchInfo, CommitInfo } from "../../../types/git";
+import type { BranchInfo, CommitInfo, AIReviewIssue, CodeRabbitIssue, ReviewResult } from "../../../types/git";
 
 // Threshold for auto-collapsing large diffs
 const LARGE_DIFF_THRESHOLD = 500;
@@ -47,14 +44,43 @@ const LARGE_DIFF_THRESHOLD = 500;
 interface ReviewComment {
   id: string;
   filePath: string;
-  lineNumber: number;
+  lineNumber?: number; // Line number or range (e.g., "12-15")
+  lineRange?: string;
   author: string;
   authorEmail: string;
   content: string;
+  title?: string;
   timestamp: number;
   reactions?: { emoji: string; count: number }[];
   replies?: ReviewComment[];
+  // AI review specific fields
+  category?: string;
+  severity?: "critical" | "high" | "medium" | "low";
+  suggestion?: string;
+  isAIGenerated?: boolean;
 }
+
+// Category colors for AI issues (reserved for future use)
+const _CATEGORY_COLORS: Record<string, string> = {
+  logic_bugs: "bg-accent-red/20 text-accent-red border-accent-red/30",
+  edge_cases: "bg-accent-yellow/20 text-accent-yellow border-accent-yellow/30",
+  security: "bg-accent-red/20 text-accent-red border-accent-red/30",
+  performance: "bg-accent-blue/20 text-accent-blue border-accent-blue/30",
+  accidental_code: "bg-text-muted/20 text-text-muted border-text-muted/30",
+  "Bug Risk": "bg-accent-red/20 text-accent-red border-accent-red/30",
+  Performance: "bg-accent-blue/20 text-accent-blue border-accent-blue/30",
+  Security: "bg-accent-red/20 text-accent-red border-accent-red/30",
+  Improvement: "bg-accent-purple/20 text-accent-purple border-accent-purple/30",
+  other: "bg-text-muted/20 text-text-muted border-text-muted/30",
+};
+
+// Severity colors (reserved for future use)
+const _SEVERITY_COLORS: Record<string, string> = {
+  critical: "text-accent-red",
+  high: "text-accent-red",
+  medium: "text-accent-yellow",
+  low: "text-text-muted",
+};
 
 // Calculate total lines in a diff
 function getDiffLineCount(fileDiff: any): number {
@@ -174,84 +200,116 @@ function RefSelector({
   );
 }
 
-// Inline comment card component
+// Inline comment card component - matches reference design
 const InlineComment = memo(function InlineComment({
   comment,
-  onReply,
+  onFix,
 }: {
   comment: ReviewComment;
-  onReply?: (commentId: string) => void;
+  onFix?: (comment: ReviewComment) => void;
 }) {
-  const [showReplies, setShowReplies] = useState(true);
+  const [showReplies, setShowReplies] = useState(false);
   
   return (
-    <div className="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden my-2 mx-4">
-      {/* Comment header */}
-      <div className="flex items-center gap-2 px-3 py-2 bg-bg-tertiary border-b border-border-primary">
-        <AuthorAvatar email={comment.authorEmail} size={20} />
-        <span className="text-sm font-medium text-text-primary">{comment.author}</span>
-        <span className="text-xs text-text-muted">{formatTimeAgo(comment.timestamp)}</span>
-        <div className="flex-1" />
-        <button className="p-1 hover:bg-bg-hover rounded-sm text-text-muted hover:text-text-primary transition-colors">
-          <DotsThree size={14} weight="bold" />
-        </button>
-      </div>
-      
-      {/* Comment body */}
-      <div className="px-3 py-2">
-        <p className="text-sm text-text-primary leading-relaxed">{comment.content}</p>
-      </div>
-      
-      {/* Reactions and actions */}
-      <div className="flex items-center gap-2 px-3 py-2 border-t border-border-primary">
-        {comment.reactions?.map((reaction, i) => (
-          <span key={i} className="flex items-center gap-1 px-2 py-0.5 bg-bg-tertiary rounded-full text-xs">
-            {reaction.emoji} {reaction.count}
-          </span>
-        ))}
-        <div className="flex-1" />
-        <button className="flex items-center gap-1 px-2 py-1 text-xs text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors">
-          <ThumbsUp size={12} />
-        </button>
-        <button className="flex items-center gap-1 px-2 py-1 text-xs text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors">
-          <Flag size={12} />
-        </button>
-        {onReply && (
-          <button
-            onClick={() => onReply(comment.id)}
-            className="flex items-center gap-1 px-2 py-1 text-xs text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors"
+    <div className="bg-bg-secondary border border-border-primary rounded-lg shadow-lg overflow-hidden">
+      {/* Header row with author and actions */}
+      <div className="flex items-center gap-2 px-4 py-3">
+        {comment.isAIGenerated ? (
+          <div className="w-8 h-8 rounded-full bg-accent-purple/20 flex items-center justify-center">
+            <Sparkle size={16} weight="fill" className="text-accent-purple" />
+          </div>
+        ) : (
+          <AuthorAvatar email={comment.authorEmail} size={32} />
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-text-primary text-sm">
+              {comment.isAIGenerated ? "AI Review" : comment.author}
+            </span>
+            <span className="text-xs text-text-muted">{formatTimeAgo(comment.timestamp)}</span>
+          </div>
+        </div>
+        
+        {/* Action buttons */}
+        <div className="flex items-center gap-1">
+          <button 
+            className="p-1.5 hover:bg-bg-hover rounded text-text-muted hover:text-accent-green transition-colors"
+            title="Resolve"
           >
-            <ChatCircle size={12} />
-            Reply
+            <Check size={16} />
           </button>
+          {comment.isAIGenerated && onFix && (
+            <button 
+              onClick={() => onFix(comment)}
+              className="p-1.5 hover:bg-bg-hover rounded text-text-muted hover:text-accent-purple transition-colors"
+              title="Apply fix"
+            >
+              <Wrench size={16} />
+            </button>
+          )}
+          <button 
+            className="p-1.5 hover:bg-bg-hover rounded text-text-muted hover:text-text-primary transition-colors"
+            title="React"
+          >
+            <span className="text-sm">😊</span>
+          </button>
+          <button className="p-1.5 hover:bg-bg-hover rounded text-text-muted hover:text-text-primary transition-colors">
+            <DotsThree size={16} weight="bold" />
+          </button>
+        </div>
+      </div>
+      
+      {/* Comment content */}
+      <div className="px-4 pb-3">
+        <p className="text-sm text-text-primary leading-relaxed">{comment.content}</p>
+        
+        {/* Suggestion */}
+        {comment.suggestion && (
+          <div className="mt-3 p-3 bg-accent-green/5 border border-accent-green/20 rounded-md">
+            <p className="text-sm text-text-primary">{comment.suggestion}</p>
+          </div>
         )}
       </div>
       
-      {/* Replies */}
+      {/* Reactions */}
+      {comment.reactions && comment.reactions.length > 0 && (
+        <div className="px-4 pb-3 flex items-center gap-2">
+          {comment.reactions.map((reaction, i) => (
+            <span 
+              key={i} 
+              className="inline-flex items-center gap-1 px-2 py-1 bg-bg-tertiary hover:bg-bg-hover rounded-full text-xs cursor-pointer transition-colors"
+            >
+              {reaction.emoji} {reaction.count}
+            </span>
+          ))}
+        </div>
+      )}
+      
+      {/* Replies section */}
       {comment.replies && comment.replies.length > 0 && (
-        <div className="border-t border-border-primary">
+        <>
           <button
             onClick={() => setShowReplies(!showReplies)}
-            className="w-full px-3 py-1.5 text-xs text-text-muted hover:bg-bg-hover flex items-center gap-1 transition-colors"
+            className="w-full px-4 py-2 text-sm text-accent-blue hover:bg-bg-hover text-left transition-colors"
           >
-            {showReplies ? <CaretDown size={10} /> : <CaretRight size={10} />}
             {showReplies ? "Hide" : "Show"} {comment.replies.length} {comment.replies.length === 1 ? "reply" : "replies"}
           </button>
+          
           {showReplies && (
-            <div className="pl-4 border-l-2 border-border-primary ml-3 mb-2">
+            <div className="border-t border-border-primary">
               {comment.replies.map((reply) => (
-                <div key={reply.id} className="py-2 px-2">
-                  <div className="flex items-center gap-2 mb-1">
-                    <AuthorAvatar email={reply.authorEmail} size={16} />
-                    <span className="text-xs font-medium text-text-primary">{reply.author}</span>
+                <div key={reply.id} className="px-4 py-3 border-b border-border-primary last:border-b-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AuthorAvatar email={reply.authorEmail} size={24} />
+                    <span className="text-sm font-medium text-text-primary">{reply.author}</span>
                     <span className="text-xs text-text-muted">{formatTimeAgo(reply.timestamp)}</span>
                   </div>
-                  <p className="text-sm text-text-primary pl-6">{reply.content}</p>
+                  <p className="text-sm text-text-primary pl-8">{reply.content}</p>
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );
@@ -306,25 +364,25 @@ const CommitStackRow = memo(function CommitStackRow({
   );
 });
 
-// Collapsible file diff with inline comments support
-const CollapsibleFileDiffWithComments = memo(function CollapsibleFileDiffWithComments({
+// Collapsible file diff with floating comments
+const CollapsibleFileDiff = memo(function CollapsibleFileDiff({
   fileDiff,
-  diffStyle,
   defaultCollapsed,
   fontSize,
   diffsTheme,
   themeType,
-  comments,
-  _onAddComment,
+  comments = [],
+  onFix,
+  showFloatingComments = false,
 }: {
   fileDiff: any;
-  diffStyle: "split" | "unified";
   defaultCollapsed?: boolean;
   fontSize: number;
   diffsTheme: string;
   themeType: "light" | "dark";
   comments?: ReviewComment[];
-  _onAddComment?: (filePath: string, lineNumber: number) => void;
+  onFix?: (comment: ReviewComment) => void;
+  showFloatingComments?: boolean;
 }) {
   const lineCount = getDiffLineCount(fileDiff);
   const isLargeDiff = lineCount > LARGE_DIFF_THRESHOLD;
@@ -338,11 +396,21 @@ const CollapsibleFileDiffWithComments = memo(function CollapsibleFileDiffWithCom
   const isRenamed = previousName && previousName !== currentName;
   const displayName = currentName || previousName || "Unknown file";
   
-  // Get comments for this file
-  const fileComments = comments?.filter(c => c.filePath === currentName || c.filePath === displayName) || [];
+  // Filter comments for this file
+  const fileComments = useMemo(() => {
+    return comments.filter(c => {
+      const commentPath = c.filePath.replace(/^[ab]\//, "");
+      return commentPath === currentName || 
+             commentPath === displayName ||
+             currentName.endsWith(commentPath) ||
+             commentPath.endsWith(currentName);
+    });
+  }, [comments, currentName, displayName]);
+  
+  const hasComments = fileComments.length > 0;
 
   return (
-    <div className="border border-border-primary rounded-lg overflow-hidden mb-3">
+    <div className="border border-border-primary rounded-lg mb-3 relative">
       {/* File header */}
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
@@ -362,9 +430,9 @@ const CollapsibleFileDiffWithComments = memo(function CollapsibleFileDiffWithCom
           <span className="text-text-primary text-sm truncate">{displayName}</span>
         )}
         <div className="flex-1" />
-        {fileComments.length > 0 && (
-          <span className="flex items-center gap-1 text-xs text-text-muted mr-2">
-            <ChatCircle size={12} />
+        {hasComments && (
+          <span className="flex items-center gap-1 text-xs text-accent-purple mr-2 bg-accent-purple/10 px-2 py-0.5 rounded-full">
+            <Sparkle size={10} weight="fill" />
             {fileComments.length}
           </span>
         )}
@@ -385,34 +453,38 @@ const CollapsibleFileDiffWithComments = memo(function CollapsibleFileDiffWithCom
       </button>
       
       {!isCollapsed && (
-        <div className="relative">
-          <div
-            style={{ "--diffs-font-size": `${fontSize}px` } as React.CSSProperties}
-          >
-            <FileDiff
-              fileDiff={fileDiff}
-              options={{
-                diffStyle,
-                theme: diffsTheme,
-                themeType,
-                disableFileHeader: true,
-              }}
+        <div 
+          className="overflow-x-auto"
+          style={{ "--diffs-font-size": `${fontSize}px` } as React.CSSProperties}
+        >
+          <FileDiff
+            fileDiff={fileDiff}
+            options={{
+              diffStyle: "split", // Always use split view for Compare
+              theme: diffsTheme,
+              themeType,
+              disableFileHeader: true,
+            }}
+          />
+        </div>
+      )}
+      
+      {/* Floating comments - positioned to the right of the diff card */}
+      {showFloatingComments && hasComments && (
+        <div className="absolute top-0 left-full ml-4 w-[320px] space-y-3 pt-1">
+          {fileComments.map((comment) => (
+            <InlineComment 
+              key={comment.id} 
+              comment={comment} 
+              onFix={onFix}
             />
-          </div>
-          
-          {/* Render inline comments after the diff */}
-          {fileComments.length > 0 && (
-            <div className="border-t border-border-primary bg-bg-primary">
-              {fileComments.map((comment) => (
-                <InlineComment key={comment.id} comment={comment} />
-              ))}
-            </div>
-          )}
+          ))}
         </div>
       )}
     </div>
   );
 });
+
 
 // Compare page header with PR-style info
 function ComparePageHeader({
@@ -425,6 +497,11 @@ function ComparePageHeader({
   fileCount,
   additions,
   deletions,
+  // AI Review props
+  isGeneratingReview,
+  reviewError,
+  issueCount,
+  onGenerateReview,
 }: {
   baseRef: string | null;
   headRef: string | null;
@@ -435,6 +512,11 @@ function ComparePageHeader({
   fileCount: number;
   additions: number;
   deletions: number;
+  // AI Review props
+  isGeneratingReview: boolean;
+  reviewError: string | null;
+  issueCount: number;
+  onGenerateReview: () => void;
 }) {
   const [descriptionExpanded, setDescriptionExpanded] = useState(true);
   const [stackExpanded, setStackExpanded] = useState(true);
@@ -453,9 +535,56 @@ function ComparePageHeader({
     <div className="border-b border-border-primary bg-bg-primary">
       {/* Title section */}
       <div className="px-4 py-4">
-        <h1 className="text-xl font-semibold text-text-primary mb-2">
-          Compare: {baseRef} → {headRef}
-        </h1>
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="text-xl font-semibold text-text-primary">
+            Compare: {baseRef} → {headRef}
+          </h1>
+          
+          {/* AI Review button */}
+          <div className="flex items-center gap-2">
+            {isGeneratingReview ? (
+              <div className="flex items-center gap-2 px-4 py-2 bg-accent-purple/10 rounded-md">
+                <LoadingSpinner size="xs" />
+                <span className="text-sm text-accent-purple">Analyzing code...</span>
+              </div>
+            ) : reviewError ? (
+              <div className="flex items-center gap-2 px-4 py-2 bg-accent-red/10 rounded-md">
+                <XCircle size={16} className="text-accent-red" />
+                <span className="text-sm text-accent-red">Review failed</span>
+                <button
+                  onClick={onGenerateReview}
+                  className="text-sm text-accent-blue hover:underline ml-2"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : issueCount > 0 ? (
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-accent-purple/10 rounded-md">
+                  <Sparkle size={14} weight="fill" className="text-accent-purple" />
+                  <span className="text-sm text-accent-purple font-medium">
+                    {issueCount} {issueCount === 1 ? "issue" : "issues"} found
+                  </span>
+                </div>
+                <button
+                  onClick={onGenerateReview}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors"
+                >
+                  Re-analyze
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={onGenerateReview}
+                disabled={isGeneratingReview}
+                className="flex items-center gap-2 px-4 py-2 bg-accent-purple hover:bg-accent-purple/90 text-white rounded-md text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                <Sparkle size={16} weight="fill" />
+                AI Review
+              </button>
+            )}
+          </div>
+        </div>
         
         {/* Meta info row */}
         <div className="flex items-center gap-3 text-sm">
@@ -632,6 +761,42 @@ function EmptyState({
   );
 }
 
+// Convert AI review issues to ReviewComment format
+function aiIssuesToComments(issues: AIReviewIssue[], generatedAt: number): ReviewComment[] {
+  return issues.map((issue, index) => ({
+    id: issue.id || `ai-issue-${index}`,
+    filePath: issue.filePath || "",
+    lineNumber: undefined,
+    author: "AI Review",
+    authorEmail: "ai@review.local",
+    content: `${issue.problem}\n\n${issue.why}`,
+    title: issue.title,
+    timestamp: generatedAt,
+    category: issue.category,
+    severity: issue.severity as ReviewComment["severity"],
+    suggestion: issue.suggestion,
+    isAIGenerated: true,
+  }));
+}
+
+// Convert CodeRabbit issues to ReviewComment format
+function codeRabbitIssuesToComments(issues: CodeRabbitIssue[], generatedAt: number): ReviewComment[] {
+  return issues.map((issue, index) => ({
+    id: `cr-issue-${index}`,
+    filePath: issue.file,
+    lineRange: issue.lines,
+    author: "CodeRabbit",
+    authorEmail: "coderabbit@review.local",
+    content: issue.description,
+    title: issue.type,
+    timestamp: generatedAt,
+    category: issue.type,
+    severity: (issue.severity?.toLowerCase() || "medium") as ReviewComment["severity"],
+    suggestion: issue.suggestedFix,
+    isAIGenerated: true,
+  }));
+}
+
 export function CompareView() {
   const { repository } = useTabsStore();
   const {
@@ -642,12 +807,97 @@ export function CompareView() {
     setCompareHeadRef,
     setCompareSelectedFile,
   } = useActiveTabCompare();
-  const { theme, diffViewMode, diffFontSize } = useDiffSettings();
+  const { theme, diffFontSize } = useDiffSettings();
+  const { aiReviewReviewerId } = useUIStore();
   const diffsTheme = getTheme(theme)?.diffsTheme ?? "pierre-dark";
   const themeType = isLightTheme(theme) ? "light" : "dark";
   
-  // Demo comments state (in real app, this would come from a backend)
-  const [comments] = useState<ReviewComment[]>([]);
+  // AI Review state
+  const [reviewResult, setReviewResult] = useState<ReviewResult | null>(null);
+  const [isGeneratingReview, setIsGeneratingReview] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  
+  // Generate storage key for AI review persistence
+  const getReviewStorageKey = (repoPath: string, base: string, head: string) => {
+    // Create a simple hash-like key from the paths
+    const key = `diffy-review:${repoPath}:${base}:${head}`;
+    return key;
+  };
+  
+  // Load cached review from localStorage when refs change
+  useEffect(() => {
+    if (!repository?.path || !compareBaseRef || !compareHeadRef) {
+      setReviewResult(null);
+      return;
+    }
+    
+    const storageKey = getReviewStorageKey(repository.path, compareBaseRef, compareHeadRef);
+    try {
+      const cached = localStorage.getItem(storageKey);
+      if (cached) {
+        const parsed = JSON.parse(cached) as ReviewResult;
+        setReviewResult(parsed);
+      } else {
+        setReviewResult(null);
+      }
+    } catch (e) {
+      console.warn("Failed to load cached review:", e);
+      setReviewResult(null);
+    }
+  }, [repository?.path, compareBaseRef, compareHeadRef]);
+  
+  // Convert review result to inline comments
+  const inlineComments = useMemo((): ReviewComment[] => {
+    if (!reviewResult) return [];
+    
+    if (reviewResult.kind === "structured") {
+      // StructuredReviewResult has data.issues and data.generatedAt
+      return aiIssuesToComments(reviewResult.data.issues, reviewResult.data.generatedAt);
+    } else if (reviewResult.kind === "coderabbit") {
+      return codeRabbitIssuesToComments(reviewResult.issues, reviewResult.generatedAt);
+    }
+    
+    return [];
+  }, [reviewResult]);
+  
+  // Generate AI review
+  const handleGenerateReview = async () => {
+    if (!repository?.path || !compareBaseRef || !compareHeadRef) return;
+    
+    setIsGeneratingReview(true);
+    setReviewError(null);
+    
+    try {
+      const result = await generateReview(
+        repository.path,
+        aiReviewReviewerId,
+        undefined, // no specific commit
+        undefined, // no skills
+        compareBaseRef,
+        compareHeadRef
+      );
+      setReviewResult(result);
+      
+      // Save to localStorage
+      const storageKey = getReviewStorageKey(repository.path, compareBaseRef, compareHeadRef);
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(result));
+      } catch (e) {
+        console.warn("Failed to cache review:", e);
+      }
+    } catch (error) {
+      console.error("Failed to generate review:", error);
+      setReviewError(error instanceof Error ? error.message : "Failed to generate review");
+    } finally {
+      setIsGeneratingReview(false);
+    }
+  };
+  
+  // Handle fix action (placeholder - would integrate with fix functionality)
+  const handleFix = (comment: ReviewComment) => {
+    console.log("Fix requested for comment:", comment);
+    // TODO: Integrate with fix functionality
+  };
 
   // Fetch branches
   const { data: branches = [] } = useQuery({
@@ -684,7 +934,8 @@ export function CompareView() {
     queryKey: ["commit-range", repository?.path, compareBaseRef, compareHeadRef],
     queryFn: () => getCommitRange(repository!.path, compareBaseRef!, compareHeadRef!, 100),
     enabled: !!repository?.path && !!compareBaseRef && !!compareHeadRef && compareBaseRef !== compareHeadRef,
-    staleTime: 30000,
+    staleTime: 5000, // Short stale time for fresher data
+    refetchOnMount: "always", // Always refetch when Compare view mounts
   });
 
   // Fetch compare diff
@@ -692,7 +943,8 @@ export function CompareView() {
     queryKey: ["compare-diff", repository?.path, compareBaseRef, compareHeadRef],
     queryFn: () => getCompareDiff(repository!.path, compareBaseRef!, compareHeadRef!),
     enabled: !!repository?.path && !!compareBaseRef && !!compareHeadRef && compareBaseRef !== compareHeadRef,
-    staleTime: 30000,
+    staleTime: 5000, // Short stale time for fresher data
+    refetchOnMount: "always", // Always refetch when Compare view mounts
   });
 
   // Parse diff patches
@@ -754,102 +1006,77 @@ export function CompareView() {
     );
   }
 
-  return (
-    <div className="flex-1 flex flex-col bg-bg-primary overflow-hidden">
-      {/* Main layout: scrollable content with fixed sidebar */}
-      <div className="flex-1 flex min-h-0">
-        {/* Main scrollable content area */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-auto">
-          {/* Header section */}
-          <ComparePageHeader
-            baseRef={compareBaseRef}
-            headRef={compareHeadRef}
-            setBaseRef={setCompareBaseRef}
-            setHeadRef={setCompareHeadRef}
-            branches={localBranches}
-            commits={commits}
-            fileCount={compareDiff?.files.length ?? 0}
-            additions={totalAdditions}
-            deletions={totalDeletions}
-          />
-          
-          {/* Diff section header */}
-          <div className="px-4 py-2 border-b border-border-primary bg-bg-tertiary flex items-center justify-between sticky top-0 z-10">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-text-primary">
-                Files changed ({compareDiff?.files.length ?? 0})
-              </span>
-            </div>
-            {compareSelectedFile && (
-              <button
-                onClick={() => setCompareSelectedFile(null)}
-                className="text-xs text-accent-blue hover:text-accent-blue/80"
-              >
-                Show all files
-              </button>
-            )}
-          </div>
-          
-          {/* Diff content - scrolls with comments */}
-          <div className="flex-1 p-4">
-            {diffLoading ? (
-              <div className="flex flex-col">
-                <div className="flex items-center py-3">
-                  <LoadingSpinner size="sm" message="Loading diffs..." />
-                </div>
-                <SkeletonDiff lines={12} />
-              </div>
-            ) : filesToShow.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12">
-                <GitMerge size={48} weight="duotone" className="text-text-muted mb-3" />
-                <p className="text-text-primary font-medium mb-1">No changes</p>
-                <p className="text-text-muted text-sm">These branches have no differences</p>
-              </div>
-            ) : (
-              filesToShow.map((fileDiff: any, index) => (
-                <CollapsibleFileDiffWithComments
-                  key={fileDiff.name || fileDiff.prevName || index}
-                  fileDiff={fileDiff}
-                  diffStyle={diffViewMode === "split" ? "split" : "unified"}
-                  fontSize={diffFontSize}
-                  diffsTheme={diffsTheme}
-                  themeType={themeType}
-                  comments={comments}
-                />
-              ))
-            )}
-          </div>
-        </div>
+  const hasAnyComments = inlineComments.length > 0;
 
-        {/* Right sidebar: AI Review + metadata (fixed) */}
-        <div className="w-80 border-l border-border-primary flex flex-col bg-bg-secondary">
-          {/* AI Review section */}
-          <div className="flex-1 flex flex-col min-h-0">
-            <div className="px-3 py-2 border-b border-border-primary bg-bg-tertiary flex items-center gap-2">
-              <Sparkle size={14} weight="bold" className="text-accent-purple" />
-              <span className="text-xs font-semibold text-text-muted uppercase tracking-wide">
-                AI Review
-              </span>
-            </div>
-            <div className="flex-1 overflow-auto">
-              <AIReviewContent />
-            </div>
-          </div>
+  return (
+    <div className="flex-1 flex flex-col bg-bg-primary overflow-x-auto overflow-y-auto">
+      {/* Header section - centered */}
+      <div className="max-w-[1200px] mx-auto w-full">
+        <ComparePageHeader
+          baseRef={compareBaseRef}
+          headRef={compareHeadRef}
+          setBaseRef={setCompareBaseRef}
+          setHeadRef={setCompareHeadRef}
+          branches={localBranches}
+          commits={commits}
+          fileCount={compareDiff?.files.length ?? 0}
+          additions={totalAdditions}
+          deletions={totalDeletions}
+          isGeneratingReview={isGeneratingReview}
+          reviewError={reviewError}
+          issueCount={inlineComments.length}
+          onGenerateReview={handleGenerateReview}
+        />
+      </div>
+      
+      {/* Diff section header - centered */}
+      <div className="sticky top-0 z-20 border-b border-border-primary bg-bg-tertiary">
+        <div className="max-w-[1200px] mx-auto px-4 py-2 flex items-center justify-between">
+          <span className="text-sm font-medium text-text-primary">
+            Files changed ({compareDiff?.files.length ?? 0})
+          </span>
           
-          {/* Reviewers section */}
-          <div className="border-t border-border-primary">
-            <div className="px-3 py-2 flex items-center justify-between">
-              <span className="text-xs font-semibold text-text-muted uppercase tracking-wide">
-                Reviewers
-              </span>
-              <button className="text-text-muted hover:text-text-primary">
-                <User size={14} />
-              </button>
+          {compareSelectedFile && (
+            <button
+              onClick={() => setCompareSelectedFile(null)}
+              className="text-xs text-accent-blue hover:text-accent-blue/80"
+            >
+              Show all files
+            </button>
+          )}
+        </div>
+      </div>
+      
+      {/* Diff content with floating comments */}
+      <div className="flex-1">
+        <div className="max-w-[1200px] mx-auto px-4 py-4 relative">
+          {diffLoading ? (
+            <div className="flex flex-col">
+              <div className="flex items-center py-3">
+                <LoadingSpinner size="sm" message="Loading diffs..." />
+              </div>
+              <SkeletonDiff lines={12} />
             </div>
-            <div className="px-3 pb-3 text-xs text-text-muted">
-              No reviewers assigned
+          ) : filesToShow.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <GitMerge size={48} weight="duotone" className="text-text-muted mb-3" />
+              <p className="text-text-primary font-medium mb-1">No changes</p>
+              <p className="text-text-muted text-sm">These branches have no differences</p>
             </div>
-          </div>
+          ) : (
+            filesToShow.map((fileDiff: any, index) => (
+              <CollapsibleFileDiff
+                key={fileDiff.name || fileDiff.prevName || index}
+                fileDiff={fileDiff}
+                fontSize={diffFontSize}
+                diffsTheme={diffsTheme}
+                themeType={themeType}
+                comments={inlineComments}
+                onFix={handleFix}
+                showFloatingComments={hasAnyComments}
+              />
+            ))
+          )}
         </div>
       </div>
     </div>
