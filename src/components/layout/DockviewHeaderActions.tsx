@@ -41,7 +41,7 @@ export function DockviewHeaderActions({
   };
 
   const buttonClass =
-    "p-1 rounded transition-colors text-white/40 hover:text-white hover:bg-white/10";
+    "p-1 rounded-sm transition-colors text-white/40 hover:text-white hover:bg-white/10";
 
   return (
     <div className="flex items-center gap-0.5 h-full pr-2">
@@ -103,7 +103,7 @@ export function DockviewHeaderActions({
             activePanel.api.close();
           }
         }}
-        className="p-1 rounded transition-colors text-white/40 hover:text-accent-red hover:bg-white/10"
+        className="p-1 rounded-sm transition-colors text-white/40 hover:text-accent-red hover:bg-white/10"
         title="Close panel"
       >
         <X size={14} weight="bold" />

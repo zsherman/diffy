@@ -138,7 +138,7 @@ export function CreateWorktreeDialog({ open, onOpenChange, onSuccess }: CreateWo
               <FolderOpen size={16} weight="bold" />
               Create New Worktree
             </Dialog.Title>
-            <Dialog.Close className="p-1 rounded hover:bg-bg-hover transition-colors text-text-muted hover:text-text-primary">
+            <Dialog.Close className="p-1 rounded-sm hover:bg-bg-hover transition-colors text-text-muted hover:text-text-primary">
               <X size={16} weight="bold" />
             </Dialog.Close>
           </div>
@@ -156,7 +156,7 @@ export function CreateWorktreeDialog({ open, onOpenChange, onSuccess }: CreateWo
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g., feature-work"
                 autoFocus
-                className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
+                className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border-primary rounded-sm text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-hidden"
               />
               <p className="text-xs text-text-muted mt-1">
                 Creates branch and folder with this name.
@@ -174,12 +174,12 @@ export function CreateWorktreeDialog({ open, onOpenChange, onSuccess }: CreateWo
                   value={path}
                   onChange={(e) => setPathOverride(e.target.value)}
                   placeholder={name ? autoPath || '/path/to/worktree' : 'Enter name above...'}
-                  className="flex-1 px-3 py-2 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
+                  className="flex-1 px-3 py-2 text-sm bg-bg-tertiary border border-border-primary rounded-sm text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-hidden"
                 />
                 <button
                   type="button"
                   onClick={handleSelectPath}
-                  className="px-3 py-2 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary hover:bg-bg-hover flex items-center gap-1"
+                  className="px-3 py-2 text-sm bg-bg-tertiary border border-border-primary rounded-sm text-text-primary hover:bg-bg-hover flex items-center gap-1"
                 >
                   <FolderOpen size={14} />
                   Browse
@@ -223,7 +223,7 @@ export function CreateWorktreeDialog({ open, onOpenChange, onSuccess }: CreateWo
                   <select
                     value={selectedBranch}
                     onChange={(e) => setSelectedBranch(e.target.value)}
-                    className="w-full pl-8 pr-3 py-2 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary focus:border-accent-blue focus:outline-none appearance-none cursor-pointer"
+                    className="w-full pl-8 pr-3 py-2 text-sm bg-bg-tertiary border border-border-primary rounded-sm text-text-primary focus:border-accent-blue focus:outline-hidden appearance-none cursor-pointer"
                   >
                     <option value="">Select a branch...</option>
                     {localBranches.filter(b => !b.isHead).map((branch) => (
@@ -243,7 +243,7 @@ export function CreateWorktreeDialog({ open, onOpenChange, onSuccess }: CreateWo
                     value={newBranchName}
                     onChange={(e) => setBranchOverride(e.target.value)}
                     placeholder={name ? 'branch-name' : 'Enter name above...'}
-                    className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
+                    className="w-full px-3 py-2 text-sm bg-bg-tertiary border border-border-primary rounded-sm text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-hidden"
                   />
                   <p className="text-xs text-text-muted mt-1">
                     Auto-generated from worktree name.
@@ -257,14 +257,14 @@ export function CreateWorktreeDialog({ open, onOpenChange, onSuccess }: CreateWo
               <button
                 type="button"
                 onClick={() => onOpenChange(false)}
-                className="px-4 py-2 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary hover:bg-bg-hover transition-colors"
+                className="px-4 py-2 text-sm bg-bg-tertiary border border-border-primary rounded-sm text-text-primary hover:bg-bg-hover transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={!canSubmit || createMutation.isPending}
-                className="px-4 py-2 text-sm bg-accent-blue text-white rounded hover:bg-accent-blue/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-sm bg-accent-blue text-white rounded-sm hover:bg-accent-blue/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {createMutation.isPending ? 'Creating...' : 'Create Worktree'}
               </button>

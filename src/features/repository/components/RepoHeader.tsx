@@ -273,10 +273,10 @@ export function RepoHeader() {
   };
 
   const toggleButtonClass =
-    "flex items-center gap-1.5 px-3 py-1 text-text-muted transition-colors data-[pressed]:bg-bg-hover data-[pressed]:text-text-primary hover:text-text-primary text-xs";
+    "flex items-center gap-1.5 px-3 py-1 text-text-muted transition-colors data-pressed:bg-bg-hover data-pressed:text-text-primary hover:text-text-primary text-xs";
 
   const toolbarButtonClass =
-    "flex items-center gap-1.5 px-2 py-1 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-blue";
+    "flex items-center gap-1.5 px-2 py-1 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-accent-blue";
 
   // Determine which workspace view button is active (only when not in skills view and we have a repo)
   const isWorkspaceActive = appView === "workspace";
@@ -362,7 +362,7 @@ export function RepoHeader() {
       </div>
 
       {/* Center: Mode selector */}
-      <div className="flex items-center border border-border-primary rounded bg-bg-secondary">
+      <div className="flex items-center border border-border-primary rounded-sm bg-bg-secondary">
         <button
           onClick={() => handleModeChange("repository")}
           aria-label="Repository view"

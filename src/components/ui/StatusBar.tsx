@@ -26,7 +26,7 @@ export function StatusBar() {
       <div className="flex items-center gap-3 text-text-muted">
         {/* Theme Picker */}
         <Menu.Root>
-          <Menu.Trigger className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-bg-hover transition-colors hover:text-text-primary cursor-pointer">
+          <Menu.Trigger className="flex items-center gap-1.5 px-2 py-1 rounded-sm hover:bg-bg-hover transition-colors hover:text-text-primary cursor-pointer">
             {isLightTheme(theme) ? (
               <Sun size={14} weight="bold" />
             ) : (
@@ -37,11 +37,11 @@ export function StatusBar() {
           </Menu.Trigger>
           <Menu.Portal>
             <Menu.Positioner sideOffset={4} className="z-50">
-              <Menu.Popup className="min-w-[180px] overflow-hidden rounded-md border border-border-primary bg-bg-secondary shadow-lg outline-none">
+              <Menu.Popup className="min-w-[180px] overflow-hidden rounded-md border border-border-primary bg-bg-secondary shadow-lg outline-hidden">
                 {THEMES.map((t) => (
                   <Menu.Item
                     key={t.id}
-                    className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer text-text-primary data-[highlighted]:bg-bg-hover outline-none"
+                    className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer text-text-primary data-highlighted:bg-bg-hover outline-hidden"
                     onClick={() => setTheme(t.id as ThemeId)}
                   >
                     <span className="w-4">
@@ -66,13 +66,13 @@ export function StatusBar() {
 
         <button
           onClick={() => setShowSettingsDialog(true)}
-          className="p-1 rounded hover:bg-bg-hover transition-colors hover:text-text-primary"
+          className="p-1 rounded-sm hover:bg-bg-hover transition-colors hover:text-text-primary"
           title="Settings"
         >
           <GearSix size={16} weight="bold" />
         </button>
         <div className="flex items-center gap-2">
-          <span className="px-1.5 py-0.5 bg-bg-hover rounded text-xs">?</span>
+          <span className="px-1.5 py-0.5 bg-bg-hover rounded-sm text-xs">?</span>
           <span>help</span>
         </div>
       </div>

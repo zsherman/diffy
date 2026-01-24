@@ -69,10 +69,10 @@ export function FileContextMenu({
       <ContextMenu.Trigger render={children as React.ReactElement} />
       <ContextMenu.Portal>
         <ContextMenu.Positioner className="z-50">
-          <ContextMenu.Popup className="min-w-[200px] overflow-hidden rounded-lg border border-border-primary bg-bg-secondary shadow-xl outline-none py-1">
+          <ContextMenu.Popup className="min-w-[200px] overflow-hidden rounded-lg border border-border-primary bg-bg-secondary shadow-xl outline-hidden py-1">
             {/* Copy actions */}
             <ContextMenu.Item
-              className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-text-primary data-[highlighted]:bg-bg-hover outline-none mx-1 rounded text-[13px]"
+              className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-text-primary data-highlighted:bg-bg-hover outline-hidden mx-1 rounded-sm text-[13px]"
               onClick={() => copyToClipboard(relativePath, "Relative path")}
             >
               <Copy size={14} className="text-text-muted" />
@@ -80,7 +80,7 @@ export function FileContextMenu({
             </ContextMenu.Item>
 
             <ContextMenu.Item
-              className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-text-primary data-[highlighted]:bg-bg-hover outline-none mx-1 rounded text-[13px]"
+              className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-text-primary data-highlighted:bg-bg-hover outline-hidden mx-1 rounded-sm text-[13px]"
               onClick={() => copyToClipboard(absolutePath, "Absolute path")}
             >
               <Copy size={14} className="text-text-muted" />
@@ -88,7 +88,7 @@ export function FileContextMenu({
             </ContextMenu.Item>
 
             <ContextMenu.Item
-              className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-text-primary data-[highlighted]:bg-bg-hover outline-none mx-1 rounded text-[13px]"
+              className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-text-primary data-highlighted:bg-bg-hover outline-hidden mx-1 rounded-sm text-[13px]"
               onClick={() => copyToClipboard(fileName, "File name")}
             >
               <File size={14} className="text-text-muted" />
@@ -96,7 +96,7 @@ export function FileContextMenu({
             </ContextMenu.Item>
 
             <ContextMenu.Item
-              className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-text-primary data-[highlighted]:bg-bg-hover outline-none mx-1 rounded text-[13px]"
+              className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-text-primary data-highlighted:bg-bg-hover outline-hidden mx-1 rounded-sm text-[13px]"
               onClick={() => copyToClipboard(directoryPath, "Directory path")}
             >
               <Folder size={14} className="text-text-muted" />
@@ -108,7 +108,7 @@ export function FileContextMenu({
               <>
                 <ContextMenu.Separator className="h-px bg-border-primary mx-2 my-1" />
                 <ContextMenu.Item
-                  className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-text-primary data-[highlighted]:bg-bg-hover outline-none mx-1 rounded text-[13px]"
+                  className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-text-primary data-highlighted:bg-bg-hover outline-hidden mx-1 rounded-sm text-[13px]"
                   onClick={() =>
                     copyToClipboard(previousPath, "Previous path")
                   }
@@ -126,7 +126,7 @@ export function FileContextMenu({
 
                 {stagingActions.isStaged ? (
                   <ContextMenu.Item
-                    className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-text-primary data-[highlighted]:bg-bg-hover outline-none mx-1 rounded text-[13px]"
+                    className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-text-primary data-highlighted:bg-bg-hover outline-hidden mx-1 rounded-sm text-[13px]"
                     onClick={stagingActions.onUnstage}
                   >
                     <ArrowLineUp size={14} className="text-text-muted" />
@@ -134,7 +134,7 @@ export function FileContextMenu({
                   </ContextMenu.Item>
                 ) : (
                   <ContextMenu.Item
-                    className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-text-primary data-[highlighted]:bg-bg-hover outline-none mx-1 rounded text-[13px]"
+                    className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-text-primary data-highlighted:bg-bg-hover outline-hidden mx-1 rounded-sm text-[13px]"
                     onClick={stagingActions.onStage}
                   >
                     <Tray size={14} className="text-text-muted" />
@@ -143,7 +143,7 @@ export function FileContextMenu({
                 )}
 
                 <ContextMenu.Item
-                  className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-accent-red data-[highlighted]:bg-bg-hover outline-none mx-1 rounded text-[13px]"
+                  className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-accent-red data-highlighted:bg-bg-hover outline-hidden mx-1 rounded-sm text-[13px]"
                   onClick={stagingActions.onDiscard}
                 >
                   <Trash size={14} />

@@ -92,7 +92,7 @@ function SkillEditor({
           {hasChanges && (
             <button
               onClick={handleReset}
-              className="p-1.5 rounded hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors"
+              className="p-1.5 rounded-sm hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors"
               title="Reset changes"
             >
               <ArrowCounterClockwise size={14} weight="bold" />
@@ -101,7 +101,7 @@ function SkillEditor({
           <button
             onClick={handleSave}
             disabled={!hasChanges || updateSkill.isPending}
-            className="flex items-center gap-1.5 px-2.5 py-1 bg-accent-blue text-white rounded text-xs font-medium hover:bg-accent-blue/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1 bg-accent-blue text-white rounded-sm text-xs font-medium hover:bg-accent-blue/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
           >
             {updateSkill.isPending ? (
               <LoadingSpinner size="sm" />
@@ -112,7 +112,7 @@ function SkillEditor({
           </button>
           <button
             onClick={onClose}
-            className="p-1.5 rounded hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors"
+            className="p-1.5 rounded-sm hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors"
           >
             <X size={14} weight="bold" />
           </button>
@@ -124,7 +124,7 @@ function SkillEditor({
           ref={textareaRef}
           value={content}
           onChange={(e) => handleContentChange(e.target.value)}
-          className="w-full h-64 px-3 py-2 bg-bg-primary border border-border-primary rounded text-sm text-text-primary font-mono resize-y focus:outline-none focus:border-accent-blue"
+          className="w-full h-64 px-3 py-2 bg-bg-primary border border-border-primary rounded-sm text-sm text-text-primary font-mono resize-y focus:outline-hidden focus:border-accent-blue"
           placeholder="---
 name: skill-name
 description: Skill description
@@ -190,7 +190,7 @@ function SkillItem({
             <span className="text-sm font-medium text-text-primary truncate">
               {skill.name}
             </span>
-            <span className="text-xs text-text-muted font-mono bg-bg-secondary px-1.5 py-0.5 rounded">
+            <span className="text-xs text-text-muted font-mono bg-bg-secondary px-1.5 py-0.5 rounded-sm">
               {skill.id}
             </span>
           </div>
@@ -207,7 +207,7 @@ function SkillItem({
               setIsExpanded(true);
               setIsEditing(true);
             }}
-            className="p-1.5 rounded hover:bg-bg-hover text-text-muted hover:text-accent-blue transition-colors"
+            className="p-1.5 rounded-sm hover:bg-bg-hover text-text-muted hover:text-accent-blue transition-colors"
             title="Edit skill"
           >
             <PencilSimple size={14} weight="bold" />
@@ -215,7 +215,7 @@ function SkillItem({
           <button
             onClick={onDelete}
             disabled={isDeleting}
-            className="p-1.5 rounded hover:bg-bg-hover text-text-muted hover:text-accent-red transition-colors disabled:opacity-50"
+            className="p-1.5 rounded-sm hover:bg-bg-hover text-text-muted hover:text-accent-red transition-colors disabled:opacity-50"
             title="Delete skill"
           >
             {isDeleting ? (
@@ -302,7 +302,7 @@ export function SkillsDialog() {
               <BookBookmark size={16} weight="bold" />
               Manage Skills
             </Dialog.Title>
-            <Dialog.Close className="p-1 rounded hover:bg-bg-hover transition-colors text-text-muted hover:text-text-primary">
+            <Dialog.Close className="p-1 rounded-sm hover:bg-bg-hover transition-colors text-text-muted hover:text-text-primary">
               <X size={16} weight="bold" />
             </Dialog.Close>
           </div>
@@ -335,7 +335,7 @@ export function SkillsDialog() {
                         }
                       }}
                       placeholder="https://skills.sh/owner/repo/skill-name"
-                      className="flex-1 px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent-blue"
+                      className="flex-1 px-3 py-2 bg-bg-tertiary border border-border-primary rounded-sm text-sm text-text-primary placeholder-text-muted focus:outline-hidden focus:border-accent-blue"
                       disabled={installSkill.isPending}
                     />
                   }
@@ -343,7 +343,7 @@ export function SkillsDialog() {
                 <button
                   onClick={handleInstall}
                   disabled={!urlInput.trim() || installSkill.isPending}
-                  className="px-3 py-2 bg-accent-blue text-white rounded text-sm font-medium hover:bg-accent-blue/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                  className="px-3 py-2 bg-accent-blue text-white rounded-sm text-sm font-medium hover:bg-accent-blue/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                 >
                   {installSkill.isPending ? (
                     <LoadingSpinner size="sm" />

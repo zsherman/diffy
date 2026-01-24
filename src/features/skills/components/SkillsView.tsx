@@ -225,7 +225,7 @@ function SkillListItem({
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium truncate">{name}</span>
           {isInstalled && (
-            <span className="text-[10px] px-1.5 py-0.5 bg-accent-purple/20 text-accent-purple rounded">
+            <span className="text-[10px] px-1.5 py-0.5 bg-accent-purple/20 text-accent-purple rounded-sm">
               Installed
             </span>
           )}
@@ -427,7 +427,7 @@ export function SkillsView() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search skills..."
-                  className="w-full pl-9 pr-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-accent-blue"
+                  className="w-full pl-9 pr-3 py-2 bg-bg-tertiary border border-border-primary rounded-sm text-sm text-text-primary placeholder-text-muted focus:outline-hidden focus:border-accent-blue"
                 />
               </div>
             </div>
@@ -532,13 +532,13 @@ export function SkillsView() {
                     }
                   }}
                   placeholder="https://skills.sh/..."
-                  className="flex-1 px-3 py-1.5 bg-bg-tertiary border border-border-primary rounded text-xs text-text-primary placeholder-text-muted focus:outline-none focus:border-accent-blue"
+                  className="flex-1 px-3 py-1.5 bg-bg-tertiary border border-border-primary rounded-sm text-xs text-text-primary placeholder-text-muted focus:outline-hidden focus:border-accent-blue"
                   disabled={installSkill.isPending}
                 />
                 <button
                   onClick={() => installUrl.trim() && handleInstall(installUrl.trim())}
                   disabled={!installUrl.trim() || installSkill.isPending}
-                  className="px-3 py-1.5 bg-accent-blue text-white rounded text-xs font-medium hover:bg-accent-blue/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
+                  className="px-3 py-1.5 bg-accent-blue text-white rounded-sm text-xs font-medium hover:bg-accent-blue/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
                 >
                   {installSkill.isPending ? (
                     <LoadingSpinner size="sm" />
@@ -580,7 +580,7 @@ export function SkillsView() {
                     <div className="flex items-center gap-2 shrink-0">
                       <button
                         onClick={handleCopyUrl}
-                        className="p-2 rounded hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors"
+                        className="p-2 rounded-sm hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors"
                         title="Copy URL"
                       >
                         {copied ? (
@@ -593,7 +593,7 @@ export function SkillsView() {
                         <button
                           onClick={handleDelete}
                           disabled={deleteSkillMutation.isPending}
-                          className="p-2 rounded hover:bg-bg-hover text-text-muted hover:text-accent-red transition-colors disabled:opacity-50"
+                          className="p-2 rounded-sm hover:bg-bg-hover text-text-muted hover:text-accent-red transition-colors disabled:opacity-50"
                           title="Delete skill"
                         >
                           {deleteSkillMutation.isPending ? (
@@ -607,7 +607,7 @@ export function SkillsView() {
                         <button
                           onClick={handleInstallRemote}
                           disabled={installSkill.isPending}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-blue text-white rounded text-xs font-medium hover:bg-accent-blue/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-blue text-white rounded-sm text-xs font-medium hover:bg-accent-blue/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
                         >
                           {installSkill.isPending ? (
                             <LoadingSpinner size="sm" />
@@ -656,7 +656,7 @@ export function SkillsView() {
 
                 {error && (
                   <div className="px-4 pb-4">
-                    <div className="text-xs text-accent-red flex items-start gap-1 bg-accent-red/10 rounded p-2">
+                    <div className="text-xs text-accent-red flex items-start gap-1 bg-accent-red/10 rounded-sm p-2">
                       <Warning size={12} className="shrink-0 mt-0.5" />
                       <span>{error}</span>
                     </div>
@@ -696,7 +696,7 @@ export function SkillsView() {
                   {hasEdits && (
                     <button
                       onClick={handleReset}
-                      className="p-1.5 rounded hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors"
+                      className="p-1.5 rounded-sm hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors"
                       title="Reset changes"
                     >
                       <ArrowCounterClockwise size={14} weight="bold" />
@@ -705,7 +705,7 @@ export function SkillsView() {
                   <button
                     onClick={handleSave}
                     disabled={!hasEdits || updateSkill.isPending}
-                    className="flex items-center gap-1.5 px-2.5 py-1 bg-accent-blue text-white rounded text-xs font-medium hover:bg-accent-blue/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
+                    className="flex items-center gap-1.5 px-2.5 py-1 bg-accent-blue text-white rounded-sm text-xs font-medium hover:bg-accent-blue/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
                   >
                     {updateSkill.isPending ? (
                       <LoadingSpinner size="sm" />

@@ -39,7 +39,7 @@ export function RemoteActionSelect({ isLoading, onExecute, disabled }: RemoteAct
       <button
         onClick={onExecute}
         disabled={isLoading || disabled}
-        className="flex items-center gap-1.5 px-2 py-1 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-blue"
+        className="flex items-center gap-1.5 px-2 py-1 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-accent-blue"
         title={selectedOption.label}
       >
         {isLoading ? (
@@ -54,7 +54,7 @@ export function RemoteActionSelect({ isLoading, onExecute, disabled }: RemoteAct
       <Menu.Root open={open} onOpenChange={setOpen}>
         <Menu.Trigger
           disabled={disabled}
-          className="flex items-center px-1 py-1 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-blue"
+          className="flex items-center px-1 py-1 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-accent-blue"
           aria-label="Select default pull/fetch operation"
         >
           <CaretDown size={10} />
@@ -62,12 +62,12 @@ export function RemoteActionSelect({ isLoading, onExecute, disabled }: RemoteAct
 
         <Menu.Portal>
           <Menu.Positioner sideOffset={4} align="start" className="z-50">
-            <Menu.Popup className="rounded-md border border-border-primary bg-bg-secondary shadow-lg outline-none p-1">
+            <Menu.Popup className="rounded-md border border-border-primary bg-bg-secondary shadow-lg outline-hidden p-1">
               {REMOTE_ACTION_OPTIONS.map((option) => (
                 <Menu.Item
                   key={option.id}
                   onClick={() => handleSelect(option.id)}
-                  className="flex items-center gap-2 px-2 py-1.5 text-sm rounded cursor-pointer text-text-primary data-[highlighted]:bg-bg-hover outline-none"
+                  className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm cursor-pointer text-text-primary data-highlighted:bg-bg-hover outline-hidden"
                 >
                   <span className="w-4 flex items-center justify-center">
                     {defaultRemoteAction === option.id && (

@@ -111,7 +111,7 @@ const CategoryBadge = memo(function CategoryBadge({
   const config = CATEGORY_CONFIG[category] || CATEGORY_CONFIG.other;
   return (
     <span
-      className={`px-1.5 py-0.5 text-xs font-medium rounded ${config.color}`}
+      className={`px-1.5 py-0.5 text-xs font-medium rounded-sm ${config.color}`}
     >
       {config.label}
     </span>
@@ -126,7 +126,7 @@ const SeverityBadge = memo(function SeverityBadge({
   const config = SEVERITY_CONFIG[severity] || SEVERITY_CONFIG.medium;
   return (
     <span
-      className={`px-1.5 py-0.5 text-xs font-medium rounded ${config.color} capitalize`}
+      className={`px-1.5 py-0.5 text-xs font-medium rounded-sm ${config.color} capitalize`}
     >
       {severity}
     </span>
@@ -215,7 +215,7 @@ const IssueCard = memo(function IssueCard({
               onFix();
             }}
             disabled={isFixing}
-            className="p-1.5 rounded hover:bg-bg-tertiary text-text-muted hover:text-accent-purple transition-colors disabled:opacity-50"
+            className="p-1.5 rounded-sm hover:bg-bg-tertiary text-text-muted hover:text-accent-purple transition-colors disabled:opacity-50"
             title="Fix this issue"
           >
             <Wrench size={14} />
@@ -225,7 +225,7 @@ const IssueCard = memo(function IssueCard({
               e.stopPropagation();
               onDismiss();
             }}
-            className="p-1.5 rounded hover:bg-bg-tertiary text-text-muted hover:text-text-primary transition-colors"
+            className="p-1.5 rounded-sm hover:bg-bg-tertiary text-text-muted hover:text-text-primary transition-colors"
             title="Dismiss"
           >
             <X size={14} weight="bold" />
@@ -313,7 +313,7 @@ const FilterDropdown = memo(function FilterDropdown({
         <Funnel size={12} />
         <span>{label}</span>
         {selected.size > 0 && (
-          <span className="px-1 bg-accent-purple text-white rounded text-xs">
+          <span className="px-1 bg-accent-purple text-white rounded-sm text-xs">
             {selected.size}
           </span>
         )}
@@ -416,7 +416,7 @@ const FixResultNotification = memo(function FixResultNotification({
           {!fixResult.success && (
             <button
               onClick={handleCopy}
-              className="p-1.5 rounded hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors"
+              className="p-1.5 rounded-sm hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors"
               title="Copy error message"
             >
               {copied ? (
@@ -432,7 +432,7 @@ const FixResultNotification = memo(function FixResultNotification({
           )}
           <button
             onClick={onDismiss}
-            className="p-1.5 rounded hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors"
+            className="p-1.5 rounded-sm hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors"
             title="Dismiss"
           >
             <XCircle size={14} weight="bold" />
@@ -997,7 +997,7 @@ export function AIReviewContent() {
           <button
             onClick={handleNewReview}
             disabled={aiReviewLoading}
-            className="px-2 py-1 text-xs text-text-muted hover:text-text-primary hover:bg-bg-hover rounded transition-colors"
+            className="px-2 py-1 text-xs text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors"
             title="Start fresh with different skills"
           >
             New Review
@@ -1005,7 +1005,7 @@ export function AIReviewContent() {
           <button
             onClick={handleGenerateReview}
             disabled={aiReviewLoading}
-            className="px-2 py-1 text-xs text-text-muted hover:text-text-primary hover:bg-bg-hover rounded transition-colors flex items-center gap-1"
+            className="px-2 py-1 text-xs text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors flex items-center gap-1"
             title="Re-run with same skills"
           >
             <ArrowCounterClockwise size={14} weight="bold" />
@@ -1049,7 +1049,7 @@ export function AIReviewContent() {
                 placeholder="Search issues..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 text-sm bg-bg-secondary border border-border-primary rounded-lg focus:outline-none focus:border-accent-purple"
+                className="w-full pl-8 pr-3 py-1.5 text-sm bg-bg-secondary border border-border-primary rounded-lg focus:outline-hidden focus:border-accent-purple"
               />
               {searchQuery && (
                 <button

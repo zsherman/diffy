@@ -84,7 +84,7 @@ export function HelpOverlay() {
               <div className="space-y-1">
                 {group.shortcuts.map((shortcut) => (
                   <div key={shortcut.key} className="flex items-center gap-2">
-                    <kbd className="px-2 py-0.5 bg-bg-tertiary rounded text-xs font-mono text-text-primary min-w-[60px] text-center">
+                    <kbd className="px-2 py-0.5 bg-bg-tertiary rounded-sm text-xs font-mono text-text-primary min-w-[60px] text-center">
                       {shortcut.key}
                     </kbd>
                     <span className="text-sm text-text-secondary">{shortcut.description}</span>
@@ -97,8 +97,8 @@ export function HelpOverlay() {
 
         {/* Footer */}
         <div className="px-4 py-2 border-t border-border-primary text-center text-xs text-text-muted">
-          Press <kbd className="px-1 py-0.5 bg-bg-tertiary rounded">Esc</kbd> or{' '}
-          <kbd className="px-1 py-0.5 bg-bg-tertiary rounded">?</kbd> to close
+          Press <kbd className="px-1 py-0.5 bg-bg-tertiary rounded-sm">Esc</kbd> or{' '}
+          <kbd className="px-1 py-0.5 bg-bg-tertiary rounded-sm">?</kbd> to close
         </div>
       </div>
     </div>

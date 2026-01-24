@@ -329,7 +329,7 @@ export function BranchList() {
           placeholder="Filter branches..."
           value={branchFilter}
           onChange={(e) => setBranchFilter(e.target.value)}
-          className="w-full px-2 py-1 bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
+          className="w-full px-2 py-1 bg-bg-tertiary border border-border-primary rounded-sm text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-hidden"
           style={{ fontSize: `${panelFontSize}px` }}
         />
         {canMerge && (

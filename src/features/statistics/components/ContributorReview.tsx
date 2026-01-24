@@ -194,7 +194,7 @@ export function ContributorReview({
                 <CheckCircle
                   size={14}
                   weight="bold"
-                  className="text-accent-green mt-0.5 flex-shrink-0"
+                  className="text-accent-green mt-0.5 shrink-0"
                 />
                 <span>{highlight}</span>
               </li>

@@ -346,7 +346,7 @@ export function CommandPalette() {
           <div className="flex items-center gap-2 px-4 py-2 border-b border-border-primary bg-bg-tertiary">
             <button
               onClick={() => setPages((pages) => pages.slice(0, -1))}
-              className="p-1 hover:bg-bg-hover rounded"
+              className="p-1 hover:bg-bg-hover rounded-sm"
             >
               <ArrowLeft size={14} className="text-text-muted" />
             </button>
@@ -370,7 +370,7 @@ export function CommandPalette() {
                   ? "Search themes..."
                   : "Type a command..."
           }
-          className="w-full px-4 py-3 bg-transparent border-b border-border-primary text-text-primary placeholder-text-muted outline-none focus:outline-none focus-visible:outline-none focus:ring-0 text-sm"
+          className="w-full px-4 py-3 bg-transparent border-b border-border-primary text-text-primary placeholder-text-muted outline-hidden focus:outline-hidden focus-visible:outline-hidden focus:ring-0 text-sm"
         />
 
         <Command.List className="max-h-80 overflow-y-auto p-2">
@@ -387,7 +387,7 @@ export function CommandPalette() {
                   onSelect={() =>
                     runCommand(() => handleSwitchRepository(repo))
                   }
-                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   <FolderOpen size={16} className="text-text-muted" />
                   <span className="flex-1">{repo.name}</span>
@@ -413,7 +413,7 @@ export function CommandPalette() {
                   <Command.Item
                     key={branch.name}
                     onSelect={() => handleMergeBranch(branch.name)}
-                    className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                    className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                   >
                     <GitMerge size={16} className="text-text-muted" />
                     <span className="flex-1">{branch.name}</span>
@@ -439,7 +439,7 @@ export function CommandPalette() {
                   onSelect={() =>
                     runCommand(() => setTheme(t.id as ThemeId))
                   }
-                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   <span className="w-4 flex justify-center">
                     {theme === t.id && (
@@ -466,18 +466,18 @@ export function CommandPalette() {
               {/* Panels Group */}
               <Command.Group
                 heading="Panels"
-                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
+                className="**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:text-text-muted **:[[cmdk-group-heading]]:uppercase **:[[cmdk-group-heading]]:font-medium"
               >
                 <Command.Item
                   onSelect={() => runCommand(toggleBranchesPanel)}
-                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   <GitBranch size={16} className="text-text-muted" />
                   <span className="flex-1">Toggle Branches Panel</span>
                   <span className="text-xs text-text-muted">
                     {showBranchesPanel ? "Hide" : "Show"}
                   </span>
-                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
+                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded-sm text-text-muted font-mono text-xs">
                     1
                   </kbd>
                 </Command.Item>
@@ -486,14 +486,14 @@ export function CommandPalette() {
                   onSelect={() =>
                     runCommand(() => setShowFilesPanel(!showFilesPanel))
                   }
-                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   <Files size={16} className="text-text-muted" />
                   <span className="flex-1">Toggle Files Panel</span>
                   <span className="text-xs text-text-muted">
                     {showFilesPanel ? "Hide" : "Show"}
                   </span>
-                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
+                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded-sm text-text-muted font-mono text-xs">
                     3
                   </kbd>
                 </Command.Item>
@@ -502,28 +502,28 @@ export function CommandPalette() {
                   onSelect={() =>
                     runCommand(() => setShowDiffPanel(!showDiffPanel))
                   }
-                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   <Code size={16} className="text-text-muted" />
                   <span className="flex-1">Toggle Diff Panel</span>
                   <span className="text-xs text-text-muted">
                     {showDiffPanel ? "Hide" : "Show"}
                   </span>
-                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
+                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded-sm text-text-muted font-mono text-xs">
                     4
                   </kbd>
                 </Command.Item>
 
                 <Command.Item
                   onSelect={() => runCommand(toggleStagingSidebar)}
-                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   <Stack size={16} className="text-text-muted" />
                   <span className="flex-1">Toggle Local Changes</span>
                   <span className="text-xs text-text-muted">
                     {showStagingSidebar ? "Hide" : "Show"}
                   </span>
-                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
+                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded-sm text-text-muted font-mono text-xs">
                     Cmd+Shift+S
                   </kbd>
                 </Command.Item>
@@ -532,7 +532,7 @@ export function CommandPalette() {
                   onSelect={() =>
                     runCommand(() => setShowAIReviewPanel(!showAIReviewPanel))
                   }
-                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   <Robot size={16} className="text-text-muted" />
                   <span className="flex-1">Toggle AI Review Panel</span>
@@ -543,7 +543,7 @@ export function CommandPalette() {
 
                 <Command.Item
                   onSelect={() => runCommand(toggleWorktreesPanel)}
-                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   <TreeStructure size={16} className="text-text-muted" />
                   <span className="flex-1">Toggle Worktrees Panel</span>
@@ -556,14 +556,14 @@ export function CommandPalette() {
               {/* Repository Group - Switch/Close repos */}
               <Command.Group
                 heading="Repository"
-                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
+                className="**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:text-text-muted **:[[cmdk-group-heading]]:uppercase **:[[cmdk-group-heading]]:font-medium"
               >
                 <Command.Item
                   onSelect={() => {
                     setSearch("");
                     setPages([...pages, "recent"]);
                   }}
-                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                   keywords={["switch", "recent", "open"]}
                 >
                   <FolderOpen size={16} className="text-text-muted" />
@@ -574,7 +574,7 @@ export function CommandPalette() {
                 {repository && (
                   <Command.Item
                     onSelect={() => runCommand(handleCloseRepository)}
-                    className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                    className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                     keywords={["close", "exit", "quit"]}
                   >
                     <SignOut size={16} className="text-text-muted" />
@@ -587,7 +587,7 @@ export function CommandPalette() {
               {repository && (
                 <Command.Group
                   heading="Views"
-                  className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
+                  className="**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:text-text-muted **:[[cmdk-group-heading]]:uppercase **:[[cmdk-group-heading]]:font-medium"
                 >
                   <Command.Item
                     onSelect={() =>
@@ -596,7 +596,7 @@ export function CommandPalette() {
                         setMainView("repository");
                       })
                     }
-                    className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                    className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                     keywords={["repository", "history", "commits", "log", "changes", "working", "staged"]}
                   >
                     <ClockCounterClockwise
@@ -616,7 +616,7 @@ export function CommandPalette() {
                         setMainView("statistics");
                       })
                     }
-                    className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                    className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                     keywords={[
                       "statistics",
                       "stats",
@@ -639,7 +639,7 @@ export function CommandPalette() {
                         setMainView("changelog");
                       })
                     }
-                    className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                    className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                     keywords={[
                       "changelog",
                       "release",
@@ -660,7 +660,7 @@ export function CommandPalette() {
               {/* Navigation Group */}
               <Command.Group
                 heading="Navigation"
-                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
+                className="**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:text-text-muted **:[[cmdk-group-heading]]:uppercase **:[[cmdk-group-heading]]:font-medium"
               >
                 <Command.Item
                   onSelect={() =>
@@ -669,11 +669,11 @@ export function CommandPalette() {
                       focusPanel("branches");
                     })
                   }
-                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   <GitBranch size={16} className="text-text-muted" />
                   <span className="flex-1">Go to Branches</span>
-                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
+                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded-sm text-text-muted font-mono text-xs">
                     1
                   </kbd>
                 </Command.Item>
@@ -685,11 +685,11 @@ export function CommandPalette() {
                       focusPanel("commits");
                     })
                   }
-                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   <GitCommit size={16} className="text-text-muted" />
                   <span className="flex-1">Go to Commits</span>
-                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
+                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded-sm text-text-muted font-mono text-xs">
                     2
                   </kbd>
                 </Command.Item>
@@ -701,11 +701,11 @@ export function CommandPalette() {
                       focusPanel("files");
                     })
                   }
-                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   <Files size={16} className="text-text-muted" />
                   <span className="flex-1">Go to Files</span>
-                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
+                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded-sm text-text-muted font-mono text-xs">
                     3
                   </kbd>
                 </Command.Item>
@@ -717,11 +717,11 @@ export function CommandPalette() {
                       focusPanel("diff");
                     })
                   }
-                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   <Code size={16} className="text-text-muted" />
                   <span className="flex-1">Go to Diff</span>
-                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
+                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded-sm text-text-muted font-mono text-xs">
                     4
                   </kbd>
                 </Command.Item>
@@ -733,11 +733,11 @@ export function CommandPalette() {
                       focusPanel("staging");
                     })
                   }
-                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   <Stack size={16} className="text-text-muted" />
                   <span className="flex-1">Go to Local Changes</span>
-                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
+                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded-sm text-text-muted font-mono text-xs">
                     5
                   </kbd>
                 </Command.Item>
@@ -750,7 +750,7 @@ export function CommandPalette() {
                       focusPanel("worktrees");
                     })
                   }
-                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   <TreeStructure size={16} className="text-text-muted" />
                   <span className="flex-1">Go to Worktrees</span>
@@ -761,11 +761,11 @@ export function CommandPalette() {
               {repository && (
                 <Command.Group
                   heading="Git"
-                  className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
+                  className="**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:text-text-muted **:[[cmdk-group-heading]]:uppercase **:[[cmdk-group-heading]]:font-medium"
                 >
                   <Command.Item
                     onSelect={() => runCommand(handleFetch)}
-                    className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                    className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                   >
                     <CloudArrowDown size={16} className="text-text-muted" />
                     <span className="flex-1">Fetch from Remote</span>
@@ -773,7 +773,7 @@ export function CommandPalette() {
 
                   <Command.Item
                     onSelect={() => runCommand(handlePull)}
-                    className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                    className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                   >
                     <ArrowDown size={16} className="text-text-muted" />
                     <span className="flex-1">Pull from Remote</span>
@@ -781,7 +781,7 @@ export function CommandPalette() {
 
                   <Command.Item
                     onSelect={() => runCommand(handlePush)}
-                    className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                    className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                   >
                     <ArrowUp size={16} className="text-text-muted" />
                     <span className="flex-1">Push to Remote</span>
@@ -795,7 +795,7 @@ export function CommandPalette() {
                         focusPanel("worktrees");
                       })
                     }
-                    className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                    className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                   >
                     <Plus size={16} className="text-text-muted" />
                     <span className="flex-1">Create New Worktree</span>
@@ -803,7 +803,7 @@ export function CommandPalette() {
 
                   <Command.Item
                     onSelect={() => runCommand(handleResolveMergeConflicts)}
-                    className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                    className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                     keywords={["merge", "conflict", "resolve"]}
                   >
                     <Warning size={16} className="text-accent-yellow" />
@@ -812,7 +812,7 @@ export function CommandPalette() {
 
                   <Command.Item
                     onSelect={() => handleOpenMergePage()}
-                    className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                    className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                     keywords={["merge", "branch", "combine"]}
                   >
                     <GitMerge size={16} className="text-text-muted" />
@@ -825,14 +825,14 @@ export function CommandPalette() {
               {/* View Group */}
               <Command.Group
                 heading="View"
-                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
+                className="**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:text-text-muted **:[[cmdk-group-heading]]:uppercase **:[[cmdk-group-heading]]:font-medium"
               >
                 <Command.Item
                   onSelect={() => {
                     setSearch("");
                     setPages([...pages, "themes"]);
                   }}
-                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                   keywords={["theme", "dark", "light", "appearance"]}
                 >
                   <Palette size={16} className="text-text-muted" />
@@ -851,7 +851,7 @@ export function CommandPalette() {
                       ),
                     )
                   }
-                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   {diffViewMode === "split" ? (
                     <Rows size={16} className="text-text-muted" />
@@ -864,7 +864,7 @@ export function CommandPalette() {
                       ? "Switch to Unified"
                       : "Switch to Split"}
                   </span>
-                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
+                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded-sm text-text-muted font-mono text-xs">
                     V
                   </kbd>
                 </Command.Item>
@@ -875,7 +875,7 @@ export function CommandPalette() {
                       setDiffFontSize(Math.min(diffFontSize + 1, 24)),
                     )
                   }
-                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   <TextAa size={16} className="text-text-muted" />
                   <span className="flex-1">Increase Font Size</span>
@@ -890,7 +890,7 @@ export function CommandPalette() {
                       setDiffFontSize(Math.max(diffFontSize - 1, 10)),
                     )
                   }
-                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   <TextAa size={16} className="text-text-muted" />
                   <span className="flex-1">Decrease Font Size</span>
@@ -903,7 +903,7 @@ export function CommandPalette() {
               {/* Layout Group */}
               <Command.Group
                 heading="Layout"
-                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
+                className="**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:text-text-muted **:[[cmdk-group-heading]]:uppercase **:[[cmdk-group-heading]]:font-medium"
               >
                 <Command.Item
                   onSelect={() =>
@@ -912,7 +912,7 @@ export function CommandPalette() {
                       window.location.reload();
                     })
                   }
-                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                   keywords={["reset", "default", "clear"]}
                 >
                   <ArrowCounterClockwise
@@ -938,7 +938,7 @@ export function CommandPalette() {
                         }
                       })
                     }
-                    className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                    className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                   >
                     <Layout size={16} className="text-text-muted shrink-0" />
                     <span className="shrink-0 whitespace-nowrap">
@@ -954,11 +954,11 @@ export function CommandPalette() {
               {/* Skills Group */}
               <Command.Group
                 heading="Skills"
-                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
+                className="**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:text-text-muted **:[[cmdk-group-heading]]:uppercase **:[[cmdk-group-heading]]:font-medium"
               >
                 <Command.Item
                   onSelect={() => runCommand(() => setAppView("skills"))}
-                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                   keywords={["skills", "agent", "install", "browse"]}
                 >
                   <BookBookmark size={16} className="text-text-muted" />
@@ -970,7 +970,7 @@ export function CommandPalette() {
 
                 <Command.Item
                   onSelect={() => runCommand(() => setShowSkillsDialog(true))}
-                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   <BookBookmark size={16} className="text-text-muted" />
                   <span className="flex-1">Manage Skills (Dialog)</span>
@@ -979,7 +979,7 @@ export function CommandPalette() {
                 {selectedSkillIds.length > 0 && (
                   <Command.Item
                     onSelect={() => runCommand(clearSelectedSkills)}
-                    className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                    className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                   >
                     <Trash size={16} className="text-text-muted" />
                     <span className="flex-1">Clear Selected Skills</span>
@@ -993,13 +993,13 @@ export function CommandPalette() {
               {/* Developer Group */}
               <Command.Group
                 heading="Developer"
-                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
+                className="**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:text-text-muted **:[[cmdk-group-heading]]:uppercase **:[[cmdk-group-heading]]:font-medium"
               >
                 <Command.Item
                   onSelect={() =>
                     runCommand(() => setPerfTracingEnabled(!perfTracingEnabled))
                   }
-                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                   keywords={["performance", "debug", "trace", "log"]}
                 >
                   <Timer size={16} className="text-text-muted" />
@@ -1011,7 +1011,7 @@ export function CommandPalette() {
 
                 <Command.Item
                   onSelect={() => runCommand(toggleReactScanAndReload)}
-                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                   keywords={["react", "scan", "render", "debug", "highlight"]}
                 >
                   <MagnifyingGlass size={16} className="text-text-muted" />
@@ -1025,11 +1025,11 @@ export function CommandPalette() {
               {/* General Group */}
               <Command.Group
                 heading="General"
-                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-text-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:font-medium"
+                className="**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:text-text-muted **:[[cmdk-group-heading]]:uppercase **:[[cmdk-group-heading]]:font-medium"
               >
                 <Command.Item
                   onSelect={() => runCommand(() => setShowSettingsDialog(true))}
-                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   <GearSix size={16} className="text-text-muted" />
                   <span className="flex-1">Open Settings</span>
@@ -1037,11 +1037,11 @@ export function CommandPalette() {
 
                 <Command.Item
                   onSelect={() => runCommand(() => setShowHelpOverlay(true))}
-                  className="flex items-center gap-3 px-2 py-2 rounded cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
+                  className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                 >
                   <Keyboard size={16} className="text-text-muted" />
                   <span className="flex-1">Show Keyboard Shortcuts</span>
-                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded text-text-muted font-mono text-xs">
+                  <kbd className="px-1.5 py-0.5 bg-bg-tertiary rounded-sm text-text-muted font-mono text-xs">
                     ?
                   </kbd>
                 </Command.Item>

@@ -14,10 +14,10 @@ interface ButtonProps extends React.ComponentProps<typeof BaseButton> {
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
-  primary: 'bg-accent-blue text-white hover:bg-accent-blue/90 data-[disabled]:bg-bg-tertiary data-[disabled]:text-text-muted',
-  secondary: 'bg-bg-tertiary text-text-primary hover:bg-bg-hover border border-border-primary data-[disabled]:opacity-50',
-  ghost: 'bg-transparent text-text-primary hover:bg-bg-hover data-[disabled]:opacity-50',
-  danger: 'bg-accent-red text-white hover:bg-accent-red/90 data-[disabled]:bg-bg-tertiary data-[disabled]:text-text-muted',
+  primary: 'bg-accent-blue text-white hover:bg-accent-blue/90 data-disabled:bg-bg-tertiary data-disabled:text-text-muted',
+  secondary: 'bg-bg-tertiary text-text-primary hover:bg-bg-hover border border-border-primary data-disabled:opacity-50',
+  ghost: 'bg-transparent text-text-primary hover:bg-bg-hover data-disabled:opacity-50',
+  danger: 'bg-accent-red text-white hover:bg-accent-red/90 data-disabled:bg-bg-tertiary data-disabled:text-text-muted',
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
@@ -35,7 +35,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         focusableWhenDisabled={loading}
         className={`
           inline-flex items-center justify-center font-medium rounded-md transition-colors
-          cursor-pointer data-[disabled]:cursor-not-allowed
+          cursor-pointer data-disabled:cursor-not-allowed
           ${variantStyles[variant]}
           ${sizeStyles[size]}
           ${className ?? ''}

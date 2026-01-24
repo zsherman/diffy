@@ -28,3 +28,4 @@ src-tauri/target
 
 inspiration/
 package-lock.json
+testing/

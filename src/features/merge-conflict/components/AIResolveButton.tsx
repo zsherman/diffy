@@ -59,9 +59,9 @@ export function AIResolveButton() {
       </Button>
 
       {aiError && (
-        <div className="flex items-start gap-2 px-3 py-2 bg-accent-red/10 border border-accent-red/30 rounded text-xs text-accent-red">
+        <div className="flex items-start gap-2 px-3 py-2 bg-accent-red/10 border border-accent-red/30 rounded-sm text-xs text-accent-red">
           <Warning size={14} weight="fill" className="shrink-0 mt-0.5" />
-          <span className="break-words">{aiError}</span>
+          <span className="wrap-break-word">{aiError}</span>
         </div>
       )}
     </div>

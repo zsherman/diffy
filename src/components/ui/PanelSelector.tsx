@@ -267,7 +267,7 @@ export function PanelSelector() {
 
   return (
     <Menu.Root open={isOpen} onOpenChange={setIsOpen}>
-      <Menu.Trigger className="flex items-center gap-1.5 px-2 py-1 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded transition-colors cursor-pointer text-xs">
+      <Menu.Trigger className="flex items-center gap-1.5 px-2 py-1 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors cursor-pointer text-xs">
         <SquaresFour size={14} weight="bold" />
         <span>View</span>
         <span className="px-1.5 py-0.5 bg-bg-hover text-text-muted text-[10px] rounded-full leading-none">
@@ -277,7 +277,7 @@ export function PanelSelector() {
 
       <Menu.Portal>
         <Menu.Positioner sideOffset={4} className="z-50">
-          <Menu.Popup className="w-[300px] overflow-hidden rounded-lg border border-border-primary bg-bg-secondary shadow-xl outline-none">
+          <Menu.Popup className="w-[300px] overflow-hidden rounded-lg border border-border-primary bg-bg-secondary shadow-xl outline-hidden">
             {/* Search input */}
             <div className="p-1.5">
               <input
@@ -286,7 +286,7 @@ export function PanelSelector() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search..."
-                className="w-full px-2.5 py-1.5 text-xs bg-transparent border border-border-primary rounded-md text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-blue focus:ring-1 focus:ring-accent-blue/50 transition-colors"
+                className="w-full px-2.5 py-1.5 text-xs bg-transparent border border-border-primary rounded-md text-text-primary placeholder:text-text-muted focus:outline-hidden focus:border-accent-blue focus:ring-1 focus:ring-accent-blue/50 transition-colors"
               />
             </div>
 
@@ -296,7 +296,7 @@ export function PanelSelector() {
                 {filteredLayouts.map((layout) => (
                   <Menu.Item
                     key={layout.id}
-                    className="flex items-center gap-2.5 px-2.5 py-1.5 cursor-pointer text-text-primary data-[highlighted]:bg-bg-hover outline-none mx-1 rounded"
+                    className="flex items-center gap-2.5 px-2.5 py-1.5 cursor-pointer text-text-primary data-highlighted:bg-bg-hover outline-hidden mx-1 rounded-sm"
                     onClick={() => handleApplyLayout(layout.id)}
                   >
                     <span className="text-text-muted">{layout.icon}</span>
@@ -315,7 +315,7 @@ export function PanelSelector() {
                   {filteredSavedLayouts.map((layout) => (
                     <Menu.Item
                       key={layout.id}
-                      className="flex items-center gap-2.5 px-2.5 py-1.5 cursor-pointer text-text-primary data-[highlighted]:bg-bg-hover outline-none mx-1 rounded group"
+                      className="flex items-center gap-2.5 px-2.5 py-1.5 cursor-pointer text-text-primary data-highlighted:bg-bg-hover outline-hidden mx-1 rounded-sm group"
                       onClick={() => handleApplySavedLayout(layout)}
                     >
                       <span className="text-text-muted">
@@ -339,7 +339,7 @@ export function PanelSelector() {
             {!search && (
               <div className="py-0.5">
                 <Menu.Item
-                  className="flex items-center gap-2.5 px-2.5 py-1.5 cursor-pointer text-text-primary data-[highlighted]:bg-bg-hover outline-none mx-1 rounded"
+                  className="flex items-center gap-2.5 px-2.5 py-1.5 cursor-pointer text-text-primary data-highlighted:bg-bg-hover outline-hidden mx-1 rounded-sm"
                   onClick={() => {
                     setIsOpen(false);
                     setShowSaveDialog(true);
@@ -364,7 +364,7 @@ export function PanelSelector() {
                 {filteredPanels.map((panel) => (
                   <Menu.Item
                     key={panel.id}
-                    className="flex items-center gap-2.5 px-2.5 py-1.5 cursor-pointer text-text-primary data-[highlighted]:bg-bg-hover outline-none mx-1 rounded"
+                    className="flex items-center gap-2.5 px-2.5 py-1.5 cursor-pointer text-text-primary data-highlighted:bg-bg-hover outline-hidden mx-1 rounded-sm"
                     onClick={(e) => {
                       e.preventDefault();
                       panel.toggle();
@@ -403,7 +403,7 @@ export function PanelSelector() {
       <Dialog.Root open={showSaveDialog} onOpenChange={setShowSaveDialog}>
         <Dialog.Portal>
           <Dialog.Backdrop className="fixed inset-0 bg-black/50 z-50" />
-          <Dialog.Popup className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[340px] bg-bg-secondary border border-border-primary rounded-lg shadow-xl z-50 outline-none">
+          <Dialog.Popup className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[340px] bg-bg-secondary border border-border-primary rounded-lg shadow-xl z-50 outline-hidden">
             <div className="p-4">
               <Dialog.Title className="text-sm font-medium text-text-primary mb-3">
                 Save Layout
@@ -419,7 +419,7 @@ export function PanelSelector() {
                   }
                 }}
                 placeholder="Layout name..."
-                className="w-full px-3 py-2 text-sm bg-transparent border border-border-primary rounded-md text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-blue focus:ring-1 focus:ring-accent-blue/50 transition-colors"
+                className="w-full px-3 py-2 text-sm bg-transparent border border-border-primary rounded-md text-text-primary placeholder:text-text-muted focus:outline-hidden focus:border-accent-blue focus:ring-1 focus:ring-accent-blue/50 transition-colors"
               />
               <div className="flex justify-end gap-2 mt-4">
                 <button

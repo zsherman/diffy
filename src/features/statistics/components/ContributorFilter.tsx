@@ -40,11 +40,11 @@ export function ContributorFilter({
 
       <Select.Portal>
         <Select.Positioner sideOffset={4} className="z-50">
-          <Select.Popup className="min-w-[220px] max-w-[320px] max-h-[300px] overflow-y-auto rounded-md border border-border-primary bg-bg-secondary shadow-lg outline-none">
+          <Select.Popup className="min-w-[220px] max-w-[320px] max-h-[300px] overflow-y-auto rounded-md border border-border-primary bg-bg-secondary shadow-lg outline-hidden">
             {/* All contributors option */}
             <Select.Item
               value="all"
-              className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer text-text-primary data-[highlighted]:bg-bg-hover outline-none"
+              className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer text-text-primary data-highlighted:bg-bg-hover outline-hidden"
             >
               <Select.ItemIndicator className="w-4">
                 <Check
@@ -72,7 +72,7 @@ export function ContributorFilter({
               <Select.Item
                 key={contributor.email}
                 value={contributor.email}
-                className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer text-text-primary data-[highlighted]:bg-bg-hover outline-none"
+                className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer text-text-primary data-highlighted:bg-bg-hover outline-hidden"
               >
                 <Select.ItemIndicator className="w-4">
                   <Check

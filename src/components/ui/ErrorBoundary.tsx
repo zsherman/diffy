@@ -274,14 +274,14 @@ export class PanelErrorBoundary extends Component<
             <div className="flex items-center justify-center gap-1.5">
               <button
                 onClick={this.reset}
-                className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-accent-blue text-bg-primary font-medium rounded hover:bg-accent-blue/90 transition-colors"
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-accent-blue text-bg-primary font-medium rounded-sm hover:bg-accent-blue/90 transition-colors"
               >
                 <ArrowClockwise size={12} weight="bold" />
                 Retry
               </button>
               <button
                 onClick={this.copyError}
-                className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-bg-tertiary text-text-secondary font-medium rounded hover:bg-bg-hover transition-colors"
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-bg-tertiary text-text-secondary font-medium rounded-sm hover:bg-bg-hover transition-colors"
                 title="Copy error details"
               >
                 {this.state.copied ? (

@@ -53,7 +53,7 @@ export function ConflictNavigator() {
           <button
             onClick={prevFile}
             disabled={currentFileIndex === 0}
-            className="p-1 rounded hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-1 rounded-sm hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed"
             title="Previous file (Ctrl+Shift+ArrowUp)"
           >
             <CaretLeft size={14} className="text-text-muted" />
@@ -64,7 +64,7 @@ export function ConflictNavigator() {
           <button
             onClick={nextFile}
             disabled={currentFileIndex >= totalFiles - 1}
-            className="p-1 rounded hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-1 rounded-sm hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed"
             title="Next file (Ctrl+Shift+ArrowDown)"
           >
             <CaretRight size={14} className="text-text-muted" />
@@ -77,7 +77,7 @@ export function ConflictNavigator() {
             <button
               onClick={prevConflict}
               disabled={currentConflictIndex === 0}
-              className="p-1 rounded hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed"
+              className="p-1 rounded-sm hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed"
               title="Previous conflict (Ctrl+ArrowUp)"
             >
               <CaretLeft size={14} className="text-text-muted" />
@@ -88,7 +88,7 @@ export function ConflictNavigator() {
             <button
               onClick={nextConflict}
               disabled={currentConflictIndex >= totalConflicts - 1}
-              className="p-1 rounded hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed"
+              className="p-1 rounded-sm hover:bg-bg-hover disabled:opacity-30 disabled:cursor-not-allowed"
               title="Next conflict (Ctrl+ArrowDown)"
             >
               <CaretRight size={14} className="text-text-muted" />

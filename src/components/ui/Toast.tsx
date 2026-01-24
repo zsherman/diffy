@@ -70,7 +70,7 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={handleCopy}
-      className="p-1 rounded hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors"
+      className="p-1 rounded-sm hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors"
       title="Copy error message"
     >
       {copied ? (
@@ -165,7 +165,7 @@ function ToastList() {
       <Toast.Root
         key={toast.id}
         toast={toast}
-        className={`flex items-start gap-3 px-4 py-3 bg-bg-secondary border rounded-lg shadow-lg min-w-[320px] max-w-[420px] data-[swipe=move]:translate-x-[var(--toast-swipe-move-x)] data-[ending-style]:opacity-0 data-[ending-style]:translate-x-2 transition-all duration-200 ${borderColorMap[type]}`}
+        className={`flex items-start gap-3 px-4 py-3 bg-bg-secondary border rounded-lg shadow-lg min-w-[320px] max-w-[420px] data-[swipe=move]:translate-x-(--toast-swipe-move-x) data-ending-style:opacity-0 data-ending-style:translate-x-2 transition-all duration-200 ${borderColorMap[type]}`}
       >
         <Toast.Content className="flex-1 min-w-0">
           <Toast.Title className={`flex items-center gap-2 font-medium text-sm ${titleColorMap[type]}`}>
@@ -180,7 +180,7 @@ function ToastList() {
           {actionId && actionLabel && (
             <button
               onClick={handleActionClick}
-              className="mt-2 px-3 py-1 text-xs font-medium bg-accent-blue text-white rounded hover:bg-accent-blue/90 transition-colors"
+              className="mt-2 px-3 py-1 text-xs font-medium bg-accent-blue text-white rounded-sm hover:bg-accent-blue/90 transition-colors"
             >
               {actionLabel}
             </button>

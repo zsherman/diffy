@@ -46,10 +46,10 @@ export function WorktreeContextMenu({
       <ContextMenu.Trigger render={children as React.ReactElement} />
       <ContextMenu.Portal>
         <ContextMenu.Positioner className="z-50">
-          <ContextMenu.Popup className="min-w-[200px] overflow-hidden rounded-lg border border-border-primary bg-bg-secondary shadow-xl outline-none py-1">
+          <ContextMenu.Popup className="min-w-[200px] overflow-hidden rounded-lg border border-border-primary bg-bg-secondary shadow-xl outline-hidden py-1">
             {/* Open action */}
             <ContextMenu.Item
-              className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-text-primary data-[highlighted]:bg-bg-hover outline-none mx-1 rounded text-[13px]"
+              className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-text-primary data-highlighted:bg-bg-hover outline-hidden mx-1 rounded-sm text-[13px]"
               onClick={onOpen}
             >
               <FolderOpen size={14} className="text-text-muted" />
@@ -60,7 +60,7 @@ export function WorktreeContextMenu({
 
             {/* Copy actions */}
             <ContextMenu.Item
-              className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-text-primary data-[highlighted]:bg-bg-hover outline-none mx-1 rounded text-[13px]"
+              className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-text-primary data-highlighted:bg-bg-hover outline-hidden mx-1 rounded-sm text-[13px]"
               onClick={() => copyToClipboard(worktree.name, "Worktree name")}
             >
               <Copy size={14} className="text-text-muted" />
@@ -68,7 +68,7 @@ export function WorktreeContextMenu({
             </ContextMenu.Item>
 
             <ContextMenu.Item
-              className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-text-primary data-[highlighted]:bg-bg-hover outline-none mx-1 rounded text-[13px]"
+              className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-text-primary data-highlighted:bg-bg-hover outline-hidden mx-1 rounded-sm text-[13px]"
               onClick={() => copyToClipboard(worktree.path, "Worktree path")}
             >
               <Copy size={14} className="text-text-muted" />
@@ -77,7 +77,7 @@ export function WorktreeContextMenu({
 
             {worktree.headBranch && (
               <ContextMenu.Item
-                className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-text-primary data-[highlighted]:bg-bg-hover outline-none mx-1 rounded text-[13px]"
+                className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-text-primary data-highlighted:bg-bg-hover outline-hidden mx-1 rounded-sm text-[13px]"
                 onClick={() =>
                   copyToClipboard(worktree.headBranch!, "Branch name")
                 }
@@ -93,7 +93,7 @@ export function WorktreeContextMenu({
                 <ContextMenu.Separator className="h-px bg-border-primary mx-2 my-1" />
 
                 <ContextMenu.Item
-                  className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-text-primary data-[highlighted]:bg-bg-hover outline-none mx-1 rounded text-[13px]"
+                  className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-text-primary data-highlighted:bg-bg-hover outline-hidden mx-1 rounded-sm text-[13px]"
                   onClick={onToggleLock}
                 >
                   {worktree.isLocked ? (
@@ -117,7 +117,7 @@ export function WorktreeContextMenu({
                 <ContextMenu.Separator className="h-px bg-border-primary mx-2 my-1" />
 
                 <ContextMenu.Item
-                  className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-accent-red data-[highlighted]:bg-bg-hover outline-none mx-1 rounded text-[13px]"
+                  className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer text-accent-red data-highlighted:bg-bg-hover outline-hidden mx-1 rounded-sm text-[13px]"
                   onClick={onRemove}
                 >
                   <Trash size={14} />

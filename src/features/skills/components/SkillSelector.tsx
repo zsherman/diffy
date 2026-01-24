@@ -44,7 +44,7 @@ export function SkillSelector() {
             onValueChange={handleValueChange}
             multiple
           >
-            <Select.Trigger className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-bg-tertiary border border-border-primary rounded text-sm text-text-primary hover:border-accent-blue transition-colors cursor-pointer">
+            <Select.Trigger className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-bg-tertiary border border-border-primary rounded-sm text-sm text-text-primary hover:border-accent-blue transition-colors cursor-pointer">
               <span className="flex-1 text-left truncate">
                 {selectedSkills.length === 0 ? (
                   <span className="text-text-muted">Select skills...</span>
@@ -59,12 +59,12 @@ export function SkillSelector() {
 
             <Select.Portal>
               <Select.Positioner sideOffset={4} className="z-50">
-                <Select.Popup className="min-w-[200px] max-w-[300px] max-h-[300px] overflow-auto rounded-lg border border-border-primary bg-bg-secondary shadow-xl outline-none">
+                <Select.Popup className="min-w-[200px] max-w-[300px] max-h-[300px] overflow-auto rounded-lg border border-border-primary bg-bg-secondary shadow-xl outline-hidden">
                   {skills.map((skill) => (
                     <Select.Item
                       key={skill.id}
                       value={skill.id}
-                      className="flex items-start gap-2 px-3 py-2 text-sm cursor-pointer text-text-primary data-[highlighted]:bg-bg-hover outline-none"
+                      className="flex items-start gap-2 px-3 py-2 text-sm cursor-pointer text-text-primary data-highlighted:bg-bg-hover outline-hidden"
                     >
                       <Select.ItemIndicator className="w-4 mt-0.5 shrink-0">
                         <Check size={14} weight="bold" className="text-accent-purple" />
@@ -107,7 +107,7 @@ export function SkillSelector() {
               {selectedSkills.map((skill) => (
                 <span
                   key={skill.id}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-accent-purple/20 text-accent-purple rounded text-xs font-medium"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-accent-purple/20 text-accent-purple rounded-sm text-xs font-medium"
                 >
                   <BookBookmark size={10} weight="bold" />
                   <span className="truncate max-w-[100px]">{skill.name}</span>

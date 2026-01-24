@@ -53,7 +53,7 @@ export function SettingsDialog() {
               <Sliders size={16} weight="bold" />
               Settings
             </Dialog.Title>
-            <Dialog.Close className="p-1 rounded hover:bg-bg-hover transition-colors text-text-muted hover:text-text-primary">
+            <Dialog.Close className="p-1 rounded-sm hover:bg-bg-hover transition-colors text-text-muted hover:text-text-primary">
               <X size={16} weight="bold" />
             </Dialog.Close>
           </div>
@@ -127,7 +127,7 @@ export function SettingsDialog() {
                         <button
                           onClick={() => handlePanelFontSizeChange(-1)}
                           disabled={panelFontSize <= 10}
-                          className="p-1.5 rounded bg-bg-hover hover:bg-bg-tertiary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="p-1.5 rounded-sm bg-bg-hover hover:bg-bg-tertiary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Minus size={14} weight="bold" className="text-text-muted" />
                         </button>
@@ -137,7 +137,7 @@ export function SettingsDialog() {
                         <button
                           onClick={() => handlePanelFontSizeChange(1)}
                           disabled={panelFontSize >= 16}
-                          className="p-1.5 rounded bg-bg-hover hover:bg-bg-tertiary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="p-1.5 rounded-sm bg-bg-hover hover:bg-bg-tertiary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Plus size={14} weight="bold" className="text-text-muted" />
                         </button>
@@ -164,7 +164,7 @@ export function SettingsDialog() {
                         <button
                           onClick={() => handleDiffFontSizeChange(-1)}
                           disabled={diffFontSize <= 10}
-                          className="p-1.5 rounded bg-bg-hover hover:bg-bg-tertiary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="p-1.5 rounded-sm bg-bg-hover hover:bg-bg-tertiary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Minus size={14} weight="bold" className="text-text-muted" />
                         </button>
@@ -174,7 +174,7 @@ export function SettingsDialog() {
                         <button
                           onClick={() => handleDiffFontSizeChange(1)}
                           disabled={diffFontSize >= 24}
-                          className="p-1.5 rounded bg-bg-hover hover:bg-bg-tertiary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="p-1.5 rounded-sm bg-bg-hover hover:bg-bg-tertiary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Plus size={14} weight="bold" className="text-text-muted" />
                         </button>
@@ -198,7 +198,7 @@ export function SettingsDialog() {
                             Skills provide domain-specific guidelines for AI code reviews
                           </p>
                         </div>
-                        <span className="text-sm text-text-muted bg-bg-tertiary px-2 py-1 rounded">
+                        <span className="text-sm text-text-muted bg-bg-tertiary px-2 py-1 rounded-sm">
                           {skills.length} installed
                         </span>
                       </div>
@@ -210,7 +210,7 @@ export function SettingsDialog() {
                             Currently selected for AI reviews
                           </p>
                         </div>
-                        <span className="text-sm text-text-muted bg-bg-tertiary px-2 py-1 rounded">
+                        <span className="text-sm text-text-muted bg-bg-tertiary px-2 py-1 rounded-sm">
                           {selectedSkillIds.length} selected
                         </span>
                       </div>
@@ -220,7 +220,7 @@ export function SettingsDialog() {
                           setShowSettingsDialog(false);
                           setShowSkillsDialog(true);
                         }}
-                        className="flex items-center gap-2 px-3 py-2 bg-bg-hover hover:bg-bg-tertiary rounded text-sm text-text-primary transition-colors"
+                        className="flex items-center gap-2 px-3 py-2 bg-bg-hover hover:bg-bg-tertiary rounded-sm text-sm text-text-primary transition-colors"
                       >
                         <BookBookmark size={16} weight="bold" />
                         Manage Skills

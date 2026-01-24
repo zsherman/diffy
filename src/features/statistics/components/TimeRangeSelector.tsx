@@ -39,12 +39,12 @@ export function TimeRangeSelector({ value, onChange }: TimeRangeSelectorProps) {
 
       <Select.Portal>
         <Select.Positioner sideOffset={4} className="z-50">
-          <Select.Popup className="min-w-[140px] rounded-md border border-border-primary bg-bg-secondary shadow-lg outline-none">
+          <Select.Popup className="min-w-[140px] rounded-md border border-border-primary bg-bg-secondary shadow-lg outline-hidden">
             {TIME_RANGES.map((range) => (
               <Select.Item
                 key={range.value}
                 value={String(range.value)}
-                className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer text-text-primary data-[highlighted]:bg-bg-hover outline-none"
+                className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer text-text-primary data-highlighted:bg-bg-hover outline-hidden"
               >
                 <Select.ItemIndicator className="w-4">
                   <Check

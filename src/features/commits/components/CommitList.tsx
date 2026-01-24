@@ -10,8 +10,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { VList } from "virtua";
 import type { VListHandle } from "virtua";
-import { PencilSimple } from "@phosphor-icons/react";
-import { getCommitHistory, getCommitGraph } from "../../../lib/tauri";
+import { getCommitHistory } from "../../../lib/tauri";
 import { CommitContextMenu } from "../../../components/ui";
 import {
   useTabsStore,
@@ -19,12 +18,11 @@ import {
   useActiveTabPanels,
 } from "../../../stores/tabs-store";
 import { useActivePanel, usePanelFontSize } from "../../../stores/ui-store";
-import { CommitGraphSVG } from "./CommitGraph";
+import { AuthorAvatar } from "../../graph/components/AuthorAvatar";
 import type { CommitInfo } from "../../../types/git";
 import { createMountLogger } from "../../../lib/perf";
 
-const ROW_HEIGHT = 48;
-const GRAPH_WIDTH = 24;
+const ROW_HEIGHT = 50;
 
 function formatTimeAgo(timestamp: number): string {
   const now = Date.now() / 1000;
@@ -63,58 +61,57 @@ const CommitRow = memo(function CommitRow({
       repoPath={repoPath}
     >
       <div
-        className={`flex items-center cursor-pointer h-12 ${
+        className={`@container flex items-center cursor-pointer border-b border-black/20 ${
           isFocused
             ? "bg-bg-selected"
             : isSelected
               ? "bg-bg-hover"
-              : "hover:bg-bg-hover"
+              : "hover:bg-bg-hover/50"
         }`}
+        style={{ height: ROW_HEIGHT }}
         onClick={onClick}
       >
-        <div style={{ width: GRAPH_WIDTH, flexShrink: 0 }} />
-        <div className="flex-1 min-w-0 px-2 py-1 overflow-hidden">
-          <div className="flex items-center gap-2 min-w-0">
-            <span
-              className="text-accent-yellow font-mono shrink-0"
-              style={{ fontSize: `${fontSize}px` }}
-            >
-              {commit.shortId}
-            </span>
-            <span
-              className="text-text-primary truncate"
-              style={{ fontSize: `${fontSize}px` }}
-            >
-              {commit.summary}
-            </span>
-          </div>
+        {/* Author avatar */}
+        <div className="pl-3 pr-2.5 shrink-0">
+          <AuthorAvatar email={commit.authorEmail} size={24} />
+        </div>
+        
+        <div className="flex-1 min-w-0 pr-3 py-1.5 overflow-hidden">
+          {/* Commit message - primary focus */}
           <div
-            className="flex items-center gap-1.5 text-text-muted whitespace-nowrap overflow-hidden"
-            style={{ fontSize: `${Math.max(10, fontSize - 2)}px` }}
+            className="text-text-primary truncate font-medium leading-snug"
+            style={{ fontSize: `${fontSize}px` }}
           >
-            <span className="truncate max-w-[100px]">{commit.authorName}</span>
-            <span className="shrink-0">•</span>
-            <span className="shrink-0">{formatTimeAgo(commit.time)}</span>
+            {commit.summary}
+          </div>
+          
+          {/* Metadata row */}
+          <div
+            className="flex items-center gap-1.5 text-text-muted mt-0.5 overflow-hidden"
+            style={{ fontSize: `${Math.max(11, fontSize - 2)}px` }}
+          >
+            <span className="truncate min-w-0 shrink">{commit.authorName}</span>
+            <span className="opacity-40 shrink-0">•</span>
+            <span className="opacity-70 shrink-0">{formatTimeAgo(commit.time)}</span>
             {commit.filesChanged > 0 && (
               <>
-                <span className="shrink-0">•</span>
-                <span className="flex items-center gap-0.5 shrink-0">
-                  <PencilSimple size={10} weight="bold" />
-                  {commit.filesChanged}
-                </span>
-                {commit.additions > 0 && (
-                  <span className="text-accent-green shrink-0">
-                    +{commit.additions}
-                  </span>
-                )}
-                {commit.deletions > 0 && (
-                  <span className="text-accent-red shrink-0">
-                    -{commit.deletions}
-                  </span>
-                )}
+                <span className="opacity-40 shrink-0">•</span>
+                <span className="opacity-70 shrink-0">{commit.filesChanged} files</span>
+                <span className="text-accent-green shrink-0">+{commit.additions}</span>
+                <span className="text-accent-red shrink-0">-{commit.deletions}</span>
               </>
             )}
           </div>
+        </div>
+        
+        {/* Commit ID on the right - hidden at small container sizes */}
+        <div className="pr-3 shrink-0 hidden @[280px]:block">
+          <span 
+            className="font-mono text-text-muted/60"
+            style={{ fontSize: `${Math.max(10, fontSize - 2)}px` }}
+          >
+            {commit.shortId}
+          </span>
         </div>
       </div>
     </CommitContextMenu>
@@ -137,7 +134,6 @@ export function CommitList() {
   const panelFontSize = usePanelFontSize();
   const listRef = useRef<VListHandle>(null);
   const [focusedIndex, setFocusedIndex] = useState(0);
-  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 20 });
 
   // Track mount/unmount for performance debugging
   useEffect(() => createMountLogger("CommitList"), []);
@@ -152,25 +148,6 @@ export function CommitList() {
     enabled: !!repository?.path,
     // Keep showing previous data while fetching new data (smooth transitions)
     placeholderData: (previousData) => previousData,
-  });
-
-  // Stable key for graph query - only changes when commits actually change
-  const commitIdsKey = useMemo(
-    () => (commits.length > 0 ? commits[0].id + commits.length : ""),
-    [commits],
-  );
-
-  // Fetch graph data (non-suspense, loads in background)
-  // Use 'commitListGraph' key to avoid collision with GraphTableView's graph query
-  const { data: graph } = useQuery({
-    queryKey: ["commitListGraph", repository?.path, selectedBranch, commitIdsKey],
-    queryFn: () =>
-      getCommitGraph(
-        repository!.path,
-        commits.map((c) => c.id),
-      ),
-    enabled: !!repository?.path && commits.length > 0,
-    staleTime: 30000,
   });
 
   // Defer filter value to keep typing responsive while filtering large lists
@@ -238,64 +215,41 @@ export function CommitList() {
     [setSelectedCommit, setSelectedFile, setShowFilesPanel],
   );
 
-  const handleScroll = useCallback(() => {
-    if (!listRef.current) return;
-    const handle = listRef.current;
-    const startIndex = handle.findItemIndex(handle.scrollOffset);
-    const endIndex = handle.findItemIndex(
-      handle.scrollOffset + handle.viewportSize,
-    );
-    setVisibleRange({ start: startIndex, end: endIndex });
-  }, []);
-
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-bg-primary">
       {/* Filter input */}
-      <div className="px-2 py-1.5 border-b border-border-primary">
+      <div className="px-3 py-2 border-b border-black/20">
         <input
           type="text"
           placeholder="Filter commits..."
           value={commitFilter}
           onChange={(e) => setCommitFilter(e.target.value)}
-          className="w-full px-2 py-1 bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
+          className="w-full px-3 py-1.5 bg-bg-tertiary border border-black/30 rounded-md text-text-primary placeholder-text-muted/60 focus:border-accent-blue/60 focus:outline-hidden focus:ring-1 focus:ring-accent-blue/20 transition-all duration-150"
           style={{ fontSize: `${panelFontSize}px` }}
         />
       </div>
 
       {/* Commit list */}
-      <div className="flex-1 relative overflow-hidden">
+      <div className="flex-1 overflow-hidden">
         {/* Loading state for initial load */}
         {isLoadingCommits && commits.length === 0 ? (
           <div className="flex items-center justify-center h-full text-text-muted text-sm">
             Loading commits...
           </div>
         ) : (
-          <>
-            {/* Graph overlay */}
-            {graph && (
-              <CommitGraphSVG
-                graph={graph}
-                rowHeight={ROW_HEIGHT}
-                visibleStartIndex={visibleRange.start}
-                visibleEndIndex={visibleRange.end}
+          <VList ref={listRef} className="h-full">
+            {filteredCommits.map((commit, index) => (
+              <CommitRow
+                key={commit.id}
+                commit={commit}
+                isSelected={selectedCommit === commit.id}
+                isFocused={index === focusedIndex}
+                onClick={() => handleCommitClick(commit, index)}
+                fontSize={panelFontSize}
+                repoPath={repository?.path ?? ""}
               />
-            )}
-
-            {/* Commit rows */}
-            <VList ref={listRef} className="h-full" onScroll={handleScroll}>
-              {filteredCommits.map((commit, index) => (
-                <CommitRow
-                  key={commit.id}
-                  commit={commit}
-                  isSelected={selectedCommit === commit.id}
-                  isFocused={index === focusedIndex}
-                  onClick={() => handleCommitClick(commit, index)}
-                  fontSize={panelFontSize}
-                  repoPath={repository?.path ?? ""}
-                />
-              ))}
-            </VList>
-          </>
+            ))}
+          </VList>
         )}
       </div>
     </div>

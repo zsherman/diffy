@@ -8,17 +8,19 @@ interface CommitGraphProps {
   visibleEndIndex: number;
 }
 
-const COLUMN_WIDTH = 16;
-const NODE_RADIUS = 4;
+const COLUMN_WIDTH = 20;
+const NODE_RADIUS = 5;
+const STROKE_WIDTH = 2.5;
 const BUFFER = 5;
 const COLORS = [
-  "#89b4fa", // blue
-  "#a6e3a1", // green
-  "#f9e2af", // yellow
-  "#cba6f7", // purple
-  "#f38ba8", // red
-  "#94e2d5", // teal
-  "#fab387", // peach
+  '#5B9BD5', // blue
+  '#6CC070', // green
+  '#E5A84B', // amber
+  '#B07CC6', // purple
+  '#E86A6A', // red
+  '#4ECDC4', // teal
+  '#F5A962', // orange
+  '#7C9EB2', // slate
 ];
 
 // Memoized graph component to avoid re-renders when parent updates
@@ -63,21 +65,23 @@ export const CommitGraphSVG = memo(function CommitGraphSVG({
         return node.connections.map((conn, connIdx) => {
           const targetY = conn.toRow * rowHeight + rowHeight / 2;
           const targetX = conn.toColumn * COLUMN_WIDTH + COLUMN_WIDTH / 2;
+          const lineColor = conn.isMerge ? COLORS[conn.toColumn % COLORS.length] : color;
 
-          // Bezier curve for merge lines
+          // Smooth S-curve for merge/diagonal lines
           if (conn.isMerge || conn.fromColumn !== conn.toColumn) {
-            const midY = (y + targetY) / 2;
-            const path = `M ${x} ${y} C ${x} ${midY}, ${targetX} ${midY}, ${targetX} ${targetY}`;
+            // Create smooth curve with better control points
+            const curveStart = y + rowHeight * 0.15;
+            const curveEnd = targetY - rowHeight * 0.15;
+            const path = `M ${x} ${y} L ${x} ${curveStart} C ${x} ${curveStart + (curveEnd - curveStart) * 0.3}, ${targetX} ${curveEnd - (curveEnd - curveStart) * 0.3}, ${targetX} ${curveEnd} L ${targetX} ${targetY}`;
             return (
               <path
                 key={`${node.commitId}-conn-${connIdx}`}
                 d={path}
                 fill="none"
-                stroke={
-                  conn.isMerge ? COLORS[conn.toColumn % COLORS.length] : color
-                }
-                strokeWidth={2}
-                strokeOpacity={0.7}
+                stroke={lineColor}
+                strokeWidth={STROKE_WIDTH}
+                strokeLinecap="round"
+                strokeLinejoin="round"
               />
             );
           }
@@ -91,8 +95,8 @@ export const CommitGraphSVG = memo(function CommitGraphSVG({
               x2={targetX}
               y2={targetY}
               stroke={color}
-              strokeWidth={2}
-              strokeOpacity={0.7}
+              strokeWidth={STROKE_WIDTH}
+              strokeLinecap="round"
             />
           );
         });
@@ -106,15 +110,34 @@ export const CommitGraphSVG = memo(function CommitGraphSVG({
         const color = COLORS[node.column % COLORS.length];
 
         return (
-          <circle
-            key={`${node.commitId}-node`}
-            cx={x}
-            cy={y}
-            r={NODE_RADIUS}
-            fill={color}
-            stroke="#1e1e2e"
-            strokeWidth={1}
-          />
+          <g key={`${node.commitId}-node`}>
+            {/* Outer glow */}
+            <circle
+              cx={x}
+              cy={y}
+              r={NODE_RADIUS + 1}
+              fill="none"
+              stroke={color}
+              strokeWidth={1}
+              strokeOpacity={0.3}
+            />
+            {/* Main node */}
+            <circle
+              cx={x}
+              cy={y}
+              r={NODE_RADIUS}
+              fill={color}
+              stroke="var(--bg-primary)"
+              strokeWidth={2}
+            />
+            {/* Inner highlight */}
+            <circle
+              cx={x - 1}
+              cy={y - 1}
+              r={NODE_RADIUS * 0.35}
+              fill="rgba(255,255,255,0.4)"
+            />
+          </g>
         );
       })}
     </svg>

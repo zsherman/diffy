@@ -123,7 +123,7 @@ export function BranchSwitcher() {
       onOpenChange={handleOpenChange}
     >
       <Combobox.Trigger
-        className="flex items-center gap-1.5 px-2 py-0.5 text-accent-green hover:bg-bg-hover rounded transition-colors cursor-pointer"
+        className="flex items-center gap-1.5 px-2 py-0.5 text-accent-green hover:bg-bg-hover rounded-sm transition-colors cursor-pointer"
         aria-label="Switch branch"
       >
         <GitBranch size={12} weight="bold" />
@@ -133,7 +133,7 @@ export function BranchSwitcher() {
 
       <Combobox.Portal keepMounted>
         <Combobox.Positioner sideOffset={4} className="z-50">
-          <Combobox.Popup className="min-w-[200px] max-w-[300px] max-h-[350px] overflow-hidden rounded-md border border-border-primary bg-bg-secondary shadow-lg outline-none">
+          <Combobox.Popup className="min-w-[200px] max-w-[300px] max-h-[350px] overflow-hidden rounded-md border border-border-primary bg-bg-secondary shadow-lg outline-hidden">
             {showCreateForm ? (
               <div className="p-3 space-y-3">
                 <div className="flex items-center justify-between">
@@ -157,20 +157,20 @@ export function BranchSwitcher() {
                       setShowCreateForm(false);
                     }
                   }}
-                  className="w-full px-2 py-1.5 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
+                  className="w-full px-2 py-1.5 text-sm bg-bg-tertiary border border-border-primary rounded-sm text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-hidden"
                   autoFocus
                 />
                 <div className="flex justify-end gap-2">
                   <button
                     onClick={() => setShowCreateForm(false)}
-                    className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary rounded border border-border-primary hover:bg-bg-hover transition-colors"
+                    className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary rounded-sm border border-border-primary hover:bg-bg-hover transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleCreateBranch}
                     disabled={!newBranchName.trim() || createBranchMutation.isPending}
-                    className="px-3 py-1.5 text-xs text-white bg-accent-blue hover:bg-accent-blue/90 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="px-3 py-1.5 text-xs text-white bg-accent-blue hover:bg-accent-blue/90 rounded-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     Create & Checkout
                   </button>
@@ -182,14 +182,14 @@ export function BranchSwitcher() {
                   <Combobox.Input
                     placeholder="Search branches..."
                     autoFocus
-                    className="w-full px-2 py-1.5 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
+                    className="w-full px-2 py-1.5 text-sm bg-bg-tertiary border border-border-primary rounded-sm text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-hidden"
                   />
                 </div>
 
                 <div className="p-1 border-b border-border-primary">
                   <button
                     onClick={() => setShowCreateForm(true)}
-                    className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-text-primary hover:bg-bg-hover rounded transition-colors"
+                    className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-text-primary hover:bg-bg-hover rounded-sm transition-colors"
                   >
                     <Plus size={14} weight="bold" />
                     <span>Create new branch</span>
@@ -201,7 +201,7 @@ export function BranchSwitcher() {
                     <Combobox.Item
                       key={branch.name}
                       value={branch}
-                      className="flex items-center gap-2 px-2 py-1.5 text-sm rounded cursor-pointer text-text-primary data-[highlighted]:bg-bg-hover data-[selected]:bg-bg-selected"
+                      className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm cursor-pointer text-text-primary data-highlighted:bg-bg-hover data-selected:bg-bg-selected"
                     >
                       <Combobox.ItemIndicator className="w-4">
                         <Check size={14} weight="bold" className="text-accent-green" />

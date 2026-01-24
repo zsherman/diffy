@@ -113,7 +113,7 @@ function CalendarCell({
     <Tooltip.Trigger
       handle={calendarTooltip}
       payload={payload}
-      className="focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-green focus-visible:ring-offset-1 rounded-sm"
+      className="focus:outline-hidden focus-visible:ring-2 focus-visible:ring-accent-green focus-visible:ring-offset-1 rounded-xs"
       render={<button type="button" aria-label={`${payload.date}: ${count} commits`} />}
     >
       <div

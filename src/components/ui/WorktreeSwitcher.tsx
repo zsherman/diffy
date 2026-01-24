@@ -77,7 +77,7 @@ export function WorktreeSwitcher() {
       onOpenChange={handleOpenChange}
     >
       <Combobox.Trigger
-        className="flex items-center gap-1.5 px-2 py-0.5 text-text-secondary hover:bg-bg-hover rounded transition-colors cursor-pointer"
+        className="flex items-center gap-1.5 px-2 py-0.5 text-text-secondary hover:bg-bg-hover rounded-sm transition-colors cursor-pointer"
         aria-label="Switch worktree"
       >
         <TreeEvergreen size={12} weight="bold" />
@@ -89,12 +89,12 @@ export function WorktreeSwitcher() {
 
       <Combobox.Portal keepMounted>
         <Combobox.Positioner sideOffset={4} className="z-50">
-          <Combobox.Popup className="min-w-[200px] max-w-[300px] max-h-[350px] overflow-hidden rounded-md border border-border-primary bg-bg-secondary shadow-lg outline-none">
+          <Combobox.Popup className="min-w-[200px] max-w-[300px] max-h-[350px] overflow-hidden rounded-md border border-border-primary bg-bg-secondary shadow-lg outline-hidden">
             <div className="p-2 border-b border-border-primary">
               <Combobox.Input
                 placeholder="Search worktrees..."
                 autoFocus
-                className="w-full px-2 py-1.5 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
+                className="w-full px-2 py-1.5 text-sm bg-bg-tertiary border border-border-primary rounded-sm text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-hidden"
               />
             </div>
 
@@ -104,7 +104,7 @@ export function WorktreeSwitcher() {
                   setOpen(false);
                   setShowCreateDialog(true);
                 }}
-                className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-text-primary hover:bg-bg-hover rounded transition-colors"
+                className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-text-primary hover:bg-bg-hover rounded-sm transition-colors"
               >
                 <Plus size={14} weight="bold" />
                 <span>Create new worktree</span>
@@ -116,7 +116,7 @@ export function WorktreeSwitcher() {
                 <Combobox.Item
                   key={worktree.path}
                   value={worktree}
-                  className="flex items-center gap-2 px-2 py-1.5 text-sm rounded cursor-pointer text-text-primary data-[highlighted]:bg-bg-hover data-[selected]:bg-bg-selected"
+                  className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm cursor-pointer text-text-primary data-highlighted:bg-bg-hover data-selected:bg-bg-selected"
                 >
                   <Combobox.ItemIndicator className="w-4">
                     <Check size={14} weight="bold" className="text-text-secondary" />
@@ -125,7 +125,7 @@ export function WorktreeSwitcher() {
                     <div className="flex items-center gap-1.5">
                       <span className="truncate">{worktree.name}</span>
                       {worktree.isMain && (
-                        <span className="text-[10px] px-1 py-0.5 bg-accent-green/20 text-accent-green rounded">
+                        <span className="text-[10px] px-1 py-0.5 bg-accent-green/20 text-accent-green rounded-sm">
                           main
                         </span>
                       )}

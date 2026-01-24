@@ -2,16 +2,18 @@ import { memo, useMemo } from 'react';
 import type { GraphNode, CommitGraph } from '../../../types/git';
 import { AuthorAvatar } from './AuthorAvatar';
 
-const COLUMN_WIDTH = 16;
-const NODE_RADIUS = 4;
+const COLUMN_WIDTH = 20;
+const NODE_RADIUS = 5;
+const STROKE_WIDTH = 2.5;
 const COLORS = [
-  '#89b4fa', // blue
-  '#a6e3a1', // green
-  '#f9e2af', // yellow
-  '#cba6f7', // purple
-  '#f38ba8', // red
-  '#94e2d5', // teal
-  '#fab387', // peach
+  '#5B9BD5', // blue
+  '#6CC070', // green
+  '#E5A84B', // amber
+  '#B07CC6', // purple
+  '#E86A6A', // red
+  '#4ECDC4', // teal
+  '#F5A962', // orange
+  '#7C9EB2', // slate
 ];
 
 interface GraphCellProps {
@@ -148,8 +150,8 @@ export const GraphCell = memo(function GraphCell({
               x2={x}
               y2={rowHeight}
               stroke={line.color}
-              strokeWidth={2}
-              strokeOpacity={0.7}
+              strokeWidth={STROKE_WIDTH}
+              strokeLinecap="round"
             />
           );
         })}
@@ -160,16 +162,20 @@ export const GraphCell = memo(function GraphCell({
           const fromX = line.fromColumn * COLUMN_WIDTH + COLUMN_WIDTH / 2;
 
           if (line.isMerge) {
-            // Curved line for merge/diagonal
-            const path = `M ${fromX} 0 C ${fromX} ${centerY * 0.5}, ${toX} ${centerY * 0.5}, ${toX} ${centerY}`;
+            // Smooth S-curve using cubic bezier with better control points
+            // Start vertical, then curve horizontally to the target
+            const curveStart = rowHeight * 0.35;
+            const curveEnd = centerY;
+            const path = `M ${fromX} 0 L ${fromX} ${curveStart} C ${fromX} ${curveStart + (curveEnd - curveStart) * 0.5}, ${toX} ${curveEnd - (curveEnd - curveStart) * 0.3}, ${toX} ${curveEnd}`;
             return (
               <path
                 key={`in-${idx}`}
                 d={path}
                 fill="none"
                 stroke={line.color}
-                strokeWidth={2}
-                strokeOpacity={0.7}
+                strokeWidth={STROKE_WIDTH}
+                strokeLinecap="round"
+                strokeLinejoin="round"
               />
             );
           }
@@ -183,8 +189,8 @@ export const GraphCell = memo(function GraphCell({
               x2={toX}
               y2={centerY}
               stroke={line.color}
-              strokeWidth={2}
-              strokeOpacity={0.7}
+              strokeWidth={STROKE_WIDTH}
+              strokeLinecap="round"
             />
           );
         })}
@@ -193,18 +199,22 @@ export const GraphCell = memo(function GraphCell({
         {node?.connections.map((conn, connIdx) => {
           const x = node.column * COLUMN_WIDTH + COLUMN_WIDTH / 2;
           const targetX = conn.toColumn * COLUMN_WIDTH + COLUMN_WIDTH / 2;
+          const lineColor = conn.isMerge ? COLORS[conn.toColumn % COLORS.length] : nodeColor;
 
           if (conn.isMerge || conn.fromColumn !== conn.toColumn) {
-            // Curved line for merges or diagonal connections
-            const path = `M ${x} ${centerY} C ${x} ${centerY + rowHeight * 0.3}, ${targetX} ${rowHeight * 0.7}, ${targetX} ${rowHeight}`;
+            // Smooth S-curve - start from node, go vertical briefly, then curve to target
+            const curveStart = centerY;
+            const curveEnd = rowHeight * 0.65;
+            const path = `M ${x} ${curveStart} C ${x} ${curveStart + (curveEnd - curveStart) * 0.3}, ${targetX} ${curveEnd - (rowHeight - curveEnd) * 0.5}, ${targetX} ${curveEnd} L ${targetX} ${rowHeight}`;
             return (
               <path
                 key={`out-${connIdx}`}
                 d={path}
                 fill="none"
-                stroke={conn.isMerge ? COLORS[conn.toColumn % COLORS.length] : nodeColor}
-                strokeWidth={2}
-                strokeOpacity={0.7}
+                stroke={lineColor}
+                strokeWidth={STROKE_WIDTH}
+                strokeLinecap="round"
+                strokeLinejoin="round"
               />
             );
           }
@@ -218,22 +228,42 @@ export const GraphCell = memo(function GraphCell({
               x2={targetX}
               y2={rowHeight}
               stroke={nodeColor}
-              strokeWidth={2}
-              strokeOpacity={0.7}
+              strokeWidth={STROKE_WIDTH}
+              strokeLinecap="round"
             />
           );
         })}
 
-        {/* Node circle */}
+        {/* Node circle with subtle inner highlight */}
         {node && (
-          <circle
-            cx={node.column * COLUMN_WIDTH + COLUMN_WIDTH / 2}
-            cy={centerY}
-            r={NODE_RADIUS}
-            fill={nodeColor}
-            stroke="var(--bg-primary)"
-            strokeWidth={1.5}
-          />
+          <>
+            {/* Outer glow/shadow */}
+            <circle
+              cx={node.column * COLUMN_WIDTH + COLUMN_WIDTH / 2}
+              cy={centerY}
+              r={NODE_RADIUS + 1}
+              fill="none"
+              stroke={nodeColor}
+              strokeWidth={1}
+              strokeOpacity={0.3}
+            />
+            {/* Main node */}
+            <circle
+              cx={node.column * COLUMN_WIDTH + COLUMN_WIDTH / 2}
+              cy={centerY}
+              r={NODE_RADIUS}
+              fill={nodeColor}
+              stroke="var(--bg-primary)"
+              strokeWidth={2}
+            />
+            {/* Inner highlight for depth */}
+            <circle
+              cx={node.column * COLUMN_WIDTH + COLUMN_WIDTH / 2 - 1}
+              cy={centerY - 1}
+              r={NODE_RADIUS * 0.35}
+              fill="rgba(255,255,255,0.4)"
+            />
+          </>
         )}
       </svg>
 

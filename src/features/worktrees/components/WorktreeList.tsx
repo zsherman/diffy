@@ -196,11 +196,11 @@ export function WorktreeList() {
           placeholder="Filter worktrees..."
           value={worktreeFilter}
           onChange={(e) => setWorktreeFilter(e.target.value)}
-          className="flex-1 px-2 py-1 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
+          className="flex-1 px-2 py-1 text-sm bg-bg-tertiary border border-border-primary rounded-sm text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-hidden"
         />
         <button
           onClick={() => setShowCreateDialog(true)}
-          className="px-2 py-1 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary hover:bg-bg-hover flex items-center gap-1"
+          className="px-2 py-1 text-sm bg-bg-tertiary border border-border-primary rounded-sm text-text-primary hover:bg-bg-hover flex items-center gap-1"
           title="Create new worktree (n)"
         >
           <Plus size={14} />
@@ -249,7 +249,7 @@ export function WorktreeList() {
                         lockMutation.mutate({ name: worktree.name });
                       }
                     }}
-                    className="p-1 rounded hover:bg-bg-tertiary text-text-muted hover:text-text-primary"
+                    className="p-1 rounded-sm hover:bg-bg-tertiary text-text-muted hover:text-text-primary"
                     title={worktree.isLocked ? 'Unlock worktree (l)' : 'Lock worktree (l)'}
                   >
                     {worktree.isLocked ? <LockOpen size={14} /> : <Lock size={14} />}
@@ -259,7 +259,7 @@ export function WorktreeList() {
                       e.stopPropagation();
                       handleRemove(worktree);
                     }}
-                    className="p-1 rounded hover:bg-bg-tertiary text-text-muted hover:text-accent-red"
+                    className="p-1 rounded-sm hover:bg-bg-tertiary text-text-muted hover:text-accent-red"
                     title="Remove worktree (d)"
                   >
                     <Trash size={14} />

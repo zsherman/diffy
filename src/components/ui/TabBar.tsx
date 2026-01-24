@@ -224,7 +224,7 @@ export function TabBar() {
               {/* Close button */}
               <button
                 onClick={(e) => handleCloseTab(e, tab.repository.path)}
-                className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-bg-hover transition-opacity"
+                className="p-0.5 rounded-sm opacity-0 group-hover:opacity-100 hover:bg-bg-hover transition-opacity"
                 title="Close tab"
               >
                 <X size={12} weight="bold" />

@@ -307,7 +307,7 @@ export function MergeConflictView() {
                 placeholder="e.g., 'Keep both implementations' or 'Prefer the new API'"
                 value={notes}
                 onChange={(e) => setNotes(currentFile.filePath, e.target.value)}
-                className="w-full h-20 px-2.5 py-2 text-sm bg-bg-secondary border border-border-primary rounded-md text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none resize-none"
+                className="w-full h-20 px-2.5 py-2 text-sm bg-bg-secondary border border-border-primary rounded-md text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-hidden resize-none"
               />
             </div>
 
@@ -327,9 +327,9 @@ export function MergeConflictView() {
           <div className="text-xs text-text-muted border-t border-border-primary pt-3 mt-auto">
             <p className="mb-2">Keyboard shortcuts:</p>
             <ul className="space-y-1">
-              <li><kbd className="px-1.5 py-0.5 bg-bg-secondary rounded text-[10px]">Ctrl+1</kbd> Use Ours</li>
-              <li><kbd className="px-1.5 py-0.5 bg-bg-secondary rounded text-[10px]">Ctrl+2</kbd> Use Theirs</li>
-              <li><kbd className="px-1.5 py-0.5 bg-bg-secondary rounded text-[10px]">Ctrl+↑↓</kbd> Navigate files</li>
+              <li><kbd className="px-1.5 py-0.5 bg-bg-secondary rounded-sm text-[10px]">Ctrl+1</kbd> Use Ours</li>
+              <li><kbd className="px-1.5 py-0.5 bg-bg-secondary rounded-sm text-[10px]">Ctrl+2</kbd> Use Theirs</li>
+              <li><kbd className="px-1.5 py-0.5 bg-bg-secondary rounded-sm text-[10px]">Ctrl+↑↓</kbd> Navigate files</li>
             </ul>
           </div>
         </div>

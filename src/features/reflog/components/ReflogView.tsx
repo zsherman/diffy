@@ -171,12 +171,12 @@ export function ReflogView() {
           placeholder="Filter reflog..."
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="flex-1 px-2 py-1 bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
+          className="flex-1 px-2 py-1 bg-bg-tertiary border border-border-primary rounded-sm text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-hidden"
           style={{ fontSize: `${panelFontSize}px` }}
         />
         <button
           onClick={handleRefresh}
-          className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded transition-colors"
+          className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors"
           title="Refresh reflog (r)"
         >
           <ArrowClockwise size={14} weight="bold" />

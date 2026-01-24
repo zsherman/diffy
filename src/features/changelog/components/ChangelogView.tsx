@@ -272,7 +272,7 @@ ${commitLines}
               <button
                 onClick={handleRegenerate}
                 disabled={summaryLoading}
-                className="flex items-center gap-1 px-2 py-1 text-xs text-text-muted hover:text-text-primary hover:bg-bg-hover rounded transition-colors disabled:opacity-50"
+                className="flex items-center gap-1 px-2 py-1 text-xs text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors disabled:opacity-50"
                 title="Regenerate summary"
               >
                 <ArrowsClockwise
@@ -316,7 +316,7 @@ ${commitLines}
               </div>
               <button
                 onClick={handleCopyMarkdown}
-                className="flex items-center gap-1 px-2 py-1 text-xs text-text-muted hover:text-text-primary hover:bg-bg-hover rounded transition-colors"
+                className="flex items-center gap-1 px-2 py-1 text-xs text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors"
                 title="Copy as Markdown"
               >
                 {copied ? (
@@ -331,7 +331,7 @@ ${commitLines}
               {bucket.commits.map((commit) => (
                 <div
                   key={commit.id}
-                  className="flex items-start gap-2 py-1.5 px-2 rounded hover:bg-bg-hover transition-colors"
+                  className="flex items-start gap-2 py-1.5 px-2 rounded-sm hover:bg-bg-hover transition-colors"
                 >
                   <span className="text-accent-yellow font-mono text-xs shrink-0 mt-0.5">
                     {commit.shortId}

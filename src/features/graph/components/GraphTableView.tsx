@@ -34,8 +34,8 @@ import { isPerfTracingEnabled } from "../../../stores/ui-store";
 const ROW_HEIGHT = 48;
 const MIN_BRANCH_TAG_WIDTH = 80;
 const MAX_BRANCH_TAG_WIDTH = 300;
-const MIN_GRAPH_WIDTH = 60;
-const COLUMN_WIDTH = 16;
+const MIN_GRAPH_WIDTH = 80;
+const COLUMN_WIDTH = 20;
 const PAGE_SIZE = 100;
 
 export function GraphTableView() {
@@ -280,7 +280,7 @@ export function GraphTableView() {
           placeholder="Filter commits..."
           value={commitFilter}
           onChange={(e) => setCommitFilter(e.target.value)}
-          className="w-full px-2 py-1 text-sm bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
+          className="w-full px-2 py-1 text-sm bg-bg-tertiary border border-border-primary rounded-sm text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-hidden"
         />
       </div>
 

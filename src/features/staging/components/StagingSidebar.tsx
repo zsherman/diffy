@@ -114,15 +114,27 @@ const StagingFileRow = memo(function StagingFileRow({
         <span className="truncate text-text-primary ml-1 flex-1 min-w-0">
           {file.path}
         </span>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            isStaged ? onUnstage() : onStage();
-          }}
-          className="px-1.5 py-0.5 text-xs rounded bg-bg-tertiary hover:bg-bg-hover border border-border-primary opacity-0 group-hover:opacity-100 shrink-0 ml-1"
-        >
-          {isStaged ? "Unstage" : "Stage"}
-        </button>
+        <div className="flex gap-1 opacity-0 group-hover:opacity-100 shrink-0 ml-1">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              isStaged ? onUnstage() : onStage();
+            }}
+            className="px-1.5 py-0.5 text-xs rounded-sm bg-bg-tertiary hover:bg-bg-hover border border-border-primary"
+          >
+            {isStaged ? "Unstage" : "Stage"}
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDiscard();
+            }}
+            className="px-1.5 py-0.5 text-xs rounded-sm bg-accent-red/20 hover:bg-accent-red/30 border border-accent-red/30"
+            title="Discard changes"
+          >
+            <Trash size={12} weight="bold" className="text-accent-red" />
+          </button>
+        </div>
       </div>
     </FileContextMenu>
   );
@@ -178,7 +190,7 @@ const StashRow = memo(function StashRow({
             onApply();
           }}
           disabled={isLoading}
-          className="px-1.5 py-0.5 text-xs rounded bg-bg-tertiary hover:bg-bg-hover border border-border-primary disabled:opacity-50"
+          className="px-1.5 py-0.5 text-xs rounded-sm bg-bg-tertiary hover:bg-bg-hover border border-border-primary disabled:opacity-50"
           title="Apply stash (keep in list)"
         >
           <ArrowLineDown size={12} weight="bold" />
@@ -189,7 +201,7 @@ const StashRow = memo(function StashRow({
             onPop();
           }}
           disabled={isLoading}
-          className="px-1.5 py-0.5 text-xs rounded bg-accent-green/20 hover:bg-accent-green/30 border border-accent-green/30 disabled:opacity-50"
+          className="px-1.5 py-0.5 text-xs rounded-sm bg-accent-green/20 hover:bg-accent-green/30 border border-accent-green/30 disabled:opacity-50"
           title="Pop stash (apply & remove)"
         >
           <ArrowLineUp size={12} weight="bold" className="text-accent-green" />
@@ -206,7 +218,7 @@ const StashRow = memo(function StashRow({
             }
           }}
           disabled={isLoading}
-          className="px-1.5 py-0.5 text-xs rounded bg-accent-red/20 hover:bg-accent-red/30 border border-accent-red/30 disabled:opacity-50"
+          className="px-1.5 py-0.5 text-xs rounded-sm bg-accent-red/20 hover:bg-accent-red/30 border border-accent-red/30 disabled:opacity-50"
           title="Drop stash (delete)"
         >
           <X size={12} weight="bold" className="text-accent-red" />
@@ -587,7 +599,7 @@ export function StagingSidebar() {
               disableActionOnEmpty={false}
             />
             {stashesExpanded && (
-              <div className="min-h-0 flex-shrink-0">
+              <div className="min-h-0 shrink-0">
                 {/* Stash input */}
                 {showStashInput && (
                   <div className="px-2 py-2 border-b border-border-primary bg-bg-tertiary">
@@ -599,13 +611,13 @@ export function StagingSidebar() {
                         onChange={(e) => setStashMessage(e.target.value)}
                         onKeyDown={handleStashKeyDown}
                         autoFocus
-                        className="flex-1 px-2 py-1 bg-bg-secondary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
+                        className="flex-1 px-2 py-1 bg-bg-secondary border border-border-primary rounded-sm text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-hidden"
                         style={{ fontSize: `${panelFontSize}px` }}
                       />
                       <button
                         onClick={handleCreateStash}
                         disabled={isStashing}
-                        className="px-3 py-1 bg-accent-purple text-white rounded text-xs hover:bg-accent-purple/90 disabled:bg-bg-tertiary disabled:text-text-muted"
+                        className="px-3 py-1 bg-accent-purple text-white rounded-sm text-xs hover:bg-accent-purple/90 disabled:bg-bg-tertiary disabled:text-text-muted"
                       >
                         {isStashing ? (
                           <CircleNotch size={14} className="animate-spin" />
@@ -618,7 +630,7 @@ export function StagingSidebar() {
                           setShowStashInput(false);
                           setStashMessage("");
                         }}
-                        className="px-2 py-1 bg-bg-secondary border border-border-primary rounded text-text-muted hover:text-text-primary"
+                        className="px-2 py-1 bg-bg-secondary border border-border-primary rounded-sm text-text-muted hover:text-text-primary"
                       >
                         <X size={14} />
                       </button>
@@ -737,7 +749,7 @@ export function StagingSidebar() {
                 type="checkbox"
                 checked={amendPreviousCommit}
                 onChange={(e) => setAmendPreviousCommit(e.target.checked)}
-                className="rounded border-border-primary bg-bg-tertiary"
+                className="rounded-sm border-border-primary bg-bg-tertiary"
               />
               Amend previous commit
             </label>
@@ -750,13 +762,13 @@ export function StagingSidebar() {
                 value={commitMessage}
                 onChange={(e) => setCommitMessage(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="flex-1 px-2 py-1.5 bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none"
+                className="flex-1 px-2 py-1.5 bg-bg-tertiary border border-border-primary rounded-sm text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-hidden"
                 style={{ fontSize: `${panelFontSize}px` }}
               />
               <button
                 onClick={handleGenerateMessage}
                 disabled={stagedFiles.length === 0 || isGenerating}
-                className="px-2 py-1.5 bg-accent-purple text-white rounded text-xs hover:bg-accent-purple/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
+                className="px-2 py-1.5 bg-accent-purple text-white rounded-sm text-xs hover:bg-accent-purple/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
                 title="Generate commit message with AI"
               >
                 {isGenerating ? (
@@ -777,7 +789,7 @@ export function StagingSidebar() {
               value={commitDescription}
               onChange={(e) => setCommitDescription(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="flex-1 min-h-0 w-full px-2 py-1.5 bg-bg-tertiary border border-border-primary rounded text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-none resize-none"
+              className="flex-1 min-h-0 w-full px-2 py-1.5 bg-bg-tertiary border border-border-primary rounded-sm text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-hidden resize-none"
               style={{ fontSize: `${panelFontSize}px` }}
             />
 
@@ -789,7 +801,7 @@ export function StagingSidebar() {
                 stagedFiles.length === 0 ||
                 isCommitting
               }
-              className="w-full py-2 px-4 bg-accent-blue text-white rounded font-medium hover:bg-accent-blue/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors shrink-0"
+              className="w-full py-2 px-4 bg-accent-blue text-white rounded-sm font-medium hover:bg-accent-blue/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors shrink-0"
               style={{ fontSize: `${panelFontSize}px` }}
             >
               {isCommitting

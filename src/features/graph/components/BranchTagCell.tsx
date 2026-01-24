@@ -59,7 +59,7 @@ const RefBadge = memo(function RefBadge({
 
   return (
     <div
-      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium border ${colorClass}`}
+      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-xs font-medium border ${colorClass}`}
       style={{ maxWidth }}
       title={ref.name}
     >

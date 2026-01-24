@@ -314,7 +314,7 @@ function AppContent() {
                     >
                       <FolderOpen
                         size={18}
-                        className="text-text-muted flex-shrink-0"
+                        className="text-text-muted shrink-0"
                       />
                       <div className="flex-1 min-w-0">
                         <p className="text-text-primary text-sm font-medium truncate">
@@ -326,7 +326,7 @@ function AppContent() {
                       </div>
                       <button
                         onClick={(e) => handleRemoveRecent(e, repo.path)}
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-bg-tertiary rounded transition-opacity"
+                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-bg-tertiary rounded-sm transition-opacity"
                         title="Remove from recent"
                       >
                         <X size={14} className="text-text-muted" />
