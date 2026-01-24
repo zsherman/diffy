@@ -19,6 +19,7 @@ import {
   GitFork,
   ClockCounterClockwise,
   FlowArrow,
+  ShareNetwork,
 } from "@phosphor-icons/react";
 import { useActiveTabPanels } from "../../stores/tabs-store";
 import { applyLayout } from "../../lib/layouts";
@@ -113,6 +114,7 @@ export function PanelSelector() {
     showWorktreesPanel,
     showReflogPanel,
     showMermaidChangesPanel,
+    showCodeFlowPanel,
     toggleCommitsPanel,
     toggleGraphPanel,
     setShowFilesPanel,
@@ -122,6 +124,7 @@ export function PanelSelector() {
     toggleWorktreesPanel,
     toggleReflogPanel,
     toggleMermaidChangesPanel,
+    toggleCodeFlowPanel,
   } = useActiveTabPanels();
 
   // Load saved layouts on mount
@@ -207,6 +210,22 @@ export function PanelSelector() {
         "mindmap",
         "visual",
         "changes",
+      ],
+    },
+    {
+      id: "codeflow",
+      label: "Code Flow",
+      icon: <ShareNetwork size={15} />,
+      isActive: showCodeFlowPanel,
+      toggle: toggleCodeFlowPanel,
+      keywords: [
+        "call",
+        "graph",
+        "flow",
+        "function",
+        "method",
+        "code",
+        "hierarchy",
       ],
     },
   ];

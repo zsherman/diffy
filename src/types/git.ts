@@ -101,7 +101,8 @@ export type PanelId =
   | "graph"
   | "merge-conflict"
   | "reflog"
-  | "mermaid-changes";
+  | "mermaid-changes"
+  | "codeflow";
 
 export interface RefInfo {
   name: string;

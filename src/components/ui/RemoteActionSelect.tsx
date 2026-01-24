@@ -39,7 +39,7 @@ export function RemoteActionSelect({ isLoading, onExecute, disabled }: RemoteAct
       <button
         onClick={onExecute}
         disabled={isLoading || disabled}
-        className="flex items-center gap-1.5 px-2 py-1 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-accent-blue"
+        className="flex items-center gap-1.5 px-2 py-1 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-accent-blue"
         title={selectedOption.label}
       >
         {isLoading ? (
@@ -54,7 +54,7 @@ export function RemoteActionSelect({ isLoading, onExecute, disabled }: RemoteAct
       <Menu.Root open={open} onOpenChange={setOpen}>
         <Menu.Trigger
           disabled={disabled}
-          className="flex items-center px-1 py-1 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-accent-blue"
+          className="flex items-center px-1 py-1 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-accent-blue"
           aria-label="Select default pull/fetch operation"
         >
           <CaretDown size={10} />

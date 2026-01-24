@@ -5,7 +5,7 @@ import { parsePatchFiles } from "@pierre/diffs";
 import { FileDiff } from "@pierre/diffs/react";
 import { CaretRight, CaretDown, File, Warning, FolderOpen, GitDiff } from "@phosphor-icons/react";
 import { getFileDiff, getWorkingDiff, getCommitDiff } from "../../../lib/tauri";
-import { useTabsStore, useActiveTabState } from "../../../stores/tabs-store";
+import { useTabsStore, useActiveTabState, useActiveTabSelection } from "../../../stores/tabs-store";
 import { useDiffSettings } from "../../../stores/ui-store";
 import { LoadingSpinner, SkeletonDiff, FileContextMenu } from "../../../components/ui";
 import { createMountLogger } from "../../../lib/perf";
@@ -211,6 +211,7 @@ function SingleFileDiff({
 export function DiffViewer() {
   const { repository } = useTabsStore();
   const { selectedCommit, selectedFile } = useActiveTabState();
+  const { selectedFileLine, clearSelectedFileLine } = useActiveTabSelection();
   // Use focused hook - avoids re-render when unrelated UI state changes
   const { theme, diffViewMode, diffFontSize } = useDiffSettings();
   // Get the Shiki theme name for @pierre/diffs and the light/dark mode
@@ -219,6 +220,17 @@ export function DiffViewer() {
 
   // Track mount/unmount for performance debugging
   useEffect(() => createMountLogger("DiffViewer"), []);
+  
+  // Clear selectedFileLine after navigation (MVP: just clear, enhance scrolling later)
+  useEffect(() => {
+    if (selectedFileLine !== null && selectedFile) {
+      // Clear after a short delay to allow the file to load
+      const timer = setTimeout(() => {
+        clearSelectedFileLine();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedFileLine, selectedFile, clearSelectedFileLine]);
 
   // Only fetch working diff when no commit is selected
   const { data: stagedDiff, isLoading: stagedLoading } = useQuery({

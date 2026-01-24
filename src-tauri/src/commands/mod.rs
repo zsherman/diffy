@@ -2701,3 +2701,68 @@ Git diff:
     .await
     .map_err(|e| AppError::io(format!("Task join error: {}", e)))?
 }
+
+/// Read file contents from the repository (either working directory or a specific commit)
+#[tauri::command]
+#[instrument(skip_all, fields(repo_path = %repo_path, file_path = %file_path, commit_id = ?commit_id), err(Debug))]
+pub async fn read_repo_file(
+    repo_path: String,
+    file_path: String,
+    commit_id: Option<String>,
+) -> Result<String> {
+    // Validate file path - prevent path traversal
+    if file_path.starts_with('/') || file_path.starts_with('\\') {
+        return Err(AppError::validation("File path cannot be absolute"));
+    }
+    if file_path.contains("..") {
+        return Err(AppError::validation("File path cannot contain '..'"));
+    }
+
+    tokio::task::spawn_blocking(move || {
+        if let Some(cid) = commit_id {
+            // Read from git blob at specific commit
+            let repo = git::open_repo(&repo_path)?;
+            
+            // Parse the commit
+            let commit_oid = git2::Oid::from_str(&cid)
+                .map_err(|e| AppError::git(format!("Invalid commit ID: {}", e)))?;
+            let commit = repo.find_commit(commit_oid)
+                .map_err(|e| AppError::git(format!("Commit not found: {}", e)))?;
+            
+            // Get the tree and find the file
+            let tree = commit.tree()
+                .map_err(|e| AppError::git(format!("Failed to get commit tree: {}", e)))?;
+            
+            let entry = tree.get_path(std::path::Path::new(&file_path))
+                .map_err(|e| AppError::git(format!("File not found in commit: {}", e)))?;
+            
+            let blob = repo.find_blob(entry.id())
+                .map_err(|e| AppError::git(format!("Failed to read blob: {}", e)))?;
+            
+            // Convert to string
+            let content = std::str::from_utf8(blob.content())
+                .map_err(|e| AppError::parse(format!("File is not valid UTF-8: {}", e)))?
+                .to_string();
+            
+            Ok(content)
+        } else {
+            // Read from working directory
+            let full_path = std::path::Path::new(&repo_path).join(&file_path);
+            
+            // Ensure the resolved path is still within the repo
+            let canonical = full_path.canonicalize()
+                .map_err(|e| AppError::io(format!("Failed to resolve path: {}", e)))?;
+            let repo_canonical = std::path::Path::new(&repo_path).canonicalize()
+                .map_err(|e| AppError::io(format!("Failed to resolve repo path: {}", e)))?;
+            
+            if !canonical.starts_with(&repo_canonical) {
+                return Err(AppError::validation("File path escapes repository"));
+            }
+            
+            std::fs::read_to_string(&full_path)
+                .map_err(|e| AppError::io(format!("Failed to read file: {}", e)))
+        }
+    })
+    .await
+    .map_err(|e| AppError::io(format!("Task join error: {}", e)))?
+}

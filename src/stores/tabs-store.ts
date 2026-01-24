@@ -23,6 +23,7 @@ export interface PanelVisibility {
   showMergeConflictPanel: boolean;
   showReflogPanel: boolean;
   showMermaidChangesPanel: boolean;
+  showCodeFlowPanel: boolean;
 }
 
 // Per-repository tab state
@@ -35,6 +36,7 @@ export interface RepoTabState {
   selectedCommit: string | null;
   selectedCommits: string[]; // Multi-selection for squash
   selectedFile: string | null;
+  selectedFileLine: number | null; // Line to scroll to in diff viewer
 
   // Filters
   branchFilter: string;
@@ -125,6 +127,7 @@ const DEFAULT_PANELS: PanelVisibility = {
   showMergeConflictPanel: false,
   showReflogPanel: false,
   showMermaidChangesPanel: false,
+  showCodeFlowPanel: false,
 };
 
 // Create default tab state for a repository
@@ -135,6 +138,7 @@ function createTabState(repository: RepositoryInfo): RepoTabState {
     selectedCommit: null,
     selectedCommits: [],
     selectedFile: null,
+    selectedFileLine: null,
     branchFilter: "",
     commitFilter: "",
     worktreeFilter: "",
@@ -494,6 +498,22 @@ export const tabsStore = createStore({
         if (tab) tab.panels.showMermaidChangesPanel = !tab.panels.showMermaidChangesPanel;
       }),
 
+    setShowCodeFlowPanel: (ctx, event: { show: boolean }) =>
+      produce(ctx, (draft) => {
+        const tab = draft.tabs.find(
+          (t) => t.repository.path === draft.activeTabPath,
+        );
+        if (tab) tab.panels.showCodeFlowPanel = event.show;
+      }),
+
+    toggleCodeFlowPanel: (ctx) =>
+      produce(ctx, (draft) => {
+        const tab = draft.tabs.find(
+          (t) => t.repository.path === draft.activeTabPath,
+        );
+        if (tab) tab.panels.showCodeFlowPanel = !tab.panels.showCodeFlowPanel;
+      }),
+
     // Save dockview layout for current tab
     saveDockviewLayout: (ctx, event: { layout: unknown }) =>
       produce(ctx, (draft) => {
@@ -668,6 +688,7 @@ const DEFAULT_PANEL_STATE: PanelVisibility = {
   showMergeConflictPanel: false,
   showReflogPanel: false,
   showMermaidChangesPanel: false,
+  showCodeFlowPanel: false,
 };
 
 // Shallow equality check for panel visibility
@@ -684,7 +705,8 @@ function panelsEqual(a: PanelVisibility, b: PanelVisibility): boolean {
     a.showGraphPanel === b.showGraphPanel &&
     a.showMergeConflictPanel === b.showMergeConflictPanel &&
     a.showReflogPanel === b.showReflogPanel &&
-    a.showMermaidChangesPanel === b.showMermaidChangesPanel
+    a.showMermaidChangesPanel === b.showMermaidChangesPanel &&
+    a.showCodeFlowPanel === b.showCodeFlowPanel
   );
 }
 
@@ -712,6 +734,7 @@ export function useActiveTabPanels() {
     showMergeConflictPanel,
     showReflogPanel,
     showMermaidChangesPanel,
+    showCodeFlowPanel,
   } = panels;
 
   // Panel actions (memoized)
@@ -805,6 +828,14 @@ export function useActiveTabPanels() {
     () => tabsStore.send({ type: "toggleMermaidChangesPanel" }),
     [],
   );
+  const setShowCodeFlowPanel = useCallback(
+    (show: boolean) => tabsStore.send({ type: "setShowCodeFlowPanel", show }),
+    [],
+  );
+  const toggleCodeFlowPanel = useCallback(
+    () => tabsStore.send({ type: "toggleCodeFlowPanel" }),
+    [],
+  );
 
   return {
     showCommitsPanel,
@@ -819,6 +850,7 @@ export function useActiveTabPanels() {
     showMergeConflictPanel,
     showReflogPanel,
     showMermaidChangesPanel,
+    showCodeFlowPanel,
     syncPanels,
     setShowCommitsPanel,
     toggleCommitsPanel,
@@ -841,6 +873,8 @@ export function useActiveTabPanels() {
     toggleReflogPanel,
     setShowMermaidChangesPanel,
     toggleMermaidChangesPanel,
+    setShowCodeFlowPanel,
+    toggleCodeFlowPanel,
   };
 }
 
@@ -892,6 +926,7 @@ type SelectionState = {
   selectedCommit: string | null;
   selectedCommits: string[];
   selectedFile: string | null;
+  selectedFileLine: number | null;
   selectedWorktree: string | null;
 };
 const DEFAULT_SELECTION_STATE: SelectionState = {
@@ -899,6 +934,7 @@ const DEFAULT_SELECTION_STATE: SelectionState = {
   selectedCommit: null,
   selectedCommits: [],
   selectedFile: null,
+  selectedFileLine: null,
   selectedWorktree: null,
 };
 
@@ -915,6 +951,7 @@ export function useActiveTabSelection() {
             selectedCommit: tab.selectedCommit,
             selectedCommits: tab.selectedCommits,
             selectedFile: tab.selectedFile,
+            selectedFileLine: tab.selectedFileLine,
             selectedWorktree: tab.selectedWorktree,
           }
         : DEFAULT_SELECTION_STATE;
@@ -924,6 +961,7 @@ export function useActiveTabSelection() {
       a.selectedCommit === b.selectedCommit &&
       a.selectedCommits === b.selectedCommits &&
       a.selectedFile === b.selectedFile &&
+      a.selectedFileLine === b.selectedFileLine &&
       a.selectedWorktree === b.selectedWorktree,
   );
 
@@ -932,6 +970,7 @@ export function useActiveTabSelection() {
     selectedCommit,
     selectedCommits,
     selectedFile,
+    selectedFileLine,
     selectedWorktree,
   } = selection;
 
@@ -950,7 +989,15 @@ export function useActiveTabSelection() {
     [updateActiveTab],
   );
   const setSelectedFile = useCallback(
-    (file: string | null) => updateActiveTab({ selectedFile: file }),
+    (file: string | null) => updateActiveTab({ selectedFile: file, selectedFileLine: null }),
+    [updateActiveTab],
+  );
+  const setSelectedFileWithLine = useCallback(
+    (file: string | null, line: number | null) => updateActiveTab({ selectedFile: file, selectedFileLine: line }),
+    [updateActiveTab],
+  );
+  const clearSelectedFileLine = useCallback(
+    () => updateActiveTab({ selectedFileLine: null }),
     [updateActiveTab],
   );
   const setSelectedWorktree = useCallback(
@@ -980,10 +1027,13 @@ export function useActiveTabSelection() {
     selectedCommit,
     selectedCommits,
     selectedFile,
+    selectedFileLine,
     selectedWorktree,
     setSelectedBranch,
     setSelectedCommit,
     setSelectedFile,
+    setSelectedFileWithLine,
+    clearSelectedFileLine,
     setSelectedWorktree,
     toggleCommitSelection,
     setSelectedCommits,

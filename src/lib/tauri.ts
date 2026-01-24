@@ -751,3 +751,20 @@ export interface RepoChangedEvent {
   repoPath: string;
   fileCount: number;
 }
+
+// =============================================================================
+// Code Flow
+// =============================================================================
+
+/**
+ * Read file contents from the repository.
+ * If commitId is provided, reads from that commit's tree.
+ * Otherwise, reads from the working directory.
+ */
+export async function readRepoFile(
+  repoPath: string,
+  filePath: string,
+  commitId?: string,
+): Promise<string> {
+  return invoke<string>("read_repo_file", { repoPath, filePath, commitId });
+}

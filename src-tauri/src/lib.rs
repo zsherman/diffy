@@ -110,6 +110,8 @@ pub fn run() {
             // Watcher commands
             commands::start_watching,
             commands::stop_watching,
+            // Code flow commands
+            commands::read_repo_file,
         ])
         .setup(|_app| {
             #[cfg(debug_assertions)]
