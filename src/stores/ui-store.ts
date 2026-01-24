@@ -3,7 +3,7 @@ import { createStore } from "@xstate/store";
 import { useSelector } from "@xstate/store/react";
 import { produce } from "immer";
 import type { DockviewApi } from "dockview-react";
-import type { PanelId } from "../types/git";
+import type { AIReviewReviewerId, PanelId } from "../types/git";
 import { tabsStore, type PanelVisibility } from "./tabs-store";
 import { type ThemeId, isValidThemeId, getDefaultTheme } from "../lib/themes";
 
@@ -57,6 +57,9 @@ interface UIContext {
   // Skills (global selection)
   selectedSkillIds: string[];
 
+  // AI Review
+  aiReviewReviewerId: AIReviewReviewerId;
+
   // Developer/Performance settings
   perfTracingEnabled: boolean;
 
@@ -91,6 +94,16 @@ function getInitialSelectedSkills(): string[] {
     }
   }
   return [];
+}
+
+function getInitialAIReviewReviewerId(): AIReviewReviewerId {
+  if (typeof window !== "undefined") {
+    const saved = localStorage.getItem("diffy-ai-reviewer");
+    if (saved === "claude-cli" || saved === "coderabbit-cli") {
+      return saved;
+    }
+  }
+  return "claude-cli";
 }
 
 // Get initial perf tracing setting from localStorage
@@ -161,6 +174,7 @@ export const uiStore = createStore({
     panelFontSize: 13,
     graphColumnWidths: { branchTag: 180, graph: 120 },
     selectedSkillIds: getInitialSelectedSkills(),
+    aiReviewReviewerId: getInitialAIReviewReviewerId(),
     perfTracingEnabled: getInitialPerfTracingEnabled(),
     defaultRemoteAction: getInitialDefaultRemoteAction(),
   } as UIContext,
@@ -219,6 +233,13 @@ export const uiStore = createStore({
             "diffy-selected-skills",
             JSON.stringify(event.skillIds),
           );
+        }
+      }),
+    setAIReviewReviewerId: (ctx, event: { reviewerId: AIReviewReviewerId }) =>
+      produce(ctx, (draft) => {
+        draft.aiReviewReviewerId = event.reviewerId;
+        if (typeof window !== "undefined") {
+          localStorage.setItem("diffy-ai-reviewer", event.reviewerId);
         }
       }),
     toggleSkillSelection: (ctx, event: { skillId: string }) =>
@@ -495,6 +516,10 @@ export function useUIStore() {
     uiStore,
     (s) => s.context.selectedSkillIds,
   );
+  const aiReviewReviewerId = useSelector(
+    uiStore,
+    (s) => s.context.aiReviewReviewerId,
+  );
   const perfTracingEnabled = useSelector(
     uiStore,
     (s) => s.context.perfTracingEnabled,
@@ -589,6 +614,11 @@ export function useUIStore() {
   const setSelectedSkillIds = useCallback(
     (skillIds: string[]) =>
       uiStore.send({ type: "setSelectedSkillIds", skillIds }),
+    [],
+  );
+  const setAIReviewReviewerId = useCallback(
+    (reviewerId: AIReviewReviewerId) =>
+      uiStore.send({ type: "setAIReviewReviewerId", reviewerId }),
     [],
   );
   const toggleSkillSelection = useCallback(
@@ -699,6 +729,7 @@ export function useUIStore() {
     panelFontSize,
     graphColumnWidths,
     selectedSkillIds,
+    aiReviewReviewerId,
     perfTracingEnabled,
     defaultRemoteAction,
 
@@ -725,6 +756,7 @@ export function useUIStore() {
     setPanelFontSize,
     setGraphColumnWidths,
     setSelectedSkillIds,
+    setAIReviewReviewerId,
     toggleSkillSelection,
     setShowSkillsDialog,
     clearSelectedSkills,

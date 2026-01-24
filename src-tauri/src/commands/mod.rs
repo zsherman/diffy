@@ -1621,6 +1621,534 @@ Respond ONLY with valid JSON in this exact format (no markdown, no code blocks, 
 
 use crate::watcher::WatcherState;
 
+// =============================================================================
+// Provider-agnostic Review API
+// =============================================================================
+
+/// Reviewer IDs matching the frontend enum
+#[derive(serde::Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum ReviewerId {
+    ClaudeCli,
+    CoderabbitCli,
+}
+
+/// Parsed issue from CodeRabbit output
+#[derive(serde::Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct CodeRabbitIssue {
+    pub file: String,
+    pub lines: String,
+    #[serde(rename = "type")]
+    pub issue_type: String,
+    pub severity: Option<String>,
+    pub description: String,
+    pub suggested_fix: Option<String>,
+    pub ai_agent_prompt: Option<String>,
+}
+
+/// Serde-tagged union for review results (mirrors TS ReviewResult)
+#[derive(serde::Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum ReviewResult {
+    /// Structured review from Claude CLI
+    Structured {
+        #[serde(rename = "providerId")]
+        provider_id: String,
+        data: AIReviewData,
+    },
+    /// Raw text review (fallback)
+    Text {
+        #[serde(rename = "providerId")]
+        provider_id: String,
+        content: String,
+        #[serde(rename = "generatedAt")]
+        generated_at: u64,
+        format: String,
+    },
+    /// Parsed CodeRabbit review with structured issues
+    Coderabbit {
+        #[serde(rename = "providerId")]
+        provider_id: String,
+        issues: Vec<CodeRabbitIssue>,
+        #[serde(rename = "rawContent")]
+        raw_content: String,
+        #[serde(rename = "generatedAt")]
+        generated_at: u64,
+    },
+}
+
+/// Find the coderabbit CLI binary by checking common installation paths
+fn find_coderabbit_binary() -> Result<PathBuf> {
+    let home = std::env::var("HOME").unwrap_or_default();
+
+    let candidates = [
+        format!("{}/.local/bin/coderabbit", home),
+        format!("{}/.bun/bin/coderabbit", home),
+        format!("{}/.npm-global/bin/coderabbit", home),
+        "/usr/local/bin/coderabbit".to_string(),
+        "/opt/homebrew/bin/coderabbit".to_string(),
+    ];
+
+    for path in candidates {
+        let p = PathBuf::from(&path);
+        if p.exists() {
+            return Ok(p);
+        }
+    }
+
+    // Fall back to PATH lookup
+    Ok(PathBuf::from("coderabbit"))
+}
+
+/// Parse CodeRabbit --plain output into structured issues
+/// 
+/// The output format is:
+/// ```
+/// ============================================================================
+/// File: src-tauri/src/commands/mod.rs
+/// Line: 1924 to 1947
+/// Type: potential_issue
+///
+/// Comment:
+/// Description of the issue...
+///
+/// 🔧 Proposed fix
+/// [code suggestion]
+///
+/// Prompt for AI Agent:
+/// [AI prompt text]
+/// ```
+fn parse_coderabbit_output(content: &str) -> Vec<CodeRabbitIssue> {
+    let mut issues = Vec::new();
+    
+    // Split by the separator line
+    let separator = "============================================================================";
+    let sections: Vec<&str> = content.split(separator).collect();
+    
+    for section in sections {
+        let section = section.trim();
+        if section.is_empty() {
+            continue;
+        }
+        
+        // Skip the preamble (before first issue)
+        if !section.contains("File:") {
+            continue;
+        }
+        
+        if let Some(issue) = parse_coderabbit_section(section) {
+            issues.push(issue);
+        }
+    }
+    
+    issues
+}
+
+/// Parse a single CodeRabbit issue section
+fn parse_coderabbit_section(section: &str) -> Option<CodeRabbitIssue> {
+    let lines: Vec<&str> = section.lines().collect();
+    
+    let mut file = String::new();
+    let mut line_range = String::new();
+    let mut issue_type = String::new();
+    let mut description = String::new();
+    let mut suggested_fix: Option<String> = None;
+    let mut ai_prompt: Option<String> = None;
+    
+    let mut current_section = ""; // "", "comment", "fix", "prompt"
+    let mut section_content: Vec<&str> = Vec::new();
+    
+    for line in lines {
+        let trimmed = line.trim();
+        
+        // Parse header fields
+        if trimmed.starts_with("File:") {
+            file = trimmed.strip_prefix("File:").unwrap_or("").trim().to_string();
+            continue;
+        }
+        if trimmed.starts_with("Line:") {
+            // "Line: 1924 to 1947" or "Line: 42"
+            let line_str = trimmed.strip_prefix("Line:").unwrap_or("").trim();
+            line_range = line_str
+                .replace(" to ", "-")
+                .replace(" - ", "-")
+                .to_string();
+            continue;
+        }
+        if trimmed.starts_with("Type:") {
+            issue_type = trimmed.strip_prefix("Type:").unwrap_or("").trim().to_string();
+            // Make the type more readable
+            issue_type = issue_type
+                .replace('_', " ")
+                .split_whitespace()
+                .map(|word| {
+                    let mut chars: Vec<char> = word.chars().collect();
+                    if let Some(first) = chars.first_mut() {
+                        *first = first.to_ascii_uppercase();
+                    }
+                    chars.into_iter().collect::<String>()
+                })
+                .collect::<Vec<_>>()
+                .join(" ");
+            continue;
+        }
+        
+        // Detect section changes
+        if trimmed == "Comment:" {
+            // Save previous section
+            save_section(current_section, &section_content, &mut description, &mut suggested_fix, &mut ai_prompt);
+            current_section = "comment";
+            section_content.clear();
+            continue;
+        }
+        if trimmed.contains("Proposed fix") || trimmed.contains("Suggested addition") || trimmed.contains("Suggested fix") {
+            save_section(current_section, &section_content, &mut description, &mut suggested_fix, &mut ai_prompt);
+            current_section = "fix";
+            section_content.clear();
+            continue;
+        }
+        if trimmed.starts_with("Prompt for AI Agent:") {
+            save_section(current_section, &section_content, &mut description, &mut suggested_fix, &mut ai_prompt);
+            current_section = "prompt";
+            section_content.clear();
+            continue;
+        }
+        
+        // Accumulate content for current section
+        if !current_section.is_empty() {
+            section_content.push(line);
+        }
+    }
+    
+    // Save the last section
+    save_section(current_section, &section_content, &mut description, &mut suggested_fix, &mut ai_prompt);
+    
+    // Only return if we have at least a file
+    if file.is_empty() {
+        return None;
+    }
+    
+    Some(CodeRabbitIssue {
+        file,
+        lines: line_range,
+        issue_type: if issue_type.is_empty() { "Issue".to_string() } else { issue_type },
+        severity: None,
+        description,
+        suggested_fix,
+        ai_agent_prompt: ai_prompt,
+    })
+}
+
+/// Helper to save accumulated section content
+fn save_section(
+    section_type: &str,
+    content: &[&str],
+    description: &mut String,
+    suggested_fix: &mut Option<String>,
+    ai_prompt: &mut Option<String>,
+) {
+    if content.is_empty() {
+        return;
+    }
+    
+    let text = content.join("\n").trim().to_string();
+    if text.is_empty() {
+        return;
+    }
+    
+    match section_type {
+        "comment" => *description = text,
+        "fix" => *suggested_fix = Some(text),
+        "prompt" => *ai_prompt = Some(text),
+        _ => {}
+    }
+}
+
+/// Run CodeRabbit CLI for working changes (staged + unstaged)
+fn run_coderabbit_review(repo_path: &str) -> Result<ReviewResult> {
+    let cr_path = find_coderabbit_binary()?;
+
+    // Use --plain for structured text output that we can parse
+    let output = Command::new(&cr_path)
+        .args(["--plain", "--no-color", "--type", "uncommitted"])
+        .current_dir(repo_path)
+        .output()
+        .map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                AppError::ai(format!(
+                    "CodeRabbit CLI not found. Install it with:\n\n  curl -fsSL https://cli.coderabbit.ai/install.sh | sh\n\nThen restart your terminal."
+                ))
+            } else {
+                AppError::ai(format!("Failed to run coderabbit at {:?}: {}", cr_path, e))
+            }
+        })?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let exit_code = output.status.code().map(|c| c.to_string()).unwrap_or("unknown".to_string());
+
+        let mut error_msg = format!("CodeRabbit CLI failed (exit code {})", exit_code);
+        if !stderr.is_empty() {
+            error_msg.push_str(&format!(": {}", stderr));
+        } else if !stdout.is_empty() {
+            error_msg.push_str(&format!(": {}", stdout));
+        } else {
+            error_msg.push_str(". The CLI may not be properly configured. Run 'coderabbit auth login' to authenticate.");
+        }
+        return Err(AppError::ai(error_msg));
+    }
+
+    let content = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+    if content.is_empty() {
+        return Err(AppError::ai("CodeRabbit returned an empty response. There may be no changes to review."));
+    }
+
+    let generated_at = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+
+    // Parse structured issues (may be empty if no issues found)
+    let issues = parse_coderabbit_output(&content);
+    
+    // Always return CodeRabbit result - UI handles empty issues with a nice message
+    Ok(ReviewResult::Coderabbit {
+        provider_id: "coderabbit-cli".to_string(),
+        issues,
+        raw_content: content,
+        generated_at,
+    })
+}
+
+/// Run Claude CLI for structured review (reuses existing logic)
+/// 
+/// Takes an optional skills_dir path instead of AppHandle to allow running in spawn_blocking
+fn run_claude_review(
+    skills_dir: Option<PathBuf>,
+    repo_path: &str,
+    commit_id: Option<&str>,
+    skill_ids: Option<&[String]>,
+) -> Result<ReviewResult> {
+    let repo = git::open_repo(repo_path)?;
+
+    // Get diff based on whether we're reviewing a commit or working changes
+    let diff_patch = if let Some(cid) = commit_id {
+        let diff = git::get_commit_diff(&repo, cid)?;
+        diff.patch
+    } else {
+        // Get combined staged and unstaged diff for working changes
+        let staged = git::get_working_diff(&repo, true)?;
+        let unstaged = git::get_working_diff(&repo, false)?;
+        format!("{}\n{}", staged.patch, unstaged.patch)
+    };
+
+    if diff_patch.trim().is_empty() {
+        return Err(AppError::validation("No changes to review"));
+    }
+
+    // Truncate diff if too long
+    let max_diff_len = 12000;
+    let truncated_diff = if diff_patch.len() > max_diff_len {
+        format!("{}...\n[diff truncated]", &diff_patch[..max_diff_len])
+    } else {
+        diff_patch
+    };
+
+    // Load skill content if skills provided
+    let skills_context = if let (Some(ids), Some(dir)) = (skill_ids, skills_dir) {
+        let mut context = String::new();
+        for id in ids {
+            let path = dir.join(format!("{}.md", id));
+            if path.exists() {
+                if let Ok(content) = fs::read_to_string(&path) {
+                    let (_name, _desc, body) = parse_skill_frontmatter(&content);
+                    context.push_str(&format!("\n\n{}", body));
+                }
+            }
+        }
+        context
+    } else {
+        String::new()
+    };
+
+    let prompt = format!(
+        r#"You are an expert code reviewer. Your goal is to provide actionable feedback.{skills_context}
+
+Analyze this git diff and provide a PR-style review with specific, actionable issues.
+
+For each issue you find, explain:
+- **problem**: What is wrong or concerning
+- **why**: Why it matters (impact on correctness, security, performance, maintainability)
+- **suggestion**: A concrete fix or improvement
+
+Categories: logic_bugs, edge_cases, security, performance, accidental_code, other
+Severities: low, medium, high, critical
+
+Respond ONLY with valid JSON (no markdown, no code blocks):
+{{
+  "overview": "1-2 sentence summary of the changes",
+  "issues": [
+    {{
+      "id": "issue-1",
+      "category": "logic_bugs",
+      "severity": "high",
+      "title": "brief title",
+      "problem": "what is wrong",
+      "why": "why it matters",
+      "suggestion": "how to fix it",
+      "filePath": "path/to/file.ts"
+    }}
+  ]
+}}
+
+If there are no issues, use an empty array for "issues".
+
+Diff to review:
+{diff}"#,
+        skills_context = skills_context,
+        diff = truncated_diff
+    );
+
+    // Call claude CLI
+    let claude_path = find_claude_binary()?;
+    let output = Command::new(&claude_path)
+        .args(["-p", &prompt])
+        .output()
+        .map_err(|e| AppError::ai(format!("Failed to run claude at {:?}: {}", claude_path, e)))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(AppError::ai(format!("Claude failed: {}", stderr)));
+    }
+
+    let response = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+    if response.is_empty() {
+        return Err(AppError::ai("Claude returned an empty response"));
+    }
+
+    // Try to extract JSON from the response
+    let json_str = extract_json_object(&response)
+        .ok_or_else(|| AppError::parse(format!("Could not find valid JSON in response: {}", response)))?;
+
+    let json: serde_json::Value = serde_json::from_str(json_str)
+        .map_err(|e| AppError::parse(format!("Failed to parse AI response as JSON: {}. JSON was: {}", e, json_str)))?;
+
+    let overview = json["overview"]
+        .as_str()
+        .unwrap_or("Unable to generate overview")
+        .to_string();
+
+    // Parse issues with graceful defaulting
+    let issues: Vec<AIReviewIssue> = json["issues"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .enumerate()
+                .filter_map(|(idx, issue)| {
+                    let title = issue["title"].as_str()
+                        .or_else(|| issue["problem"].as_str().map(|p| &p[..p.len().min(50)]))
+                        .map(|s| s.to_string())?;
+
+                    let id = issue["id"].as_str()
+                        .map(|s| s.to_string())
+                        .unwrap_or_else(|| format!("issue-{}", idx + 1));
+
+                    let category = issue["category"].as_str()
+                        .map(normalize_category)
+                        .unwrap_or_else(|| "other".to_string());
+
+                    let severity = issue["severity"].as_str()
+                        .map(normalize_severity)
+                        .unwrap_or_else(|| "medium".to_string());
+
+                    let problem = issue["problem"].as_str()
+                        .or_else(|| issue["description"].as_str())
+                        .unwrap_or("")
+                        .to_string();
+
+                    let why = issue["why"].as_str()
+                        .or_else(|| issue["explanation"].as_str())
+                        .unwrap_or("")
+                        .to_string();
+
+                    let suggestion = issue["suggestion"].as_str()
+                        .or_else(|| issue["fix"].as_str())
+                        .unwrap_or("")
+                        .to_string();
+
+                    let file_path = issue["filePath"].as_str()
+                        .or_else(|| issue["file_path"].as_str())
+                        .or_else(|| issue["file"].as_str())
+                        .map(|s| s.to_string());
+
+                    Some(AIReviewIssue {
+                        id,
+                        category,
+                        severity,
+                        title,
+                        problem,
+                        why,
+                        suggestion,
+                        file_path,
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let generated_at = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+
+    Ok(ReviewResult::Structured {
+        provider_id: "claude-cli".to_string(),
+        data: AIReviewData {
+            overview,
+            issues,
+            generated_at,
+        },
+    })
+}
+
+#[tauri::command]
+#[instrument(skip_all, fields(reviewer_id = ?reviewer_id, commit_id = ?commit_id), err(Debug))]
+pub async fn generate_review(
+    app: tauri::AppHandle,
+    repo_path: String,
+    reviewer_id: ReviewerId,
+    commit_id: Option<String>,
+    skill_ids: Option<Vec<String>>,
+) -> Result<ReviewResult> {
+    // CodeRabbit v1 only supports working changes - check before spawning
+    if reviewer_id == ReviewerId::CoderabbitCli && commit_id.is_some() {
+        return Err(AppError::validation(
+            "CodeRabbit CLI currently supports working changes only. Select a different reviewer to review commits."
+        ));
+    }
+
+    // Extract skills_dir before spawning (AppHandle is not Send)
+    let skills_dir = get_skills_dir_path(&app).ok();
+
+    // Run blocking CLI operations on dedicated thread pool
+    tokio::task::spawn_blocking(move || {
+        match reviewer_id {
+            ReviewerId::ClaudeCli => {
+                run_claude_review(skills_dir, &repo_path, commit_id.as_deref(), skill_ids.as_deref())
+            }
+            ReviewerId::CoderabbitCli => {
+                run_coderabbit_review(&repo_path)
+            }
+        }
+    })
+    .await
+    .map_err(|e| AppError::io(format!("Task join error: {}", e)))?
+}
+
 // Contributor review types
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]

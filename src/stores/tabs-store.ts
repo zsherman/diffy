@@ -2,7 +2,12 @@ import { useCallback } from "react";
 import { createStore } from "@xstate/store";
 import { useSelector } from "@xstate/store/react";
 import { produce } from "immer";
-import type { RepositoryInfo, ViewMode, AIReviewData } from "../types/git";
+import type {
+  RepositoryInfo,
+  ViewMode,
+  AIReviewData,
+  ReviewResult,
+} from "../types/git";
 
 // Panel visibility state (per-tab)
 export interface PanelVisibility {
@@ -51,6 +56,9 @@ export interface RepoTabState {
   aiReview: AIReviewData | null;
   aiReviewLoading: boolean;
   aiReviewError: string | null;
+  reviewResult: ReviewResult | null;
+  reviewLoading: boolean;
+  reviewError: string | null;
 
   // Panel visibility (per-tab)
   panels: PanelVisibility;
@@ -135,6 +143,9 @@ function createTabState(repository: RepositoryInfo): RepoTabState {
     aiReview: null,
     aiReviewLoading: false,
     aiReviewError: null,
+    reviewResult: null,
+    reviewLoading: false,
+    reviewError: null,
     panels: { ...DEFAULT_PANELS },
     dockviewLayout: null,
   };
@@ -250,6 +261,8 @@ export const tabsStore = createStore({
         if (tab) {
           tab.aiReview = null;
           tab.aiReviewError = null;
+          tab.reviewResult = null;
+          tab.reviewError = null;
         }
       }),
 

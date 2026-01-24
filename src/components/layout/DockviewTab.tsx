@@ -10,8 +10,10 @@ import {
   Tree,
   ChartBar,
   GitMerge,
+  ClockCounterClockwise,
   type IconProps,
 } from '@phosphor-icons/react';
+import { useActiveTabAIReview } from '../../stores/tabs-store';
 
 type IconComponent = React.ComponentType<IconProps>;
 
@@ -25,7 +27,19 @@ const panelIcons: Record<string, IconComponent> = {
   worktrees: Tree,
   graph: ChartBar,
   'merge-conflict': GitMerge,
+  reflog: ClockCounterClockwise,
 };
+
+// Status indicator for AI Review panel
+function AIReviewStatusIndicator() {
+  const { aiReviewLoading } = useActiveTabAIReview();
+
+  if (!aiReviewLoading) return null;
+
+  return (
+    <span className="w-2 h-2 rounded-full bg-accent-yellow animate-pulse" />
+  );
+}
 
 export function DockviewTab({ api }: IDockviewPanelHeaderProps) {
   const [isActive, setIsActive] = useState(api.isActive);
@@ -41,15 +55,18 @@ export function DockviewTab({ api }: IDockviewPanelHeaderProps) {
   }, [api]);
 
   return (
-    <div className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium select-none">
+    <div className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium select-none text-text-primary">
       {Icon && (
         <Icon
           size={14}
           weight="bold"
-          className={isActive ? 'text-accent-blue' : 'opacity-60'}
+          className={isActive ? "text-accent-blue" : "text-text-muted"}
         />
       )}
-      <span>{title}</span>
+      <span className={isActive ? "text-text-primary" : "text-text-muted"}>
+        {title}
+      </span>
+      {panelId === 'ai-review' && <AIReviewStatusIndicator />}
     </div>
   );
 }

@@ -136,6 +136,43 @@ export interface AIReviewData {
   generatedAt: number;
 }
 
+export type AIReviewReviewerId = "claude-cli" | "coderabbit-cli";
+
+export interface StructuredReviewResult {
+  kind: "structured";
+  providerId: AIReviewReviewerId;
+  data: AIReviewData;
+}
+
+export interface TextReviewResult {
+  kind: "text";
+  providerId: AIReviewReviewerId;
+  content: string;
+  generatedAt: number;
+  format: "plain";
+}
+
+// Parsed CodeRabbit issue
+export interface CodeRabbitIssue {
+  file: string;
+  lines: string; // e.g., "12-15" or "42"
+  type: string; // e.g., "Bug Risk", "Performance", "Security"
+  severity?: string;
+  description: string;
+  suggestedFix?: string;
+  aiAgentPrompt?: string;
+}
+
+export interface CodeRabbitReviewResult {
+  kind: "coderabbit";
+  providerId: "coderabbit-cli";
+  issues: CodeRabbitIssue[];
+  rawContent: string; // Keep raw content for fallback
+  generatedAt: number;
+}
+
+export type ReviewResult = StructuredReviewResult | TextReviewResult | CodeRabbitReviewResult;
+
 export interface WorktreeInfo {
   name: string;
   path: string;

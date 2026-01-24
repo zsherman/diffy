@@ -17,7 +17,7 @@ import {
 } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  generateAIReview,
+  generateReview,
   fixAIReviewIssues,
   type IssueToFix,
 } from "../../../lib/tauri";
@@ -35,6 +35,8 @@ import type {
   AIReviewIssue,
   AIReviewCategory,
   AIReviewSeverity,
+  ReviewResult,
+  CodeRabbitIssue,
 } from "../../../types/git";
 
 // Animated loading messages for fix operation
@@ -443,58 +445,6 @@ const FixResultNotification = memo(function FixResultNotification({
   );
 });
 
-// Status indicator component
-type ReviewStatus = "not_running" | "running" | "completed";
-
-const StatusIndicator = memo(function StatusIndicator({
-  status,
-  timestamp,
-  notRunningReason,
-}: {
-  status: ReviewStatus;
-  timestamp?: number;
-  notRunningReason?: string;
-}) {
-  const statusConfig = {
-    not_running: {
-      label: "Not running",
-      color: "text-text-muted",
-      dotColor: "bg-text-muted",
-    },
-    running: {
-      label: "Running",
-      color: "text-accent-yellow",
-      dotColor: "bg-accent-yellow animate-pulse",
-    },
-    completed: {
-      label: "Completed",
-      color: "text-accent-green",
-      dotColor: "bg-accent-green",
-    },
-  };
-
-  const config = statusConfig[status];
-  const timeStr = timestamp
-    ? new Date(timestamp * 1000).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : null;
-
-  return (
-    <div className="flex items-center gap-2 text-xs">
-      <span className={`w-2 h-2 rounded-full ${config.dotColor}`} />
-      <span className={config.color}>{config.label}</span>
-      {status === "not_running" && notRunningReason && (
-        <span className="text-text-muted">· {notRunningReason}</span>
-      )}
-      {status === "completed" && timeStr && (
-        <span className="text-text-muted">· {timeStr}</span>
-      )}
-    </div>
-  );
-});
-
 // Session metrics display
 const SessionMetrics = memo(function SessionMetrics({
   issuesFound,
@@ -520,6 +470,372 @@ const SessionMetrics = memo(function SessionMetrics({
   );
 });
 
+// Text review result display component
+const TextReviewContent = memo(function TextReviewContent({
+  content,
+  onRegenerate,
+  onNewReview,
+  isLoading,
+}: {
+  content: string;
+  onRegenerate: () => void;
+  onNewReview: () => void;
+  isLoading: boolean;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
+  }, [content]);
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border-primary bg-bg-secondary">
+        <span className="text-xs px-2 py-0.5 bg-accent-blue/20 text-accent-blue rounded-sm">
+          CodeRabbit
+        </span>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleCopy}
+            className="flex items-center gap-1.5 px-2 py-1 text-xs text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors"
+          >
+            {copied ? (
+              <>
+                <CheckCircle size={12} weight="fill" className="text-accent-green" />
+                Copied
+              </>
+            ) : (
+              <>
+                <Copy size={12} />
+                Copy
+              </>
+            )}
+          </button>
+          <button
+            onClick={onNewReview}
+            disabled={isLoading}
+            className="px-2 py-1 text-xs text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors"
+            title="Start fresh"
+          >
+            New
+          </button>
+          <button
+            onClick={onRegenerate}
+            disabled={isLoading}
+            className="px-2 py-1 text-xs text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors flex items-center gap-1"
+            title="Regenerate"
+          >
+            <ArrowCounterClockwise size={14} weight="bold" />
+          </button>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-auto p-4">
+        <pre className="text-sm text-text-primary leading-relaxed whitespace-pre-wrap font-mono">
+          {content}
+        </pre>
+      </div>
+    </div>
+  );
+});
+
+// Render a diff-style suggested fix with line highlighting
+const DiffView = memo(function DiffView({ content }: { content: string }) {
+  const lines = content.split("\n");
+
+  return (
+    <div className="text-xs font-mono bg-bg-primary rounded-sm overflow-x-auto">
+      {lines.map((line, idx) => {
+        const trimmed = line.trimStart();
+        let bgColor = "";
+        let textColor = "text-text-primary";
+
+        if (trimmed.startsWith("-") && !trimmed.startsWith("---")) {
+          bgColor = "bg-accent-red/10";
+          textColor = "text-accent-red";
+        } else if (trimmed.startsWith("+") && !trimmed.startsWith("+++")) {
+          bgColor = "bg-accent-green/10";
+          textColor = "text-accent-green";
+        } else if (trimmed.startsWith("@@")) {
+          textColor = "text-accent-blue";
+        }
+
+        return (
+          <div key={idx} className={`px-2 py-0.5 ${bgColor}`}>
+            <span className={textColor}>{line}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+});
+
+// Single CodeRabbit issue card component
+const CodeRabbitIssueCard = memo(function CodeRabbitIssueCard({
+  issue,
+}: {
+  issue: CodeRabbitIssue;
+}) {
+  const [isExpanded, setIsExpanded] = useState(true);
+  const [copiedPrompt, setCopiedPrompt] = useState(false);
+
+  const handleCopyPrompt = useCallback(async () => {
+    if (!issue.aiAgentPrompt) return;
+    try {
+      await navigator.clipboard.writeText(issue.aiAgentPrompt);
+      setCopiedPrompt(true);
+      setTimeout(() => setCopiedPrompt(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
+  }, [issue.aiAgentPrompt]);
+
+  // Determine badge color based on issue type
+  const getTypeBadgeColor = (type: string) => {
+    const lowerType = type.toLowerCase();
+    if (lowerType.includes("bug") || lowerType.includes("error") || lowerType.includes("issue")) {
+      return "bg-accent-red/20 text-accent-red";
+    }
+    if (lowerType.includes("security") || lowerType.includes("vulnerability")) {
+      return "bg-accent-orange/20 text-accent-orange";
+    }
+    if (lowerType.includes("performance") || lowerType.includes("optimization")) {
+      return "bg-accent-yellow/20 text-accent-yellow";
+    }
+    if (lowerType.includes("suggestion") || lowerType.includes("improvement")) {
+      return "bg-accent-green/20 text-accent-green";
+    }
+    return "bg-accent-blue/20 text-accent-blue";
+  };
+
+  // Check if suggested fix looks like a diff
+  const isDiff = issue.suggestedFix && (
+    issue.suggestedFix.includes("\n-") || 
+    issue.suggestedFix.includes("\n+") ||
+    issue.suggestedFix.startsWith("-") ||
+    issue.suggestedFix.startsWith("+")
+  );
+
+  return (
+    <div className="bg-bg-tertiary rounded-lg overflow-hidden border border-border-primary">
+      {/* Header - File, Type, Lines */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center gap-2 px-3 py-2 bg-bg-secondary hover:bg-bg-hover transition-colors text-left"
+      >
+        {isExpanded ? (
+          <CaretDown size={14} className="text-text-muted shrink-0" />
+        ) : (
+          <CaretRight size={14} className="text-text-muted shrink-0" />
+        )}
+        <File size={14} className="text-text-muted shrink-0" />
+        <span className="text-sm font-medium text-text-primary truncate">
+          {issue.file}
+        </span>
+        {issue.lines && (
+          <span className="text-xs text-text-muted shrink-0">
+            :{issue.lines}
+          </span>
+        )}
+        <span
+          className={`text-xs px-2 py-0.5 rounded-sm shrink-0 ml-auto ${getTypeBadgeColor(issue.type)}`}
+        >
+          {issue.type}
+        </span>
+      </button>
+
+      {/* Body - Description and Suggested Fix */}
+      {isExpanded && (
+        <div className="p-3 space-y-3">
+          {/* Description */}
+          {issue.description && (
+            <div>
+              <p className="text-sm text-text-primary leading-relaxed whitespace-pre-wrap">
+                {issue.description}
+              </p>
+            </div>
+          )}
+
+          {/* Suggested Fix */}
+          {issue.suggestedFix && (
+            <div className="border-t border-border-primary pt-3">
+              <h5 className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-2">
+                Suggested Fix
+              </h5>
+              {isDiff ? (
+                <DiffView content={issue.suggestedFix} />
+              ) : (
+                <pre className="text-xs text-text-primary bg-bg-primary p-2 rounded-sm overflow-x-auto whitespace-pre-wrap font-mono">
+                  {issue.suggestedFix}
+                </pre>
+              )}
+            </div>
+          )}
+
+          {/* AI Agent Prompt - Footer */}
+          {issue.aiAgentPrompt && (
+            <div className="border-t border-border-primary pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <h5 className="text-xs font-semibold text-text-muted uppercase tracking-wide">
+                  Prompt for AI Agent
+                </h5>
+                <button
+                  onClick={handleCopyPrompt}
+                  className="flex items-center gap-1.5 px-2 py-1 text-xs text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors"
+                >
+                  {copiedPrompt ? (
+                    <>
+                      <CheckCircle size={12} weight="fill" className="text-accent-green" />
+                      Copied
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={12} />
+                      Copy
+                    </>
+                  )}
+                </button>
+              </div>
+              <pre className="text-xs text-accent-purple bg-accent-purple/10 p-2 rounded-sm overflow-x-auto whitespace-pre-wrap font-mono border border-accent-purple/20">
+                {issue.aiAgentPrompt}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+});
+
+// CodeRabbit parsed review display component
+const CodeRabbitReviewContent = memo(function CodeRabbitReviewContent({
+  issues,
+  rawContent,
+  onRegenerate,
+  onNewReview,
+  isLoading,
+}: {
+  issues: CodeRabbitIssue[];
+  rawContent: string;
+  onRegenerate: () => void;
+  onNewReview: () => void;
+  isLoading: boolean;
+}) {
+  const [showRaw, setShowRaw] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(rawContent);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
+  }, [rawContent]);
+
+  const hasIssues = issues.length > 0;
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border-primary bg-bg-secondary">
+        <div className="flex items-center gap-2">
+          <span className="text-xs px-2 py-0.5 bg-accent-blue/20 text-accent-blue rounded-sm">
+            CodeRabbit
+          </span>
+          <span className="text-xs text-text-muted">
+            {hasIssues
+              ? `${issues.length} ${issues.length === 1 ? "issue" : "issues"}`
+              : "No issues"}
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setShowRaw(!showRaw)}
+            className={`px-2 py-1 text-xs rounded-sm transition-colors ${
+              showRaw
+                ? "bg-bg-hover text-text-primary"
+                : "text-text-muted hover:text-text-primary hover:bg-bg-hover"
+            }`}
+            title="Toggle raw output"
+          >
+            Raw
+          </button>
+          <button
+            onClick={handleCopy}
+            className="flex items-center gap-1.5 px-2 py-1 text-xs text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors"
+          >
+            {copied ? (
+              <>
+                <CheckCircle size={12} weight="fill" className="text-accent-green" />
+                Copied
+              </>
+            ) : (
+              <>
+                <Copy size={12} />
+              </>
+            )}
+          </button>
+          <button
+            onClick={onNewReview}
+            disabled={isLoading}
+            className="px-2 py-1 text-xs text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors"
+            title="Start fresh"
+          >
+            New
+          </button>
+          <button
+            onClick={onRegenerate}
+            disabled={isLoading}
+            className="px-2 py-1 text-xs text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors flex items-center gap-1"
+            title="Regenerate"
+          >
+            <ArrowCounterClockwise size={14} weight="bold" />
+          </button>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-auto p-4">
+        {showRaw ? (
+          <pre className="text-sm text-text-primary leading-relaxed whitespace-pre-wrap font-mono">
+            {rawContent}
+          </pre>
+        ) : hasIssues ? (
+          <div className="space-y-3">
+            {issues.map((issue, index) => (
+              <CodeRabbitIssueCard key={`${issue.file}-${issue.lines}-${index}`} issue={issue} />
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full text-center">
+            <CheckCircle
+              size={48}
+              weight="duotone"
+              className="text-accent-green mb-4"
+            />
+            <h3 className="text-lg font-medium text-text-primary mb-2">
+              Looking Good!
+            </h3>
+            <p className="text-sm text-text-muted max-w-xs">
+              CodeRabbit didn't find any issues with your changes.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
+
 export function AIReviewContent() {
   const { repository } = useTabsStore();
   const {
@@ -533,9 +849,12 @@ export function AIReviewContent() {
     setAIReviewError,
     clearAIReview,
   } = useActiveTabState();
-  const { selectedSkillIds } = useUIStore();
+  const { selectedSkillIds, aiReviewReviewerId } = useUIStore();
   const queryClient = useQueryClient();
   const toast = useToast();
+
+  // Full review result (structured or text)
+  const [reviewResult, setReviewResult] = useState<ReviewResult | null>(null);
 
   // Selection state
   const [selectedIssues, setSelectedIssues] = useState<Set<string>>(new Set());
@@ -565,9 +884,15 @@ export function AIReviewContent() {
 
   const fixLoadingMessage = useLoadingMessage(isFixing, FIX_LOADING_MESSAGES);
 
+  // For CodeRabbit, skills are not supported
+  const supportsSkills = aiReviewReviewerId === "claude-cli";
+  // For CodeRabbit, commit review is not supported
+  const supportsCommitReview = aiReviewReviewerId === "claude-cli";
+
   // Reset to initial state (to select different skills)
   const handleNewReview = useCallback(() => {
     clearAIReview();
+    setReviewResult(null);
     setNotRunningReason(null);
     setSelectedIssues(new Set());
     setDismissedIssues(new Set());
@@ -584,7 +909,8 @@ export function AIReviewContent() {
 
   // Reset state when review changes
   useEffect(() => {
-    if (aiReview) {
+    // Handle structured review from Claude
+    if (aiReview && reviewResult?.kind === "structured") {
       setSelectedIssues(new Set());
       setDismissedIssues(new Set());
       setSearchQuery("");
@@ -710,18 +1036,32 @@ export function AIReviewContent() {
     setSelectedIssues(new Set());
     setDismissedIssues(new Set());
     setFixResult(null);
+    setReviewResult(null);
 
     try {
       const commitId =
         viewMode === "commit" ? (selectedCommit ?? undefined) : undefined;
+      // Only pass skills for Claude CLI
       const skillIds =
-        selectedSkillIds.length > 0 ? selectedSkillIds : undefined;
-      const review = await generateAIReview(
+        aiReviewReviewerId === "claude-cli" && selectedSkillIds.length > 0
+          ? selectedSkillIds
+          : undefined;
+
+      const result = await generateReview(
         repository.path,
+        aiReviewReviewerId,
         commitId,
         skillIds,
       );
-      setAIReview(review);
+
+      setReviewResult(result);
+
+      // For structured results, also set aiReview for backward compatibility
+      if (result.kind === "structured") {
+        setAIReview(result.data);
+      } else {
+        setAIReview(null);
+      }
     } catch (error) {
       const normalized = normalizeError(error);
       if (isValidationError(error)) {
@@ -740,6 +1080,7 @@ export function AIReviewContent() {
     viewMode,
     selectedCommit,
     selectedSkillIds,
+    aiReviewReviewerId,
     aiReviewLoading,
     setAIReview,
     setAIReviewLoading,
@@ -811,15 +1152,15 @@ export function AIReviewContent() {
     [handleFixIssues],
   );
 
-  // Determine status
-  const status: ReviewStatus = aiReviewLoading
-    ? "running"
-    : aiReview
-      ? "completed"
-      : "not_running";
+  // Reviewer display name
+  const reviewerDisplayName =
+    aiReviewReviewerId === "claude-cli" ? "Claude CLI" : "CodeRabbit CLI";
 
   // Empty state - no review yet
-  if (!aiReview && !aiReviewLoading && !aiReviewError && !notRunningReason) {
+  if (!reviewResult && !aiReviewLoading && !aiReviewError && !notRunningReason) {
+    const isCommitMode = viewMode === "commit" && selectedCommit;
+    const showCommitWarning = !supportsCommitReview && isCommitMode;
+
     return (
       <div className="flex flex-col items-center justify-center h-full p-6 text-center">
         <Sparkle
@@ -830,22 +1171,40 @@ export function AIReviewContent() {
         <h3 className="text-lg font-medium text-text-primary mb-2">
           AI Code Review
         </h3>
-        <p className="text-sm text-text-muted mb-4 max-w-xs">
+        <p className="text-sm text-text-muted mb-2 max-w-xs">
           Generate a PR-style code review for{" "}
-          {viewMode === "commit" && selectedCommit
-            ? "this commit"
-            : "your working changes"}
-          .
+          {isCommitMode ? "this commit" : "your working changes"}.
         </p>
 
-        {/* Skill Selection */}
-        <div className="w-full max-w-xs mb-4">
-          <SkillSelector />
-        </div>
+        {/* Current reviewer indicator */}
+        <p className="text-xs text-text-muted mb-4">
+          Using{" "}
+          <span className="font-medium text-accent-blue">
+            {reviewerDisplayName}
+          </span>
+          <span className="text-text-muted"> · Change in Settings</span>
+        </p>
+
+        {/* Warning for CodeRabbit in commit mode */}
+        {showCommitWarning && (
+          <div className="w-full max-w-xs mb-4 p-3 bg-accent-yellow/10 border border-accent-yellow/30 rounded-lg text-left">
+            <p className="text-xs text-accent-yellow">
+              <strong>Note:</strong> CodeRabbit CLI only supports working
+              changes. Switch to Claude CLI in Settings to review commits.
+            </p>
+          </div>
+        )}
+
+        {/* Skill Selection (Claude only) */}
+        {supportsSkills && (
+          <div className="w-full max-w-xs mb-4">
+            <SkillSelector />
+          </div>
+        )}
 
         <button
           onClick={handleGenerateReview}
-          disabled={!repository}
+          disabled={!repository || showCommitWarning}
           className="px-4 py-2 bg-accent-purple text-white rounded-lg font-medium text-sm hover:bg-accent-purple/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors flex items-center gap-2"
         >
           <Sparkle size={16} weight="bold" />
@@ -857,34 +1216,23 @@ export function AIReviewContent() {
 
   // Loading state
   if (aiReviewLoading) {
+    const isCodeRabbit = aiReviewReviewerId === "coderabbit-cli";
     return (
-      <div className="flex flex-col h-full">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border-primary bg-bg-tertiary">
-          <div className="flex items-center gap-3">
-            <Sparkle
-              size={18}
-              weight="duotone"
-              className="text-accent-purple"
-            />
-            <span className="text-sm font-medium text-text-primary">
-              AI Review
-            </span>
-            <StatusIndicator status="running" />
-          </div>
+      <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+        <div className="mb-4">
+          <LoadingSpinner size="lg" />
         </div>
-
-        <div className="flex flex-col items-center justify-center flex-1 p-6 text-center">
-          <div className="mb-4">
-            <LoadingSpinner size="lg" />
-          </div>
-          <h3 className="text-lg font-medium text-text-primary mb-2">
-            Analyzing Code...
-          </h3>
-          <p className="text-sm text-text-muted">
-            Claude is reviewing the changes
+        <h3 className="text-lg font-medium text-text-primary mb-2">
+          Analyzing Code...
+        </h3>
+        <p className="text-sm text-text-muted mb-2">
+          {reviewerDisplayName} is reviewing the changes
+        </p>
+        {isCodeRabbit && (
+          <p className="text-xs text-text-muted max-w-xs">
+            CodeRabbit reviews typically take 1-5 minutes depending on the size of changes
           </p>
-        </div>
+        )}
       </div>
     );
   }
@@ -892,115 +1240,100 @@ export function AIReviewContent() {
   // Error state (non-validation errors only)
   if (aiReviewError) {
     return (
-      <div className="flex flex-col h-full">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border-primary bg-bg-tertiary">
-          <div className="flex items-center gap-3">
-            <Sparkle
-              size={18}
-              weight="duotone"
-              className="text-accent-purple"
-            />
-            <span className="text-sm font-medium text-text-primary">
-              AI Review
-            </span>
-            <StatusIndicator status="not_running" notRunningReason="Error" />
-          </div>
-        </div>
-
-        <div className="flex flex-col items-center justify-center flex-1 p-6 text-center">
-          <Warning
-            size={48}
-            weight="duotone"
-            className="text-accent-red mb-4"
-          />
-          <h3 className="text-lg font-medium text-text-primary mb-2">
-            Review Failed
-          </h3>
-          <p className="text-sm text-text-muted mb-4 max-w-xs">
-            {aiReviewError}
-          </p>
-          <button
-            onClick={handleGenerateReview}
-            className="px-4 py-2 bg-accent-purple text-white rounded-lg font-medium text-sm hover:bg-accent-purple/90 transition-colors flex items-center gap-2"
-          >
-            <ArrowCounterClockwise size={16} weight="bold" />
-            Try Again
-          </button>
-        </div>
+      <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+        <Warning
+          size={48}
+          weight="duotone"
+          className="text-accent-red mb-4"
+        />
+        <h3 className="text-lg font-medium text-text-primary mb-2">
+          Review Failed
+        </h3>
+        <p className="text-sm text-text-muted mb-4 max-w-xs">
+          {aiReviewError}
+        </p>
+        <button
+          onClick={handleGenerateReview}
+          className="px-4 py-2 bg-accent-purple text-white rounded-lg font-medium text-sm hover:bg-accent-purple/90 transition-colors flex items-center gap-2"
+        >
+          <ArrowCounterClockwise size={16} weight="bold" />
+          Try Again
+        </button>
       </div>
     );
   }
 
   // Not running state (validation error, e.g., no changes)
-  if (notRunningReason && !aiReview) {
+  if (notRunningReason && !reviewResult) {
     return (
-      <div className="flex flex-col h-full">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border-primary bg-bg-tertiary">
-          <div className="flex items-center gap-3">
-            <Sparkle
-              size={18}
-              weight="duotone"
-              className="text-accent-purple"
-            />
-            <span className="text-sm font-medium text-text-primary">
-              AI Review
-            </span>
-            <StatusIndicator
-              status="not_running"
-              notRunningReason={notRunningReason}
-            />
-          </div>
-        </div>
-
-        <div className="flex flex-col items-center justify-center flex-1 p-6 text-center">
-          <Sparkle
-            size={48}
-            weight="duotone"
-            className="text-text-muted mb-4"
-          />
-          <h3 className="text-lg font-medium text-text-primary mb-2">
-            Not Running
-          </h3>
-          <p className="text-sm text-text-muted mb-4 max-w-xs">
-            {notRunningReason}
-          </p>
-          <button
-            onClick={handleGenerateReview}
-            className="px-4 py-2 bg-bg-tertiary text-text-primary rounded-lg font-medium text-sm hover:bg-bg-hover transition-colors flex items-center gap-2 border border-border-primary"
-          >
-            <ArrowCounterClockwise size={16} weight="bold" />
-            Try Again
-          </button>
-        </div>
+      <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+        <Sparkle
+          size={48}
+          weight="duotone"
+          className="text-text-muted mb-4"
+        />
+        <h3 className="text-lg font-medium text-text-primary mb-2">
+          No Changes to Review
+        </h3>
+        <p className="text-sm text-text-muted mb-4 max-w-xs">
+          {notRunningReason}
+        </p>
+        <button
+          onClick={handleGenerateReview}
+          className="px-4 py-2 bg-bg-tertiary text-text-primary rounded-lg font-medium text-sm hover:bg-bg-hover transition-colors flex items-center gap-2 border border-border-primary"
+        >
+          <ArrowCounterClockwise size={16} weight="bold" />
+          Try Again
+        </button>
       </div>
     );
   }
 
+  // Parsed CodeRabbit result display
+  if (reviewResult?.kind === "coderabbit") {
+    return (
+      <CodeRabbitReviewContent
+        issues={reviewResult.issues}
+        rawContent={reviewResult.rawContent}
+        onRegenerate={handleGenerateReview}
+        onNewReview={handleNewReview}
+        isLoading={aiReviewLoading}
+      />
+    );
+  }
+
+  // Text result display (fallback)
+  if (reviewResult?.kind === "text") {
+    return (
+      <TextReviewContent
+        content={reviewResult.content}
+        onRegenerate={handleGenerateReview}
+        onNewReview={handleNewReview}
+        isLoading={aiReviewLoading}
+      />
+    );
+  }
+
+  // From here on, we have a structured result
   const totalSelected = selectedIssues.size;
   const activeIssuesCount = aiReview!.issues.length - dismissedIssues.size;
 
-  // Review display
+  // Structured review display (Claude)
   return (
     <div className="flex flex-col h-full">
-      {/* Header with status */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border-primary bg-bg-tertiary">
-        <div className="flex items-center gap-3">
-          <Sparkle size={18} weight="duotone" className="text-accent-purple" />
-          <span className="text-sm font-medium text-text-primary">
-            AI Review
-          </span>
-          <StatusIndicator status={status} timestamp={aiReview?.generatedAt} />
-        </div>
-        <div className="flex items-center gap-2">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border-primary bg-bg-secondary">
+        <span className="text-xs px-2 py-0.5 bg-accent-purple/20 text-accent-purple rounded-sm">
+          Claude
+        </span>
+        <div className="flex items-center gap-1">
           <button
             onClick={handleNewReview}
             disabled={aiReviewLoading}
             className="px-2 py-1 text-xs text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors"
             title="Start fresh with different skills"
           >
-            New Review
+            New
           </button>
           <button
             onClick={handleGenerateReview}
@@ -1009,7 +1342,6 @@ export function AIReviewContent() {
             title="Re-run with same skills"
           >
             <ArrowCounterClockwise size={14} weight="bold" />
-            Regenerate
           </button>
         </div>
       </div>

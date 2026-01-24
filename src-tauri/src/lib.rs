@@ -55,6 +55,7 @@ pub fn run() {
             commands::reset_hard,
             commands::generate_commit_message,
             commands::generate_ai_review,
+            commands::generate_review,
             commands::generate_changelog_summary,
             commands::generate_contributor_review,
             commands::fix_ai_review_issues,

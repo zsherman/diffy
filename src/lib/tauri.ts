@@ -10,6 +10,8 @@ import type {
   UnifiedDiff,
   FileDiff,
   AIReviewData,
+  AIReviewReviewerId,
+  ReviewResult,
   WorktreeInfo,
   WorktreeCreateOptions,
   StashEntry,
@@ -356,6 +358,20 @@ export async function generateAIReview(
 ): Promise<AIReviewData> {
   return invoke<AIReviewData>("generate_ai_review", {
     repoPath,
+    commitId,
+    skillIds,
+  });
+}
+
+export async function generateReview(
+  repoPath: string,
+  reviewerId: AIReviewReviewerId,
+  commitId?: string,
+  skillIds?: string[],
+): Promise<ReviewResult> {
+  return invoke<ReviewResult>("generate_review", {
+    repoPath,
+    reviewerId,
     commitId,
     skillIds,
   });

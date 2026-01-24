@@ -25,6 +25,8 @@ export function SettingsDialog() {
     panelFontSize,
     setPanelFontSize,
     selectedSkillIds,
+    aiReviewReviewerId,
+    setAIReviewReviewerId,
     setShowSkillsDialog,
     perfTracingEnabled,
     setPerfTracingEnabled,
@@ -188,6 +190,37 @@ export function SettingsDialog() {
                 <div className="space-y-6">
                   <div>
                     <h3 className="text-sm font-medium text-text-primary mb-4">Skills</h3>
+
+                    {/* AI Review */}
+                    <div className="space-y-3 mb-6">
+                      <div>
+                        <label className="text-sm text-text-primary">AI Review Reviewer</label>
+                        <p className="text-xs text-text-muted mt-0.5">
+                          Choose which engine powers the AI Review panel
+                        </p>
+                      </div>
+                      <div className="flex items-start justify-between gap-4">
+                        <select
+                          value={aiReviewReviewerId}
+                          onChange={(e) =>
+                            setAIReviewReviewerId(
+                              e.target.value as typeof aiReviewReviewerId,
+                            )
+                          }
+                          className="bg-bg-hover border border-border-primary rounded-sm px-2 py-1.5 text-sm text-text-primary focus:outline-hidden focus:border-accent-blue min-w-[260px]"
+                        >
+                          <option value="claude-cli">Claude CLI (Structured)</option>
+                          <option value="coderabbit-cli">CodeRabbit CLI (Text)</option>
+                        </select>
+                        <div className="text-xs text-text-muted leading-relaxed flex-1">
+                          {aiReviewReviewerId === "coderabbit-cli" ? (
+                            <span>Working changes only (v1).</span>
+                          ) : (
+                            <span>Supports skills and commit review.</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
 
                     {/* Skills summary */}
                     <div className="space-y-4">
