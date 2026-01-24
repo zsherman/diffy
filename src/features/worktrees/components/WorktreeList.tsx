@@ -6,7 +6,7 @@ import { Plus, Lock, LockOpen, Trash } from '@phosphor-icons/react';
 import { listWorktrees, removeWorktree, lockWorktree, unlockWorktree, openRepository } from '../../../lib/tauri';
 import { useTabsStore, useActiveTabState } from '../../../stores/tabs-store';
 import { useUIStore } from '../../../stores/ui-store';
-import { LoadingSpinner, SkeletonList } from '../../../components/ui';
+import { LoadingSpinner, SkeletonList, WorktreeContextMenu } from '../../../components/ui';
 import { useToast } from '../../../components/ui/Toast';
 import type { WorktreeInfo } from '../../../types/git';
 import { WorktreeRow } from './WorktreeRow';
@@ -217,13 +217,26 @@ export function WorktreeList() {
         <VList ref={listRef} className="flex-1">
           {filteredWorktrees.map((worktree, index) => (
             <div key={worktree.name} className="group relative">
-              <WorktreeRow
+              <WorktreeContextMenu
                 worktree={worktree}
-                isSelected={selectedWorktree === worktree.name}
-                isFocused={index === focusedIndex}
-                onClick={() => handleWorktreeClick(worktree, index)}
-                onDoubleClick={() => handleWorktreeSwitch(worktree)}
-              />
+                onOpen={() => handleWorktreeSwitch(worktree)}
+                onToggleLock={() => {
+                  if (worktree.isLocked) {
+                    unlockMutation.mutate(worktree.name);
+                  } else {
+                    lockMutation.mutate({ name: worktree.name });
+                  }
+                }}
+                onRemove={() => handleRemove(worktree)}
+              >
+                <WorktreeRow
+                  worktree={worktree}
+                  isSelected={selectedWorktree === worktree.name}
+                  isFocused={index === focusedIndex}
+                  onClick={() => handleWorktreeClick(worktree, index)}
+                  onDoubleClick={() => handleWorktreeSwitch(worktree)}
+                />
+              </WorktreeContextMenu>
               {/* Action buttons on hover */}
               {!worktree.isMain && (
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 hidden group-hover:flex items-center gap-1">

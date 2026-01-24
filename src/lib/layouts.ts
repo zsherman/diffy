@@ -119,7 +119,7 @@ function applyStandardLayoutIncremental(api: DockviewApi) {
 /**
  * Apply the "changes" layout incrementally.
  * Keeps the diff panel if it exists, only adds/removes what's needed.
- * Target layout: [staging] | [diff]
+ * Target layout: [diff] | [staging]
  */
 function applyChangesLayoutIncremental(api: DockviewApi) {
   const start = isPerfTracingEnabled() ? performance.now() : 0;
@@ -144,8 +144,8 @@ function applyChangesLayoutIncremental(api: DockviewApi) {
   if (hasStaging && hasDiff && !hasCommits && !hasFiles) {
     const groups = api.groups;
     if (groups.length >= 2) {
-      groups[0].api.setSize({ width: 330 });
-      groups[1].api.setSize({ width: 770 });
+      groups[0].api.setSize({ width: 660 });
+      groups[1].api.setSize({ width: 440 });
     }
     if (isPerfTracingEnabled()) {
       console.log(`[perf] applyChangesLayoutIncremental (resize only): ${(performance.now() - start).toFixed(2)}ms`);
@@ -155,23 +155,23 @@ function applyChangesLayoutIncremental(api: DockviewApi) {
 
   // Build up the layout, preserving diff if it exists
   if (!hasDiff) {
-    // No diff - need to create everything from scratch
-    const stagingPanel = api.addPanel({
-      id: "staging",
-      component: "staging",
-      title: "Local Changes",
-      minimumWidth: 250,
-    });
-
-    api.addPanel({
+    // No diff - need to create everything from scratch (diff on left, staging on right)
+    const diffPanel = api.addPanel({
       id: "diff",
       component: "diff",
       title: "Diff",
-      position: { referencePanel: stagingPanel, direction: "right" },
       minimumWidth: 300,
     });
+
+    api.addPanel({
+      id: "staging",
+      component: "staging",
+      title: "Local Changes",
+      position: { referencePanel: diffPanel, direction: "right" },
+      minimumWidth: 250,
+    });
   } else {
-    // Diff exists - add staging to the left of it
+    // Diff exists - add staging to the right of it
     const diffPanel = api.getPanel("diff")!;
 
     if (!hasStaging) {
@@ -179,17 +179,17 @@ function applyChangesLayoutIncremental(api: DockviewApi) {
         id: "staging",
         component: "staging",
         title: "Local Changes",
-        position: { referencePanel: diffPanel, direction: "left" },
+        position: { referencePanel: diffPanel, direction: "right" },
         minimumWidth: 250,
       });
     }
   }
 
-  // Set sizes: 30% staging, 70% diff
+  // Set sizes: 60% diff, 40% staging
   const groups = api.groups;
   if (groups.length >= 2) {
-    groups[0].api.setSize({ width: 330 });
-    groups[1].api.setSize({ width: 770 });
+    groups[0].api.setSize({ width: 660 });
+    groups[1].api.setSize({ width: 440 });
   }
 
   if (isPerfTracingEnabled()) {
@@ -495,26 +495,26 @@ export const layoutPresets: LayoutPreset[] = [
     apply: (api) => {
       clearLayout(api);
 
-      const stagingPanel = api.addPanel({
-        id: "staging",
-        component: "staging",
-        title: "Changes",
-        minimumWidth: 250,
-      });
-
-      api.addPanel({
+      const diffPanel = api.addPanel({
         id: "diff",
         component: "diff",
         title: "Diff",
-        position: { referencePanel: stagingPanel, direction: "right" },
         minimumWidth: 300,
       });
 
-      // Set sizes: 30% staging, 70% diff
+      api.addPanel({
+        id: "staging",
+        component: "staging",
+        title: "Local Changes",
+        position: { referencePanel: diffPanel, direction: "right" },
+        minimumWidth: 250,
+      });
+
+      // Set sizes: 60% diff, 40% staging
       const groups = api.groups;
       if (groups.length >= 2) {
-        groups[0].api.setSize({ width: 330 });
-        groups[1].api.setSize({ width: 770 });
+        groups[0].api.setSize({ width: 660 });
+        groups[1].api.setSize({ width: 440 });
       }
     },
   },

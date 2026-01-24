@@ -1,8 +1,8 @@
-import { memo } from 'react';
+import { memo, forwardRef } from 'react';
 import { Lock, Warning, Circle, FolderOpen } from '@phosphor-icons/react';
 import type { WorktreeInfo } from '../../../types/git';
 
-interface WorktreeRowProps {
+interface WorktreeRowProps extends React.HTMLAttributes<HTMLDivElement> {
   worktree: WorktreeInfo;
   isSelected: boolean;
   isFocused: boolean;
@@ -10,20 +10,24 @@ interface WorktreeRowProps {
   onDoubleClick: () => void;
 }
 
-export const WorktreeRow = memo(function WorktreeRow({
+export const WorktreeRow = memo(forwardRef<HTMLDivElement, WorktreeRowProps>(function WorktreeRow({
   worktree,
   isSelected,
   isFocused,
   onClick,
   onDoubleClick,
-}: WorktreeRowProps) {
+  className,
+  ...props
+}, ref) {
   return (
     <div
+      ref={ref}
       className={`flex items-center px-2 py-1.5 cursor-pointer text-sm ${
         isFocused ? 'bg-bg-selected' : isSelected ? 'bg-bg-hover' : 'hover:bg-bg-hover'
-      }`}
+      } ${className || ''}`}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
+      {...props}
     >
       {/* Icon */}
       <span className={`mr-2 ${worktree.isMain ? 'text-accent-green' : 'text-text-muted'}`}>
@@ -73,4 +77,4 @@ export const WorktreeRow = memo(function WorktreeRow({
       </div>
     </div>
   );
-});
+}));

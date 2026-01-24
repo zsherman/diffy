@@ -7,6 +7,7 @@ import { useToast } from './Toast';
 import { gitFetch, gitPull, gitPush, getAheadBehind } from '../../lib/tauri';
 import { getErrorMessage } from '../../lib/errors';
 import { BranchSwitcher } from './BranchSwitcher';
+import { WorktreeSwitcher } from './WorktreeSwitcher';
 import { LayoutSwitcher } from './LayoutSwitcher';
 
 export function TopToolbar() {
@@ -85,9 +86,10 @@ export function TopToolbar() {
 
   return (
     <div className="flex items-center justify-between px-3 py-1.5 bg-bg-tertiary border-b border-border-primary text-xs">
-      {/* Left: Branch and git actions */}
+      {/* Left: Branch, worktree, and git actions */}
       <div className="flex items-center gap-2">
         <BranchSwitcher />
+        <WorktreeSwitcher />
 
         {/* Git actions toolbar */}
         <div className="w-px h-4 bg-border-primary mx-1" />

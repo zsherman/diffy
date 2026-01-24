@@ -557,6 +557,34 @@ pub fn git_push(repo_path: &str) -> Result<String, GitError> {
     }
 }
 
+/// Execute a remote action (fetch or pull with various strategies)
+pub fn git_remote_action(repo_path: &str, action: &str) -> Result<String, GitError> {
+    let args: Vec<&str> = match action {
+        "fetch_all" => vec!["fetch", "--all", "--prune"],
+        "pull_ff" => vec!["pull", "--ff"],
+        "pull_ff_only" => vec!["pull", "--ff-only"],
+        "pull_rebase" => vec!["pull", "--rebase"],
+        _ => return Err(git2::Error::from_str(&format!("Unknown remote action: {}", action)).into()),
+    };
+
+    let action_label = if action == "fetch_all" { "fetch" } else { "pull" };
+
+    let output = git_command()
+        .args(&args)
+        .current_dir(repo_path)
+        .output()
+        .map_err(|e| git2::Error::from_str(&format!("Failed to run git {}: {}", action_label, e)))?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Ok(format!("{}{}", stdout, stderr).trim().to_string())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(git2::Error::from_str(&format!("git {} failed: {}", action_label, stderr)).into())
+    }
+}
+
 pub fn checkout_commit(repo_path: &str, commit_id: &str) -> Result<String, GitError> {
     let output = git_command()
         .args(["checkout", commit_id])

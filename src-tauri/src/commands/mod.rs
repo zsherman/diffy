@@ -482,6 +482,11 @@ pub async fn git_push(repo_path: String) -> Result<String> {
 }
 
 #[tauri::command]
+pub async fn git_remote_action(repo_path: String, action: String) -> Result<String> {
+    Ok(git::git_remote_action(&repo_path, &action)?)
+}
+
+#[tauri::command]
 pub async fn checkout_commit(repo_path: String, commit_id: String) -> Result<String> {
     Ok(git::checkout_commit(&repo_path, &commit_id)?)
 }

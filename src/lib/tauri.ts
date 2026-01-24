@@ -303,6 +303,10 @@ export async function gitPush(repoPath: string): Promise<string> {
   return invoke<string>("git_push", { repoPath });
 }
 
+export async function gitRemoteAction(repoPath: string, action: string): Promise<string> {
+  return invoke<string>("git_remote_action", { repoPath, action });
+}
+
 export async function checkoutCommit(
   repoPath: string,
   commitId: string,

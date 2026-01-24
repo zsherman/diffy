@@ -6,10 +6,8 @@ import {
   Warning,
   Folders,
   ChartBar,
-  ArrowDown,
   ArrowUp,
   ArrowsClockwise,
-  CloudArrowDown,
   ListBullets,
   BookBookmark,
 } from "@phosphor-icons/react";
@@ -17,19 +15,20 @@ import {
   getStatus,
   getMergeStatus,
   parseFileConflicts,
-  gitFetch,
-  gitPull,
+  gitRemoteAction,
   gitPush,
   getAheadBehind,
 } from "../../../lib/tauri";
 import { useTabsStore, useActiveTabState } from "../../../stores/tabs-store";
-import { useUIStore, useAppView, getDockviewApi } from "../../../stores/ui-store";
+import { useUIStore, useAppView, getDockviewApi, useDefaultRemoteAction } from "../../../stores/ui-store";
 import { useMergeConflictStore } from "../../../stores/merge-conflict-store";
 import { useToast } from "../../../components/ui/Toast";
 import { applyLayout } from "../../../lib/layouts";
 import { getErrorMessage } from "../../../lib/errors";
 import { BranchSwitcher } from "../../../components/ui/BranchSwitcher";
+import { WorktreeSwitcher } from "../../../components/ui/WorktreeSwitcher";
 import { PanelSelector } from "../../../components/ui/PanelSelector";
+import { RemoteActionSelect } from "../../../components/ui";
 
 type MainView = "repository" | "statistics" | "changelog";
 
@@ -65,9 +64,9 @@ export function RepoHeader() {
   const hasShownMergeToast = useRef(false);
 
   // Git action states
-  const [isFetching, setIsFetching] = useState(false);
-  const [isPulling, setIsPulling] = useState(false);
+  const [isRemoteActionLoading, setIsRemoteActionLoading] = useState(false);
   const [isPushing, setIsPushing] = useState(false);
+  const { defaultRemoteAction } = useDefaultRemoteAction();
 
   // Fetch working directory status for badge count
   const { data: status } = useQuery({
@@ -190,48 +189,42 @@ export function RepoHeader() {
   }, [appView, setAppView]);
 
   // Git action handlers
-  const handleFetch = async () => {
-    if (!repository || isFetching) return;
-    setIsFetching(true);
+  const handleRemoteAction = async () => {
+    if (!repository || isRemoteActionLoading) return;
+    setIsRemoteActionLoading(true);
+    
+    const isFetchAction = defaultRemoteAction === "fetch_all";
+    const actionLabel = isFetchAction ? "Fetch" : "Pull";
+    
     try {
-      await gitFetch(repository.path);
-      toast.success("Fetch complete", "Successfully fetched from remote");
-      // Fetch updates remote refs but doesn't modify working directory
-      invalidateGitQueries(queryClient, ["branches", "commits", "aheadBehind"]);
-    } catch (error) {
-      console.error("Fetch failed:", error);
-      toast.error("Fetch failed", getErrorMessage(error));
-    } finally {
-      setIsFetching(false);
-    }
-  };
-
-  const handlePull = async () => {
-    if (!repository || isPulling) return;
-    setIsPulling(true);
-    try {
-      const result = await gitPull(repository.path);
+      const result = await gitRemoteAction(repository.path, defaultRemoteAction);
       toast.success(
-        "Pull complete",
-        result || "Successfully pulled from remote",
+        `${actionLabel} complete`,
+        result || `Successfully ${actionLabel.toLowerCase()}ed from remote`,
       );
-      // Pull can modify working directory, so invalidate status and diffs too
-      invalidateGitQueries(queryClient, [
-        "branches",
-        "commits",
-        "status",
-        "working-diff-staged",
-        "working-diff-unstaged",
-      ]);
-      // Refetch aheadBehind immediately to update badge
-      await queryClient.refetchQueries({
-        queryKey: ["aheadBehind", repository.path],
-      });
+      
+      if (isFetchAction) {
+        // Fetch updates remote refs but doesn't modify working directory
+        invalidateGitQueries(queryClient, ["branches", "commits", "aheadBehind"]);
+      } else {
+        // Pull can modify working directory, so invalidate status and diffs too
+        invalidateGitQueries(queryClient, [
+          "branches",
+          "commits",
+          "status",
+          "working-diff-staged",
+          "working-diff-unstaged",
+        ]);
+        // Refetch aheadBehind immediately to update badge
+        await queryClient.refetchQueries({
+          queryKey: ["aheadBehind", repository.path],
+        });
+      }
     } catch (error) {
-      console.error("Pull failed:", error);
-      toast.error("Pull failed", getErrorMessage(error));
+      console.error(`${actionLabel} failed:`, error);
+      toast.error(`${actionLabel} failed`, getErrorMessage(error));
     } finally {
-      setIsPulling(false);
+      setIsRemoteActionLoading(false);
     }
   };
 
@@ -318,49 +311,29 @@ export function RepoHeader() {
 
             <BranchSwitcher />
 
+            {/* Separator between branch and worktree */}
+            <div className="w-px h-4 bg-border-primary" />
+
+            <WorktreeSwitcher />
+
             {/* Separator */}
             <div className="w-px h-4 bg-border-primary mx-1" />
 
             {/* Git actions toolbar */}
             <Toolbar.Root className="flex items-center gap-0.5">
-              <Toolbar.Button
-                className={toolbarButtonClass}
-                onClick={handleFetch}
-                disabled={isFetching}
-              >
-                {isFetching ? (
-                  <ArrowsClockwise
-                    size={14}
-                    weight="bold"
-                    className="animate-spin"
-                  />
-                ) : (
-                  <CloudArrowDown size={14} weight="bold" />
-                )}
-                <span className="hidden sm:inline">Fetch</span>
-              </Toolbar.Button>
-
-              <Toolbar.Button
-                className={`${toolbarButtonClass} relative`}
-                onClick={handlePull}
-                disabled={isPulling}
-              >
-                {isPulling ? (
-                  <ArrowsClockwise
-                    size={14}
-                    weight="bold"
-                    className="animate-spin"
-                  />
-                ) : (
-                  <ArrowDown size={14} weight="bold" />
-                )}
-                <span className="hidden sm:inline">Pull</span>
-                {aheadBehind && aheadBehind.behind > 0 && !isPulling && (
-                  <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 flex items-center justify-center text-[9px] font-medium bg-accent-orange text-white rounded-full">
+              {/* Remote action (fetch/pull) with dropdown selector */}
+              <div className="relative">
+                <RemoteActionSelect
+                  isLoading={isRemoteActionLoading}
+                  onExecute={handleRemoteAction}
+                />
+                {/* Behind badge - show when pull action is selected and there are commits behind */}
+                {aheadBehind && aheadBehind.behind > 0 && !isRemoteActionLoading && defaultRemoteAction !== "fetch_all" && (
+                  <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 flex items-center justify-center text-[9px] font-medium bg-accent-orange text-white rounded-full pointer-events-none">
                     {aheadBehind.behind > 99 ? "99+" : aheadBehind.behind}
                   </span>
                 )}
-              </Toolbar.Button>
+              </div>
 
               <Toolbar.Button
                 className={`${toolbarButtonClass} relative`}

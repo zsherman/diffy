@@ -49,6 +49,7 @@ pub fn run() {
             commands::git_fetch,
             commands::git_pull,
             commands::git_push,
+            commands::git_remote_action,
             commands::checkout_commit,
             commands::cherry_pick,
             commands::reset_hard,

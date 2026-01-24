@@ -21,3 +21,5 @@ export {
 } from "./ErrorBoundary";
 export { FileContextMenu } from "./FileContextMenu";
 export { CommitContextMenu } from "./CommitContextMenu";
+export { WorktreeContextMenu } from "./WorktreeContextMenu";
+export { RemoteActionSelect } from "./RemoteActionSelect";

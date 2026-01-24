@@ -15,6 +15,7 @@ import {
   FloppyDisk,
   Trash,
   BookmarkSimple,
+  GitFork,
 } from "@phosphor-icons/react";
 import { useActiveTabPanels } from "../../stores/tabs-store";
 import { applyLayout } from "../../lib/layouts";
@@ -105,11 +106,13 @@ export function PanelSelector() {
     showDiffPanel,
     showStagingSidebar,
     showGraphPanel,
+    showWorktreesPanel,
     toggleCommitsPanel,
     toggleGraphPanel,
     setShowFilesPanel,
     setShowDiffPanel,
     toggleStagingSidebar,
+    toggleWorktreesPanel,
   } = useActiveTabPanels();
 
   // Load saved layouts on mount
@@ -157,6 +160,14 @@ export function PanelSelector() {
       isActive: showGraphPanel,
       toggle: toggleGraphPanel,
       keywords: ["tree", "visual", "branches"],
+    },
+    {
+      id: "worktrees",
+      label: "Worktrees",
+      icon: <GitFork size={15} />,
+      isActive: showWorktreesPanel,
+      toggle: toggleWorktreesPanel,
+      keywords: ["workspace", "parallel", "checkout"],
     },
   ];
 
@@ -247,7 +258,7 @@ export function PanelSelector() {
     <Menu.Root open={isOpen} onOpenChange={setIsOpen}>
       <Menu.Trigger className="flex items-center gap-1.5 px-2 py-1 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded transition-colors cursor-pointer text-xs">
         <SquaresFour size={14} weight="bold" />
-        <span>Panels</span>
+        <span>View</span>
         <span className="px-1.5 py-0.5 bg-bg-hover text-text-muted text-[10px] rounded-full leading-none">
           {activeCount}
         </span>
@@ -267,42 +278,6 @@ export function PanelSelector() {
                 className="w-full px-2.5 py-1.5 text-xs bg-transparent border border-border-primary rounded-md text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-blue focus:ring-1 focus:ring-accent-blue/50 transition-colors"
               />
             </div>
-
-            {/* Panel toggles */}
-            {filteredPanels.length > 0 && (
-              <div className="py-0.5">
-                {filteredPanels.map((panel) => (
-                  <Menu.Item
-                    key={panel.id}
-                    className="flex items-center gap-2.5 px-2.5 py-1.5 cursor-pointer text-text-primary data-[highlighted]:bg-bg-hover outline-none mx-1 rounded"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      panel.toggle();
-                    }}
-                    closeOnClick={false}
-                  >
-                    <span className="text-text-muted">{panel.icon}</span>
-                    <span className="flex-1 text-[13px]">{panel.label}</span>
-                    <span
-                      className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
-                        panel.isActive
-                          ? "bg-accent-blue border-accent-blue"
-                          : "border-border-primary"
-                      }`}
-                    >
-                      {panel.isActive && (
-                        <Check size={10} weight="bold" className="text-white" />
-                      )}
-                    </span>
-                  </Menu.Item>
-                ))}
-              </div>
-            )}
-
-            {/* Divider */}
-            {filteredPanels.length > 0 && filteredLayouts.length > 0 && (
-              <div className="h-px bg-border-primary mx-2 my-1.5" />
-            )}
 
             {/* Quick layouts */}
             {filteredLayouts.length > 0 && (
@@ -349,14 +324,9 @@ export function PanelSelector() {
               </>
             )}
 
-            {/* Divider before save button */}
-            {(filteredPanels.length > 0 || filteredLayouts.length > 0 || filteredSavedLayouts.length > 0) && !search && (
-              <div className="h-px bg-border-primary mx-2 my-1.5" />
-            )}
-
             {/* Save current layout button */}
             {!search && (
-              <div className="py-0.5 pb-1.5">
+              <div className="py-0.5">
                 <Menu.Item
                   className="flex items-center gap-2.5 px-2.5 py-1.5 cursor-pointer text-text-primary data-[highlighted]:bg-bg-hover outline-none mx-1 rounded"
                   onClick={() => {
@@ -369,6 +339,42 @@ export function PanelSelector() {
                   </span>
                   <span className="flex-1 text-[13px]">Save current layout...</span>
                 </Menu.Item>
+              </div>
+            )}
+
+            {/* Divider between layouts and panels */}
+            {(filteredLayouts.length > 0 || filteredSavedLayouts.length > 0 || !search) && filteredPanels.length > 0 && (
+              <div className="h-px bg-border-primary mx-2 my-1.5" />
+            )}
+
+            {/* Panel toggles */}
+            {filteredPanels.length > 0 && (
+              <div className="py-0.5 pb-1.5">
+                {filteredPanels.map((panel) => (
+                  <Menu.Item
+                    key={panel.id}
+                    className="flex items-center gap-2.5 px-2.5 py-1.5 cursor-pointer text-text-primary data-[highlighted]:bg-bg-hover outline-none mx-1 rounded"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      panel.toggle();
+                    }}
+                    closeOnClick={false}
+                  >
+                    <span className="text-text-muted">{panel.icon}</span>
+                    <span className="flex-1 text-[13px]">{panel.label}</span>
+                    <span
+                      className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
+                        panel.isActive
+                          ? "bg-accent-blue border-accent-blue"
+                          : "border-border-primary"
+                      }`}
+                    >
+                      {panel.isActive && (
+                        <Check size={10} weight="bold" className="text-white" />
+                      )}
+                    </span>
+                  </Menu.Item>
+                ))}
               </div>
             )}
 

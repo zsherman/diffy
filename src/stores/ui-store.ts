@@ -21,6 +21,16 @@ export function getDockviewApi(): DockviewApi | null {
 type Theme = ThemeId;
 type AppView = "workspace" | "skills";
 
+// Remote action types for fetch/pull operations
+export type RemoteActionType = "fetch_all" | "pull_ff" | "pull_ff_only" | "pull_rebase";
+
+export const REMOTE_ACTION_OPTIONS: { id: RemoteActionType; label: string }[] = [
+  { id: "fetch_all", label: "Fetch All" },
+  { id: "pull_ff", label: "Pull (fast-forward if possible)" },
+  { id: "pull_ff_only", label: "Pull (fast-forward only)" },
+  { id: "pull_rebase", label: "Pull (rebase)" },
+];
+
 // UIContext now only contains truly global/window-level state
 interface UIContext {
   // Theme
@@ -49,6 +59,9 @@ interface UIContext {
 
   // Developer/Performance settings
   perfTracingEnabled: boolean;
+
+  // Git remote action default
+  defaultRemoteAction: RemoteActionType;
 }
 
 // Get initial theme from localStorage
@@ -87,6 +100,17 @@ function getInitialPerfTracingEnabled(): boolean {
     return saved === "true";
   }
   return false;
+}
+
+// Get initial remote action from localStorage
+function getInitialDefaultRemoteAction(): RemoteActionType {
+  if (typeof window !== "undefined") {
+    const saved = localStorage.getItem("diffy-default-remote-action");
+    if (saved && REMOTE_ACTION_OPTIONS.some(opt => opt.id === saved)) {
+      return saved as RemoteActionType;
+    }
+  }
+  return "pull_ff"; // Default to "Pull (fast-forward if possible)"
 }
 
 // Non-reactive getter for perf tracing (used in trace functions outside React)
@@ -138,6 +162,7 @@ export const uiStore = createStore({
     graphColumnWidths: { branchTag: 180, graph: 120 },
     selectedSkillIds: getInitialSelectedSkills(),
     perfTracingEnabled: getInitialPerfTracingEnabled(),
+    defaultRemoteAction: getInitialDefaultRemoteAction(),
   } as UIContext,
   on: {
     setTheme: (ctx, event: { theme: Theme }) =>
@@ -233,6 +258,13 @@ export const uiStore = createStore({
           console.log(
             `[DEBUG] localStorage 'diffy-perf-tracing' set to: ${localStorage.getItem("diffy-perf-tracing")}`,
           );
+        }
+      }),
+    setDefaultRemoteAction: (ctx, event: { action: RemoteActionType }) =>
+      produce(ctx, (draft) => {
+        draft.defaultRemoteAction = event.action;
+        if (typeof window !== "undefined") {
+          localStorage.setItem("diffy-default-remote-action", event.action);
         }
       }),
   },
@@ -369,6 +401,20 @@ export function useGraphColumnWidths() {
   return { graphColumnWidths, setGraphColumnWidths };
 }
 
+// Focused hook for default remote action (used by RepoHeader)
+export function useDefaultRemoteAction() {
+  const defaultRemoteAction = useSelector(
+    uiStore,
+    (s) => s.context.defaultRemoteAction,
+  );
+  const setDefaultRemoteAction = useCallback(
+    (action: RemoteActionType) =>
+      uiStore.send({ type: "setDefaultRemoteAction", action }),
+    [],
+  );
+  return { defaultRemoteAction, setDefaultRemoteAction };
+}
+
 // Focused hook for dialogs (used by CommandPalette, SettingsDialog, etc.)
 export function useDialogs() {
   const showHelpOverlay = useSelector(
@@ -451,6 +497,10 @@ export function useUIStore() {
   const perfTracingEnabled = useSelector(
     uiStore,
     (s) => s.context.perfTracingEnabled,
+  );
+  const defaultRemoteAction = useSelector(
+    uiStore,
+    (s) => s.context.defaultRemoteAction,
   );
 
   // Panel visibility from tabsStore (per-tab state)
@@ -554,6 +604,11 @@ export function useUIStore() {
       uiStore.send({ type: "setPerfTracingEnabled", enabled }),
     [],
   );
+  const setDefaultRemoteAction = useCallback(
+    (action: RemoteActionType) =>
+      uiStore.send({ type: "setDefaultRemoteAction", action }),
+    [],
+  );
 
   // Panel visibility actions delegate to tabsStore (for backward compatibility)
   const setShowBranchesPanel = useCallback(
@@ -632,6 +687,7 @@ export function useUIStore() {
     graphColumnWidths,
     selectedSkillIds,
     perfTracingEnabled,
+    defaultRemoteAction,
 
     // Panel visibility (from tabs-store per-tab state)
     showBranchesPanel,
@@ -659,6 +715,7 @@ export function useUIStore() {
     setShowSkillsDialog,
     clearSelectedSkills,
     setPerfTracingEnabled,
+    setDefaultRemoteAction,
 
     // Panel visibility actions (delegated to tabs-store, memoized)
     setShowBranchesPanel,
