@@ -49,8 +49,13 @@ export interface RepoTabState {
   amendPreviousCommit: boolean;
 
   // View mode
-  mainView: "repository" | "statistics" | "changelog";
+  mainView: "repository" | "statistics" | "changelog" | "compare";
   viewMode: ViewMode;
+
+  // Compare view state
+  compareBaseRef: string | null;
+  compareHeadRef: string | null;
+  compareSelectedFile: string | null;
   selectedWorktree: string | null;
 
   // Statistics view (per-repo)
@@ -158,6 +163,10 @@ function createTabState(repository: RepositoryInfo): RepoTabState {
     reviewError: null,
     panels: { ...DEFAULT_PANELS },
     dockviewLayout: null,
+    // Compare view state
+    compareBaseRef: null,
+    compareHeadRef: null,
+    compareSelectedFile: null,
   };
 }
 
@@ -599,8 +608,8 @@ export function useTabsStore() {
       );
       return tab?.repository ?? null;
     },
-    // Custom equality check based on path
-    (a, b) => a?.path === b?.path,
+    // Custom equality check - include headBranch so branch switches trigger re-render
+    (a, b) => a?.path === b?.path && a?.headBranch === b?.headBranch,
   );
 
   // Memoize actions to prevent infinite loops when used in useEffect/useCallback dependencies
@@ -880,7 +889,7 @@ export function useActiveTabPanels() {
 
 // View state type for single selector
 type ViewState = {
-  mainView: "repository" | "statistics" | "changelog";
+  mainView: "repository" | "statistics" | "changelog" | "compare";
   viewMode: ViewMode;
 };
 const DEFAULT_VIEW_STATE: ViewState = {
@@ -908,7 +917,7 @@ export function useActiveTabView() {
     [],
   );
   const setMainView = useCallback(
-    (view: "repository" | "statistics" | "changelog") =>
+    (view: "repository" | "statistics" | "changelog" | "compare") =>
       updateActiveTab({ mainView: view }),
     [updateActiveTab],
   );
@@ -1165,6 +1174,49 @@ export function useActiveTabStatistics() {
     setStatisticsContributorEmail,
     statisticsTimeRange,
     setStatisticsTimeRange,
+  };
+}
+
+// Hook for compare view state (used by CompareView)
+export function useActiveTabCompare() {
+  const compareBaseRef = useSelector(
+    tabsStore,
+    (s) => selectActiveTab(s)?.compareBaseRef ?? null,
+  );
+  const compareHeadRef = useSelector(
+    tabsStore,
+    (s) => selectActiveTab(s)?.compareHeadRef ?? null,
+  );
+  const compareSelectedFile = useSelector(
+    tabsStore,
+    (s) => selectActiveTab(s)?.compareSelectedFile ?? null,
+  );
+
+  const updateActiveTab = useCallback(
+    (updates: Partial<Omit<RepoTabState, "repository">>) =>
+      tabsStore.send({ type: "updateActiveTab", updates }),
+    [],
+  );
+  const setCompareBaseRef = useCallback(
+    (ref: string | null) => updateActiveTab({ compareBaseRef: ref }),
+    [updateActiveTab],
+  );
+  const setCompareHeadRef = useCallback(
+    (ref: string | null) => updateActiveTab({ compareHeadRef: ref }),
+    [updateActiveTab],
+  );
+  const setCompareSelectedFile = useCallback(
+    (file: string | null) => updateActiveTab({ compareSelectedFile: file }),
+    [updateActiveTab],
+  );
+
+  return {
+    compareBaseRef,
+    compareHeadRef,
+    compareSelectedFile,
+    setCompareBaseRef,
+    setCompareHeadRef,
+    setCompareSelectedFile,
   };
 }
 

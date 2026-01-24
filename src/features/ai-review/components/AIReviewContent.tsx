@@ -28,7 +28,7 @@ import {
   isValidationError,
   normalizeError,
 } from "../../../lib/errors";
-import { useTabsStore, useActiveTabState } from "../../../stores/tabs-store";
+import { useTabsStore, useActiveTabState, useActiveTabCompare, useActiveTabView } from "../../../stores/tabs-store";
 import { useUIStore, getDockviewApi } from "../../../stores/ui-store";
 import { LoadingSpinner, Input } from "../../../components/ui";
 import { useToast } from "../../../components/ui/Toast";
@@ -997,7 +997,12 @@ export function AIReviewContent() {
     setSelectedFile,
     setSelectedCommit,
   } = useActiveTabState();
+  const { mainView } = useActiveTabView();
+  const { compareBaseRef, compareHeadRef } = useActiveTabCompare();
   const { selectedSkillIds, aiReviewReviewerId, cliStatus } = useUIStore();
+  
+  // Check if we're in compare mode
+  const isCompareMode = mainView === "compare" && !!compareBaseRef && !!compareHeadRef && compareBaseRef !== compareHeadRef;
   const queryClient = useQueryClient();
   const toast = useToast();
 
@@ -1034,8 +1039,9 @@ export function AIReviewContent() {
 
   // For CodeRabbit, skills are not supported
   const supportsSkills = aiReviewReviewerId === "claude-cli";
-  // For CodeRabbit, commit review is not supported
+  // For CodeRabbit, commit review and compare review are not supported
   const supportsCommitReview = aiReviewReviewerId === "claude-cli";
+  const supportsCompareReview = aiReviewReviewerId === "claude-cli";
 
   // Reset to initial state (to select different skills)
   const handleNewReview = useCallback(() => {
@@ -1205,9 +1211,10 @@ export function AIReviewContent() {
     setReviewResult(null);
 
     try {
-      // Only pass commitId for Claude CLI (CodeRabbit only supports working changes)
-      const commitId =
-        viewMode === "commit" && supportsCommitReview
+      // For compare mode, pass the base/head refs instead of commit
+      const commitId = isCompareMode
+        ? undefined
+        : viewMode === "commit" && supportsCommitReview
           ? (selectedCommit ?? undefined)
           : undefined;
       // Only pass skills for Claude CLI
@@ -1215,12 +1222,17 @@ export function AIReviewContent() {
         aiReviewReviewerId === "claude-cli" && selectedSkillIds.length > 0
           ? selectedSkillIds
           : undefined;
+      // Pass compare refs for compare mode
+      const baseRef = isCompareMode ? compareBaseRef! : undefined;
+      const headRef = isCompareMode ? compareHeadRef! : undefined;
 
       const result = await generateReview(
         repository.path,
         aiReviewReviewerId,
         commitId,
         skillIds,
+        baseRef,
+        headRef,
       );
 
       setReviewResult(result);
@@ -1255,6 +1267,9 @@ export function AIReviewContent() {
     setAIReview,
     setAIReviewLoading,
     setAIReviewError,
+    isCompareMode,
+    compareBaseRef,
+    compareHeadRef,
   ]);
 
   const handleFixIssues = useCallback(
@@ -1348,9 +1363,12 @@ export function AIReviewContent() {
     !aiReviewError &&
     !notRunningReason
   ) {
-    // Claude can review commits, CodeRabbit always reviews working changes
+    // Claude can review commits and compare diffs, CodeRabbit always reviews working changes
     const isCommitMode =
       viewMode === "commit" && selectedCommit && supportsCommitReview;
+    
+    // Check if compare review is unavailable (CodeRabbit doesn't support it)
+    const compareUnavailable = isCompareMode && !supportsCompareReview;
 
     return (
       <div className="flex flex-col items-center justify-center h-full p-6 text-center">
@@ -1383,10 +1401,40 @@ export function AIReviewContent() {
             </div>
           </div>
         )}
+        
+        {/* Compare mode not supported by CodeRabbit */}
+        {compareUnavailable && (
+          <div className="w-full max-w-sm mb-4 p-3 bg-accent-yellow/10 border border-accent-yellow/30 rounded-lg">
+            <div className="flex items-start gap-2">
+              <Warning
+                size={16}
+                weight="fill"
+                className="text-accent-yellow shrink-0 mt-0.5"
+              />
+              <div className="text-left">
+                <p className="text-sm font-medium text-text-primary">
+                  Compare review not supported
+                </p>
+                <p className="text-xs text-text-muted mt-1">
+                  CodeRabbit only supports working changes. Select Claude CLI in Settings to review compare diffs.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* What's being reviewed - prominent indicator */}
         <div className="w-full max-w-sm mb-4">
-          {isCommitMode ? (
+          {isCompareMode ? (
+            <div className="p-3 bg-accent-purple/10 border border-accent-purple/30 rounded-lg">
+              <p className="text-sm text-text-primary">
+                Reviewing <span className="font-medium">Compare Diff</span>
+              </p>
+              <p className="text-xs text-text-muted mt-1 font-mono">
+                {compareBaseRef} → {compareHeadRef}
+              </p>
+            </div>
+          ) : isCommitMode ? (
             <div className="p-3 bg-accent-blue/10 border border-accent-blue/30 rounded-lg">
               <div className="flex items-center justify-between gap-2">
                 <div className="text-left">
@@ -1435,12 +1483,14 @@ export function AIReviewContent() {
 
         <button
           onClick={handleGenerateReview}
-          disabled={!repository || !selectedCLIAvailable}
+          disabled={!repository || !selectedCLIAvailable || compareUnavailable}
           className="px-4 py-2 bg-accent-purple text-white rounded-lg font-medium text-sm hover:bg-accent-purple/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors flex items-center gap-2"
           title={
             !selectedCLIAvailable
               ? `${reviewerDisplayName} is not installed`
-              : undefined
+              : compareUnavailable
+                ? "Select Claude CLI to review compare diffs"
+                : undefined
           }
         >
           <Sparkle size={16} weight="bold" />
@@ -1549,6 +1599,7 @@ export function AIReviewContent() {
 
   // What was reviewed for this result
   const reviewedCommit = viewMode === "commit" && selectedCommit;
+  const reviewedCompare = isCompareMode;
 
   // Structured review display (Claude)
   return (
@@ -1559,7 +1610,11 @@ export function AIReviewContent() {
           <span className="text-xs px-2 py-0.5 bg-accent-purple/20 text-accent-purple rounded-sm">
             Claude
           </span>
-          {reviewedCommit ? (
+          {reviewedCompare ? (
+            <span className="text-xs text-text-muted font-mono">
+              {compareBaseRef} → {compareHeadRef}
+            </span>
+          ) : reviewedCommit ? (
             <span className="text-xs text-text-muted">
               commit{" "}
               <span className="font-mono text-accent-blue">
