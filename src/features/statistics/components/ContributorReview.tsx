@@ -5,16 +5,20 @@ import {
   Warning,
   CheckCircle,
   Lightbulb,
+  Users,
 } from "@phosphor-icons/react";
 import type { ContributorReviewData } from "../../../lib/tauri";
 
 interface ContributorReviewProps {
+  /** Name to display - can be a contributor name or "Team" */
   contributorName: string;
   review: ContributorReviewData | null;
   isGenerating: boolean;
   error: Error | null;
   onGenerate: () => void;
   onClear: () => void;
+  /** Whether this is a team review (no specific contributor selected) */
+  isTeamReview?: boolean;
 }
 
 /**
@@ -38,7 +42,7 @@ function getGradeBgColor(grade: string): string {
 }
 
 /**
- * AI-generated contributor review card
+ * AI-generated contributor or team review card
  */
 export function ContributorReview({
   contributorName,
@@ -47,16 +51,20 @@ export function ContributorReview({
   error,
   onGenerate,
   onClear,
+  isTeamReview = false,
 }: ContributorReviewProps) {
+  const Icon = isTeamReview ? Users : Sparkle;
+  const title = isTeamReview ? "Team Activity Review" : "AI Review";
+
   // Empty state - no review yet
   if (!review && !isGenerating && !error) {
     return (
       <div className="bg-bg-secondary rounded-lg p-6 border border-border-primary">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Sparkle size={16} weight="bold" className="text-accent-purple" />
+            <Icon size={16} weight="bold" className="text-accent-purple" />
             <span className="text-sm font-medium text-text-primary">
-              AI Review
+              {title}
             </span>
           </div>
           <button
@@ -68,8 +76,9 @@ export function ContributorReview({
           </button>
         </div>
         <p className="mt-3 text-sm text-text-muted">
-          Get an AI-generated performance assessment for {contributorName} based
-          on their commit activity.
+          {isTeamReview
+            ? "Get an AI-generated assessment of the team's overall commit activity and patterns."
+            : `Get an AI-generated performance assessment for ${contributorName} based on their commit activity.`}
         </p>
       </div>
     );
@@ -87,7 +96,9 @@ export function ContributorReview({
           />
           <div>
             <p className="text-sm font-medium text-text-primary">
-              Analyzing {contributorName}'s contributions...
+              {isTeamReview
+                ? "Analyzing team activity..."
+                : `Analyzing ${contributorName}'s contributions...`}
             </p>
             <p className="text-xs text-text-muted mt-1">
               This may take a few seconds
@@ -129,9 +140,9 @@ export function ContributorReview({
       {/* Header with grade */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
-          <Sparkle size={16} weight="bold" className="text-accent-purple" />
+          <Icon size={16} weight="bold" className="text-accent-purple" />
           <span className="text-sm font-medium text-text-primary">
-            AI Review for {contributorName}
+            {isTeamReview ? "Team Activity Review" : `AI Review for ${contributorName}`}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -205,4 +216,3 @@ export function ContributorReview({
     </div>
   );
 }
-

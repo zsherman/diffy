@@ -11,6 +11,8 @@ interface UseContributorReviewOptions {
   repoPath: string;
   contributorEmail: string | null;
   timeRangeMonths: number;
+  /** List of all contributors in the time range (used for team reviews) */
+  allContributors?: { name: string; email: string; commitCount: number }[];
 }
 
 interface UseContributorReviewResult {
@@ -19,6 +21,8 @@ interface UseContributorReviewResult {
   error: Error | null;
   generateReview: () => Promise<void>;
   clearReview: () => void;
+  /** Whether this is a team review (no specific contributor selected) */
+  isTeamReview: boolean;
 }
 
 /**
@@ -46,15 +50,19 @@ function getTimeRangeLabel(months: number): string {
 
 /**
  * Hook to generate AI contributor reviews
+ * Supports both individual contributor reviews and team-wide reviews
  */
 export function useContributorReview({
   repoPath,
   contributorEmail,
   timeRangeMonths,
+  allContributors = [],
 }: UseContributorReviewOptions): UseContributorReviewResult {
   const [review, setReview] = useState<ContributorReviewData | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+
+  const isTeamReview = !contributorEmail;
 
   // Calculate time range (handle week case where timeRangeMonths < 1)
   const since = Math.floor(
@@ -73,8 +81,8 @@ export function useContributorReview({
   });
 
   const generateReview = useCallback(async () => {
-    if (!contributorEmail || !allCommits) {
-      setError(new Error("No contributor selected or no commit data"));
+    if (!allCommits) {
+      setError(new Error("No commit data available"));
       return;
     }
 
@@ -82,19 +90,40 @@ export function useContributorReview({
     setError(null);
 
     try {
-      // Filter commits by contributor and time range
-      const filteredCommits: CommitInfo[] = allCommits.filter(
-        (c) => c.authorEmail === contributorEmail && c.time >= since
-      );
+      let filteredCommits: CommitInfo[];
+      let reviewName: string;
+      let reviewEmail: string;
 
-      if (filteredCommits.length === 0) {
-        setError(new Error("No commits found for this contributor in the selected time range"));
-        setIsGenerating(false);
-        return;
+      if (contributorEmail) {
+        // Individual contributor review
+        filteredCommits = allCommits.filter(
+          (c) => c.authorEmail === contributorEmail && c.time >= since
+        );
+        
+        if (filteredCommits.length === 0) {
+          setError(new Error("No commits found for this contributor in the selected time range"));
+          setIsGenerating(false);
+          return;
+        }
+
+        reviewName = filteredCommits[0].authorName;
+        reviewEmail = contributorEmail;
+      } else {
+        // Team review - all contributors
+        filteredCommits = allCommits.filter((c) => c.time >= since);
+        
+        if (filteredCommits.length === 0) {
+          setError(new Error("No commits found in the selected time range"));
+          setIsGenerating(false);
+          return;
+        }
+
+        // Create a team name based on the number of contributors
+        const uniqueContributors = new Set(filteredCommits.map((c) => c.authorEmail));
+        const contributorCount = uniqueContributors.size;
+        reviewName = `Team (${contributorCount} contributor${contributorCount !== 1 ? "s" : ""})`;
+        reviewEmail = "team@contributors";
       }
-
-      // Get contributor name from first commit
-      const contributorName = filteredCommits[0].authorName;
 
       // Aggregate stats
       const totalCommits = filteredCommits.length;
@@ -103,12 +132,16 @@ export function useContributorReview({
       const totalDeletions = filteredCommits.reduce((sum, c) => sum + c.deletions, 0);
 
       // Get commit summaries (first line of commit message)
-      const commitSummaries = filteredCommits.map((c) => c.summary);
+      // For team reviews, limit to most recent commits to avoid overwhelming the AI
+      const maxSummaries = contributorEmail ? 100 : 50;
+      const commitSummaries = filteredCommits
+        .slice(0, maxSummaries)
+        .map((c) => contributorEmail ? c.summary : `[${c.authorName}] ${c.summary}`);
 
       // Call AI
       const result = await generateContributorReview({
-        contributorName,
-        contributorEmail,
+        contributorName: reviewName,
+        contributorEmail: reviewEmail,
         timeRangeLabel: getTimeRangeLabel(timeRangeMonths),
         commitSummaries,
         totalCommits,
@@ -136,6 +169,6 @@ export function useContributorReview({
     error,
     generateReview,
     clearReview,
+    isTeamReview,
   };
 }
-

@@ -159,3 +159,69 @@ export function getEndOfToday(): Date {
   return today;
 }
 
+/**
+ * Get the range start date for a given time range (in months).
+ * This matches the logic in useContributionData to ensure consistency.
+ * @param months - Number of months to go back (0.25 = 1 week)
+ * @returns The start date for the range
+ */
+export function getRangeStartDate(months: number): Date {
+  const today = getStartOfToday();
+  if (months < 1) {
+    // Handle week case (0.25 = 1 week = 7 days)
+    return addDays(today, -6); // -6 because we include today
+  }
+  return addMonths(today, -months);
+}
+
+/**
+ * Build an array of days for a "week strip" view (last 7 days).
+ * @returns Array of 7 Date objects from 6 days ago to today
+ */
+export function buildWeekStripDays(): Date[] {
+  const today = getStartOfToday();
+  const days: Date[] = [];
+  for (let i = 6; i >= 0; i--) {
+    days.push(addDays(today, -i));
+  }
+  return days;
+}
+
+/**
+ * Build an array of days for a "month view" (last ~30-31 days in a calendar grid).
+ * Returns weeks aligned to week boundaries for proper calendar display.
+ * @param weekStart - 0 for Sunday, 1 for Monday
+ * @returns Array of weeks, each week is an array of 7 Dates
+ */
+export function buildMonthWeeksGrid(weekStart: 0 | 1 = 0): Date[][] {
+  const today = getStartOfToday();
+  // Go back ~35 days to ensure we have a full month of data
+  const start = startOfWeek(addDays(today, -34), weekStart);
+  const endOfCurrentWeek = startOfWeek(today, weekStart);
+  const finalEnd = addDays(endOfCurrentWeek, 6);
+
+  const weeks: Date[][] = [];
+  let currentDate = new Date(start);
+
+  while (currentDate <= finalEnd) {
+    const week: Date[] = [];
+    for (let i = 0; i < 7; i++) {
+      week.push(new Date(currentDate));
+      currentDate = addDays(currentDate, 1);
+    }
+    weeks.push(week);
+  }
+
+  return weeks;
+}
+
+/**
+ * Format a date with day of week for the week strip view
+ */
+export function formatDayLabel(date: Date): { dayOfWeek: string; dayNum: string } {
+  return {
+    dayOfWeek: date.toLocaleDateString("en-US", { weekday: "short" }),
+    dayNum: String(date.getDate()),
+  };
+}
+

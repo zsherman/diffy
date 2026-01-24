@@ -68,17 +68,19 @@ export function StatisticsView() {
     (c) => c.email === statisticsContributorEmail
   );
 
-  // Contributor review hook
+  // Contributor/team review hook
   const {
     review,
     isGenerating,
     error: reviewError,
     generateReview,
     clearReview,
+    isTeamReview,
   } = useContributorReview({
     repoPath: repository?.path ?? "",
     contributorEmail: statisticsContributorEmail,
     timeRangeMonths: statisticsTimeRange,
+    allContributors: contributors,
   });
 
   // Clear review when contributor or time range changes
@@ -143,7 +145,8 @@ export function StatisticsView() {
   const hasData = summary.totalCommits > 0;
   const showTopContributors =
     !statisticsContributorEmail && chartData.topContributors.length > 1;
-  const showContributorReview = !!statisticsContributorEmail && hasData;
+  // Show AI review section whenever there's data (works for both individual and team reviews)
+  const showAIReview = hasData;
 
   return (
     <div className="flex-1 flex flex-col bg-bg-primary overflow-auto">
@@ -230,15 +233,16 @@ export function StatisticsView() {
             </div>
           </div>
 
-          {/* AI Contributor Review - only when a contributor is selected */}
-          {showContributorReview && selectedContributor && (
+          {/* AI Review - works for both individual contributors and team */}
+          {showAIReview && (
             <ContributorReview
-              contributorName={selectedContributor.name}
+              contributorName={selectedContributor?.name ?? "Team"}
               review={review}
               isGenerating={isGenerating}
               error={reviewError}
               onGenerate={generateReview}
               onClear={clearReview}
+              isTeamReview={isTeamReview}
             />
           )}
 
@@ -246,17 +250,17 @@ export function StatisticsView() {
           <div className="bg-bg-secondary rounded-lg p-6 border border-border-primary">
             {hasData ? (
               <>
-                <div className="overflow-x-auto pb-2">
-                  <ContributionCalendar
-                    contributionsByDay={contributionsByDay}
-                    maxCount={maxCount}
-                    months={statisticsTimeRange}
-                  />
-                </div>
+                {/* Calendar grid fills available width */}
+                <ContributionCalendar
+                  contributionsByDay={contributionsByDay}
+                  maxCount={maxCount}
+                  months={statisticsTimeRange}
+                  contributorName={selectedContributor?.name}
+                />
 
                 {/* Legend */}
                 <div className="flex justify-end mt-4">
-                  <CalendarLegend />
+                  <CalendarLegend months={statisticsTimeRange} />
                 </div>
               </>
             ) : (
