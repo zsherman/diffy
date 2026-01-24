@@ -207,7 +207,9 @@ export const MermaidRenderer = memo(function MermaidRenderer({
         setError(null);
       } catch (err) {
         console.error("Mermaid render error:", err);
-        setError(err instanceof Error ? err.message : "Failed to render diagram");
+        setError(
+          err instanceof Error ? err.message : "Failed to render diagram",
+        );
         setSvgContent("");
       }
     };
@@ -285,20 +287,23 @@ export const MermaidRenderer = memo(function MermaidRenderer({
   }
 
   return (
-    <div ref={containerRef} className={`mermaid-container relative ${className}`}>
+    <div
+      ref={containerRef}
+      className={`mermaid-container relative ${className}`}
+    >
       {/* Zoom controls */}
       {enablePanZoom && (
         <div className="absolute top-2 right-2 z-10 flex items-center gap-1 bg-bg-secondary/90 backdrop-blur-sm rounded-md border border-border-primary p-1">
           <button
             onClick={handleZoomIn}
-            className="p-1.5 hover:bg-bg-hover rounded-sm text-text-muted hover:text-text-primary transition-colors"
+            className="p-1.5 hover:bg-bg-hover rounded-sm text-text-muted hover:text-text-primary transition-colors cursor-pointer"
             title="Zoom in"
           >
             <MagnifyingGlassPlus size={16} />
           </button>
           <button
             onClick={handleZoomOut}
-            className="p-1.5 hover:bg-bg-hover rounded-sm text-text-muted hover:text-text-primary transition-colors"
+            className="p-1.5 hover:bg-bg-hover rounded-sm text-text-muted hover:text-text-primary transition-colors cursor-pointer"
             title="Zoom out"
           >
             <MagnifyingGlassMinus size={16} />
@@ -306,14 +311,14 @@ export const MermaidRenderer = memo(function MermaidRenderer({
           <div className="w-px h-4 bg-border-primary mx-0.5" />
           <button
             onClick={handleFitToView}
-            className="p-1.5 hover:bg-bg-hover rounded-sm text-text-muted hover:text-text-primary transition-colors"
+            className="p-1.5 hover:bg-bg-hover rounded-sm text-text-muted hover:text-text-primary transition-colors cursor-pointer"
             title="Fit to view"
           >
             <ArrowsOutCardinal size={16} />
           </button>
           <button
             onClick={handleReset}
-            className="p-1.5 hover:bg-bg-hover rounded-sm text-text-muted hover:text-text-primary transition-colors"
+            className="p-1.5 hover:bg-bg-hover rounded-sm text-text-muted hover:text-text-primary transition-colors cursor-pointer"
             title="Reset view"
           >
             <House size={16} />

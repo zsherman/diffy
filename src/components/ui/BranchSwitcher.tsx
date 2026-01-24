@@ -1,77 +1,122 @@
-import { useMemo, useState } from 'react';
-import { Combobox } from '@base-ui/react/combobox';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { GitBranch, CaretUpDown, Check, Plus } from '@phosphor-icons/react';
-import { listBranches, checkoutBranch, createBranch } from '../../lib/tauri';
-import { useTabsStore } from '../../stores/tabs-store';
-import { useToast } from './Toast';
-import { getErrorMessage } from '../../lib/errors';
-import type { BranchInfo } from '../../types/git';
+import { useMemo, useState } from "react";
+import { Combobox } from "@base-ui/react/combobox";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { GitBranch, CaretUpDown, Check, Plus } from "@phosphor-icons/react";
+import { listBranches, checkoutBranch, createBranch } from "../../lib/tauri";
+import { useTabsStore } from "../../stores/tabs-store";
+import { useToast } from "./Toast";
+import { Input } from "./Input";
+import { getErrorMessage } from "../../lib/errors";
+import type { BranchInfo } from "../../types/git";
 
 export function BranchSwitcher() {
   const { repository, setHeadBranch } = useTabsStore();
   const toast = useToast();
   const queryClient = useQueryClient();
-  const [inputValue, setInputValue] = useState('');
+  const [inputValue, setInputValue] = useState("");
   const [open, setOpen] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [newBranchName, setNewBranchName] = useState('');
+  const [newBranchName, setNewBranchName] = useState("");
 
   const { data: branches = [] } = useQuery({
-    queryKey: ['branches', repository?.path],
+    queryKey: ["branches", repository?.path],
     queryFn: () => listBranches(repository!.path),
     enabled: !!repository?.path,
     staleTime: 30000,
   });
 
   const checkoutMutation = useMutation({
-    mutationFn: (branchName: string) => checkoutBranch(repository!.path, branchName),
+    mutationFn: (branchName: string) =>
+      checkoutBranch(repository!.path, branchName),
     onSuccess: (_, branchName) => {
-      toast.success('Branch switched', `Switched to ${branchName}`);
+      toast.success("Branch switched", `Switched to ${branchName}`);
       // Update the head branch in the store immediately
       if (repository) setHeadBranch(repository.path, branchName);
       // Invalidate all related queries
-      queryClient.invalidateQueries({ queryKey: ['branches'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['commits'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['graph'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['status'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['repository'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['working-diff-staged'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['working-diff-unstaged'], refetchType: 'all' });
+      queryClient.invalidateQueries({
+        queryKey: ["branches"],
+        refetchType: "all",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["commits"],
+        refetchType: "all",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["graph"],
+        refetchType: "all",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["status"],
+        refetchType: "all",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["repository"],
+        refetchType: "all",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["working-diff-staged"],
+        refetchType: "all",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["working-diff-unstaged"],
+        refetchType: "all",
+      });
     },
     onError: (error) => {
       const message = error instanceof Error ? error.message : String(error);
-      toast.error('Checkout failed', message);
+      toast.error("Checkout failed", message);
     },
   });
 
   const createBranchMutation = useMutation({
-    mutationFn: (branchName: string) => createBranch(repository!.path, branchName, true),
+    mutationFn: (branchName: string) =>
+      createBranch(repository!.path, branchName, true),
     onSuccess: (_, branchName) => {
-      toast.success('Branch created', `Created and switched to ${branchName}`);
+      toast.success("Branch created", `Created and switched to ${branchName}`);
       // Update the head branch in the store immediately
       if (repository) setHeadBranch(repository.path, branchName);
       // Invalidate all related queries
-      queryClient.invalidateQueries({ queryKey: ['branches'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['commits'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['graph'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['status'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['repository'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['working-diff-staged'], refetchType: 'all' });
-      queryClient.invalidateQueries({ queryKey: ['working-diff-unstaged'], refetchType: 'all' });
-      setNewBranchName('');
+      queryClient.invalidateQueries({
+        queryKey: ["branches"],
+        refetchType: "all",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["commits"],
+        refetchType: "all",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["graph"],
+        refetchType: "all",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["status"],
+        refetchType: "all",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["repository"],
+        refetchType: "all",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["working-diff-staged"],
+        refetchType: "all",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["working-diff-unstaged"],
+        refetchType: "all",
+      });
+      setNewBranchName("");
       setShowCreateForm(false);
       setOpen(false);
     },
     onError: (error) => {
-      toast.error('Create branch failed', getErrorMessage(error));
+      toast.error("Create branch failed", getErrorMessage(error));
     },
   });
 
   // Only show local branches for switching
   const localBranches = useMemo(
     () => branches.filter((b) => !b.isRemote),
-    [branches]
+    [branches],
   );
 
   // Filter branches based on input
@@ -83,7 +128,7 @@ export function BranchSwitcher() {
 
   const currentBranch = useMemo(
     () => localBranches.find((b) => b.isHead),
-    [localBranches]
+    [localBranches],
   );
 
   const handleSelect = (value: BranchInfo | null) => {
@@ -96,9 +141,9 @@ export function BranchSwitcher() {
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
     if (!isOpen) {
-      setInputValue('');
+      setInputValue("");
       setShowCreateForm(false);
-      setNewBranchName('');
+      setNewBranchName("");
     }
   };
 
@@ -117,7 +162,7 @@ export function BranchSwitcher() {
       onValueChange={handleSelect}
       inputValue={inputValue}
       onInputValueChange={(val) => setInputValue(val)}
-      itemToStringLabel={(branch) => branch?.name ?? ''}
+      itemToStringLabel={(branch) => branch?.name ?? ""}
       isItemEqualToValue={(a, b) => a.name === b.name}
       open={open}
       onOpenChange={handleOpenChange}
@@ -127,7 +172,9 @@ export function BranchSwitcher() {
         aria-label="Switch branch"
       >
         <GitBranch size={12} weight="bold" />
-        <span className="max-w-[150px] truncate">{repository.headBranch ?? 'detached'}</span>
+        <span className="max-w-[150px] truncate">
+          {repository.headBranch ?? "detached"}
+        </span>
         <CaretUpDown size={10} className="text-text-muted" />
       </Combobox.Trigger>
 
@@ -137,40 +184,43 @@ export function BranchSwitcher() {
             {showCreateForm ? (
               <div className="p-3 space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="text-sm font-medium text-text-primary">Create New Branch</div>
+                  <div className="text-sm font-medium text-text-primary">
+                    Create New Branch
+                  </div>
                   <button
                     onClick={() => setShowCreateForm(false)}
-                    className="text-xs text-text-muted hover:text-text-primary"
+                    className="text-xs text-text-muted hover:text-text-primary cursor-pointer"
                   >
                     Back
                   </button>
                 </div>
-                <input
-                  type="text"
+                <Input
                   placeholder="Branch name..."
                   value={newBranchName}
                   onChange={(e) => setNewBranchName(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
+                    if (e.key === "Enter") {
                       handleCreateBranch();
-                    } else if (e.key === 'Escape') {
+                    } else if (e.key === "Escape") {
                       setShowCreateForm(false);
                     }
                   }}
-                  className="w-full px-2 py-1.5 text-sm bg-bg-tertiary border border-border-primary rounded-sm text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-hidden"
+                  size="sm"
                   autoFocus
                 />
                 <div className="flex justify-end gap-2">
                   <button
                     onClick={() => setShowCreateForm(false)}
-                    className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary rounded-sm border border-border-primary hover:bg-bg-hover transition-colors"
+                    className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary rounded-sm border border-border-primary hover:bg-bg-hover transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleCreateBranch}
-                    disabled={!newBranchName.trim() || createBranchMutation.isPending}
-                    className="px-3 py-1.5 text-xs text-white bg-accent-blue hover:bg-accent-blue/90 rounded-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    disabled={
+                      !newBranchName.trim() || createBranchMutation.isPending
+                    }
+                    className="px-3 py-1.5 text-xs text-white bg-accent-blue hover:bg-accent-blue/90 rounded-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     Create & Checkout
                   </button>
@@ -189,7 +239,7 @@ export function BranchSwitcher() {
                 <div className="p-1 border-b border-border-primary">
                   <button
                     onClick={() => setShowCreateForm(true)}
-                    className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-text-primary hover:bg-bg-hover rounded-sm transition-colors"
+                    className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-text-primary hover:bg-bg-hover rounded-sm transition-colors cursor-pointer"
                   >
                     <Plus size={14} weight="bold" />
                     <span>Create new branch</span>
@@ -204,7 +254,11 @@ export function BranchSwitcher() {
                       className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm cursor-pointer text-text-primary data-highlighted:bg-bg-hover data-selected:bg-bg-selected"
                     >
                       <Combobox.ItemIndicator className="w-4">
-                        <Check size={14} weight="bold" className="text-accent-green" />
+                        <Check
+                          size={14}
+                          weight="bold"
+                          className="text-accent-green"
+                        />
                       </Combobox.ItemIndicator>
                       <span className="truncate">{branch.name}</span>
                     </Combobox.Item>

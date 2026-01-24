@@ -20,7 +20,7 @@ import {
   useActiveTabPanels,
 } from "../../../stores/tabs-store";
 import { useActivePanel, useGraphColumnWidths } from "../../../stores/ui-store";
-import { LoadingSpinner, SkeletonCommits } from "../../../components/ui";
+import { LoadingSpinner, SkeletonCommits, Input } from "../../../components/ui";
 import { useCommitRefs } from "../hooks";
 import { GraphTableHeader } from "./GraphTableHeader";
 import { GraphTableRow } from "./GraphTableRow";
@@ -58,7 +58,7 @@ export function GraphTableView() {
   const [localColumnWidths, setLocalColumnWidths] = useState(graphColumnWidths);
 
   // Track mount/unmount for performance debugging
-  useEffect(() => createMountLogger('GraphTableView'), []);
+  useEffect(() => createMountLogger("GraphTableView"), []);
 
   // Sync local state with store on mount and when store changes externally
   useEffect(() => {
@@ -130,7 +130,12 @@ export function GraphTableView() {
   // Fetch graph data
   // Use 'graphTableGraph' key to avoid collision with CommitList's graph query
   const { data: graph } = useQuery({
-    queryKey: ["graphTableGraph", repository?.path, "allBranches", commitIdsKey],
+    queryKey: [
+      "graphTableGraph",
+      repository?.path,
+      "allBranches",
+      commitIdsKey,
+    ],
     queryFn: () =>
       getCommitGraph(
         repository!.path,
@@ -275,12 +280,11 @@ export function GraphTableView() {
     <div className="flex flex-col h-full">
       {/* Filter input */}
       <div className="px-2 py-1.5 border-b border-border-primary">
-        <input
-          type="text"
+        <Input
           placeholder="Filter commits..."
           value={commitFilter}
           onChange={(e) => setCommitFilter(e.target.value)}
-          className="w-full px-2 py-1 text-sm bg-bg-tertiary border border-border-primary rounded-sm text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-hidden"
+          size="sm"
         />
       </div>
 

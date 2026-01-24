@@ -31,7 +31,7 @@ import {
   normalizeError,
   getErrorMessage,
 } from "../../../lib/tauri";
-import { FileContextMenu, StatusIcon } from "../../../components/ui";
+import { FileContextMenu, StatusIcon, Input } from "../../../components/ui";
 import { useTabsStore, useActiveTabState } from "../../../stores/tabs-store";
 import { useUIStore } from "../../../stores/ui-store";
 import { usePanelFontSize } from "../../../stores/ui-store";
@@ -87,9 +87,13 @@ const StagingFileRow = memo(function StagingFileRow({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              isStaged ? onUnstage() : onStage();
+              if (isStaged) {
+                onUnstage();
+              } else {
+                onStage();
+              }
             }}
-            className="px-1.5 py-0.5 text-xs rounded-sm bg-bg-tertiary hover:bg-bg-hover border border-border-primary"
+            className="px-1.5 py-0.5 text-xs rounded-sm bg-bg-tertiary hover:bg-bg-hover border border-border-primary cursor-pointer"
           >
             {isStaged ? "Unstage" : "Stage"}
           </button>
@@ -98,7 +102,7 @@ const StagingFileRow = memo(function StagingFileRow({
               e.stopPropagation();
               onDiscard();
             }}
-            className="px-1.5 py-0.5 text-xs rounded-sm bg-accent-red/20 hover:bg-accent-red/30 border border-accent-red/30"
+            className="px-1.5 py-0.5 text-xs rounded-sm bg-accent-red/20 hover:bg-accent-red/30 border border-accent-red/30 cursor-pointer"
             title="Discard changes"
           >
             <Trash size={12} weight="bold" className="text-accent-red" />
@@ -159,7 +163,7 @@ const StashRow = memo(function StashRow({
             onApply();
           }}
           disabled={isLoading}
-          className="px-1.5 py-0.5 text-xs rounded-sm bg-bg-tertiary hover:bg-bg-hover border border-border-primary disabled:opacity-50"
+          className="px-1.5 py-0.5 text-xs rounded-sm bg-bg-tertiary hover:bg-bg-hover border border-border-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           title="Apply stash (keep in list)"
         >
           <ArrowLineDown size={12} weight="bold" />
@@ -170,7 +174,7 @@ const StashRow = memo(function StashRow({
             onPop();
           }}
           disabled={isLoading}
-          className="px-1.5 py-0.5 text-xs rounded-sm bg-accent-green/20 hover:bg-accent-green/30 border border-accent-green/30 disabled:opacity-50"
+          className="px-1.5 py-0.5 text-xs rounded-sm bg-accent-green/20 hover:bg-accent-green/30 border border-accent-green/30 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           title="Pop stash (apply & remove)"
         >
           <ArrowLineUp size={12} weight="bold" className="text-accent-green" />
@@ -187,7 +191,7 @@ const StashRow = memo(function StashRow({
             }
           }}
           disabled={isLoading}
-          className="px-1.5 py-0.5 text-xs rounded-sm bg-accent-red/20 hover:bg-accent-red/30 border border-accent-red/30 disabled:opacity-50"
+          className="px-1.5 py-0.5 text-xs rounded-sm bg-accent-red/20 hover:bg-accent-red/30 border border-accent-red/30 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           title="Drop stash (delete)"
         >
           <X size={12} weight="bold" className="text-accent-red" />
@@ -221,7 +225,7 @@ const SectionHeader = memo(function SectionHeader({
     <div className="flex items-center justify-between px-2 py-1.5 bg-bg-tertiary border-y border-border-primary">
       <button
         onClick={onToggle}
-        className="flex items-center gap-1 text-xs font-semibold text-text-muted hover:text-text-primary"
+        className="flex items-center gap-1 text-xs font-semibold text-text-muted hover:text-text-primary cursor-pointer"
       >
         {isExpanded ? (
           <CaretDown size={12} weight="bold" />
@@ -235,7 +239,7 @@ const SectionHeader = memo(function SectionHeader({
       <button
         onClick={onAction}
         disabled={actionDisabled || (disableActionOnEmpty && count === 0)}
-        className="text-xs text-accent-blue hover:text-accent-blue/80 disabled:text-text-muted disabled:cursor-not-allowed"
+        className="text-xs text-accent-blue hover:text-accent-blue/80 cursor-pointer disabled:text-text-muted disabled:cursor-not-allowed"
       >
         {actionLabel}
       </button>
@@ -577,20 +581,20 @@ export function StagingSidebar() {
                 {showStashInput && (
                   <div className="px-2 py-2 border-b border-border-primary bg-bg-tertiary">
                     <div className="flex gap-2">
-                      <input
-                        type="text"
+                      <Input
                         placeholder="Stash message (optional)"
                         value={stashMessage}
                         onChange={(e) => setStashMessage(e.target.value)}
                         onKeyDown={handleStashKeyDown}
                         autoFocus
-                        className="flex-1 px-2 py-1 bg-bg-secondary border border-border-primary rounded-sm text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-hidden"
+                        size="sm"
+                        className="flex-1"
                         style={{ fontSize: `${panelFontSize}px` }}
                       />
                       <button
                         onClick={handleCreateStash}
                         disabled={isStashing}
-                        className="px-3 py-1 bg-accent-purple text-white rounded-sm text-xs hover:bg-accent-purple/90 disabled:bg-bg-tertiary disabled:text-text-muted"
+                        className="px-3 py-1 bg-accent-purple text-white rounded-sm text-xs hover:bg-accent-purple/90 cursor-pointer disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed"
                       >
                         {isStashing ? (
                           <CircleNotch size={14} className="animate-spin" />
@@ -603,7 +607,7 @@ export function StagingSidebar() {
                           setShowStashInput(false);
                           setStashMessage("");
                         }}
-                        className="px-2 py-1 bg-bg-secondary border border-border-primary rounded-sm text-text-muted hover:text-text-primary"
+                        className="px-2 py-1 bg-bg-secondary border border-border-primary rounded-sm text-text-muted hover:text-text-primary cursor-pointer"
                       >
                         <X size={14} />
                       </button>
@@ -729,13 +733,13 @@ export function StagingSidebar() {
 
             {/* Commit message with AI generate button */}
             <div className="flex gap-2 shrink-0">
-              <input
-                type="text"
+              <Input
                 placeholder="Commit message (title)"
                 value={commitMessage}
                 onChange={(e) => setCommitMessage(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="flex-1 px-2 py-1.5 bg-bg-tertiary border border-border-primary rounded-sm text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-hidden"
+                size="sm"
+                className="flex-1"
                 style={{ fontSize: `${panelFontSize}px` }}
               />
               <button
@@ -743,7 +747,7 @@ export function StagingSidebar() {
                 disabled={
                   stagedFiles.length === 0 || isGenerating || !claudeAvailable
                 }
-                className="px-2 py-1.5 bg-accent-purple text-white rounded-sm text-xs hover:bg-accent-purple/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
+                className="px-2 py-1.5 bg-accent-purple text-white rounded-sm text-xs hover:bg-accent-purple/90 cursor-pointer disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
                 title={
                   !claudeAvailable
                     ? `Claude CLI not installed: ${cliStatus?.claude.installInstructions}`
@@ -780,7 +784,7 @@ export function StagingSidebar() {
                 stagedFiles.length === 0 ||
                 isCommitting
               }
-              className="w-full py-2 px-4 bg-accent-blue text-white rounded-sm font-medium hover:bg-accent-blue/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors shrink-0"
+              className="w-full py-2 px-4 bg-accent-blue text-white rounded-sm font-medium hover:bg-accent-blue/90 cursor-pointer disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors shrink-0"
               style={{ fontSize: `${panelFontSize}px` }}
             >
               {isCommitting

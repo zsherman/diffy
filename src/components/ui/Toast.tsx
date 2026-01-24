@@ -1,8 +1,15 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Toast } from '@base-ui/react/toast';
-import { Check, X, Warning, Info, Copy, CheckCircle } from '@phosphor-icons/react';
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Toast } from "@base-ui/react/toast";
+import {
+  Check,
+  X,
+  Warning,
+  Info,
+  Copy,
+  CheckCircle,
+} from "@phosphor-icons/react";
 
-export type ToastType = 'success' | 'error' | 'warning' | 'info';
+export type ToastType = "success" | "error" | "warning" | "info";
 
 export interface ToastAction {
   label: string;
@@ -41,17 +48,17 @@ const iconMap: Record<ToastType, React.ReactNode> = {
 };
 
 const borderColorMap: Record<ToastType, string> = {
-  success: 'border-accent-green',
-  error: 'border-accent-red',
-  warning: 'border-accent-yellow',
-  info: 'border-accent-blue',
+  success: "border-accent-green",
+  error: "border-accent-red",
+  warning: "border-accent-yellow",
+  info: "border-accent-blue",
 };
 
 const titleColorMap: Record<ToastType, string> = {
-  success: 'text-accent-green',
-  error: 'text-accent-red',
-  warning: 'text-accent-yellow',
-  info: 'text-accent-blue',
+  success: "text-accent-green",
+  error: "text-accent-red",
+  warning: "text-accent-yellow",
+  info: "text-accent-blue",
 };
 
 function CopyButton({ text }: { text: string }) {
@@ -63,14 +70,14 @@ function CopyButton({ text }: { text: string }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      console.error('Failed to copy:', err);
+      console.error("Failed to copy:", err);
     }
   }, [text]);
 
   return (
     <button
       onClick={handleCopy}
-      className="p-1 rounded-sm hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors"
+      className="p-1 rounded-sm hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors cursor-pointer"
       title="Copy error message"
     >
       {copied ? (
@@ -109,7 +116,7 @@ function CollapsibleDescription({ description }: { description: string }) {
       <div
         ref={contentRef}
         className={`text-sm text-text-muted leading-relaxed overflow-hidden transition-all duration-200 ${
-          !isExpanded && needsCollapse ? 'max-h-[80px]' : 'max-h-[400px]'
+          !isExpanded && needsCollapse ? "max-h-[80px]" : "max-h-[400px]"
         }`}
       >
         {description}
@@ -117,16 +124,16 @@ function CollapsibleDescription({ description }: { description: string }) {
       {needsCollapse && (
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="text-xs text-accent-blue hover:text-accent-blue/80 mt-1 transition-colors"
+          className="text-xs text-accent-blue hover:text-accent-blue/80 mt-1 transition-colors cursor-pointer"
         >
-          {isExpanded ? 'Show less' : 'Show more'}
+          {isExpanded ? "Show less" : "Show more"}
         </button>
       )}
     </div>
   );
 }
 
-interface ToastDataWithActionId extends Omit<ToastData, 'action'> {
+interface ToastDataWithActionId extends Omit<ToastData, "action"> {
   actionId?: string;
   actionLabel?: string;
 }
@@ -137,11 +144,13 @@ function ToastList() {
 
   return toasts.map((toast) => {
     // Base UI spreads data directly onto the toast object, not under toast.data
-    const toastData = toast as unknown as ToastDataWithActionId & { id: string };
-    const type = toastData.type || 'info';
-    const title = toastData.title || 'Notification';
+    const toastData = toast as unknown as ToastDataWithActionId & {
+      id: string;
+    };
+    const type = toastData.type || "info";
+    const title = toastData.title || "Notification";
     const description = toastData.description;
-    const showCopy = type === 'error' && description;
+    const showCopy = type === "error" && description;
     const actionId = toastData.actionId;
     const actionLabel = toastData.actionLabel;
 
@@ -151,9 +160,12 @@ function ToastList() {
         if (callback) {
           callback();
           // Try different methods to dismiss the toast
-          if ('remove' in manager && typeof manager.remove === 'function') {
+          if ("remove" in manager && typeof manager.remove === "function") {
             manager.remove(toast.id);
-          } else if ('dismiss' in manager && typeof manager.dismiss === 'function') {
+          } else if (
+            "dismiss" in manager &&
+            typeof manager.dismiss === "function"
+          ) {
             (manager as { dismiss: (id: string) => void }).dismiss(toast.id);
           }
           // If neither exists, the toast will auto-dismiss after timeout
@@ -168,7 +180,9 @@ function ToastList() {
         className={`flex items-start gap-3 px-4 py-3 bg-bg-secondary border rounded-lg shadow-lg min-w-[320px] max-w-[420px] data-[swipe=move]:translate-x-(--toast-swipe-move-x) data-ending-style:opacity-0 data-ending-style:translate-x-2 transition-all duration-200 ${borderColorMap[type]}`}
       >
         <Toast.Content className="flex-1 min-w-0">
-          <Toast.Title className={`flex items-center gap-2 font-medium text-sm ${titleColorMap[type]}`}>
+          <Toast.Title
+            className={`flex items-center gap-2 font-medium text-sm ${titleColorMap[type]}`}
+          >
             {iconMap[type]}
             <span className="text-text-primary">{title}</span>
           </Toast.Title>
@@ -180,7 +194,7 @@ function ToastList() {
           {actionId && actionLabel && (
             <button
               onClick={handleActionClick}
-              className="mt-2 px-3 py-1 text-xs font-medium bg-accent-blue text-white rounded-sm hover:bg-accent-blue/90 transition-colors"
+              className="mt-2 px-3 py-1 text-xs font-medium bg-accent-blue text-white rounded-sm hover:bg-accent-blue/90 transition-colors cursor-pointer"
             >
               {actionLabel}
             </button>
@@ -221,20 +235,20 @@ export const useToast = () => {
 
   return {
     success: (title: string, description?: string) =>
-      addToast({ title, description, type: 'success' }),
+      addToast({ title, description, type: "success" }),
     error: (title: string, description?: string) =>
-      addToast({ title, description, type: 'error', timeout: 10000 }),
+      addToast({ title, description, type: "error", timeout: 10000 }),
     warning: (title: string, description?: string) =>
-      addToast({ title, description, type: 'warning', timeout: 7000 }),
+      addToast({ title, description, type: "warning", timeout: 7000 }),
     info: (title: string, description?: string) =>
-      addToast({ title, description, type: 'info' }),
+      addToast({ title, description, type: "info" }),
     // Toast with action button
     withAction: (
       title: string,
       description: string | undefined,
       type: ToastType,
       action: ToastAction,
-      timeout?: number
+      timeout?: number,
     ) => {
       const actionId = registerAction(action.onClick);
       return addToast({

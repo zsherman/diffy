@@ -2,10 +2,17 @@ import { useMemo, useState, useCallback, useEffect, memo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { VList } from "virtua";
 import type { VListHandle } from "virtua";
-import { ArrowClockwise, GitCommit, ArrowsLeftRight, GitMerge, ArrowBendUpLeft } from "@phosphor-icons/react";
+import {
+  ArrowClockwise,
+  GitCommit,
+  ArrowsLeftRight,
+  GitMerge,
+  ArrowBendUpLeft,
+} from "@phosphor-icons/react";
 import { getReflog } from "../../../lib/tauri";
 import { useTabsStore } from "../../../stores/tabs-store";
 import { useActivePanel, usePanelFontSize } from "../../../stores/ui-store";
+import { Input } from "../../../components/ui";
 import type { ReflogEntry } from "../../../types/git";
 
 const ROW_HEIGHT = 44;
@@ -29,17 +36,26 @@ function getReflogIcon(message: string): React.ReactNode {
   if (lowerMessage.startsWith("commit")) {
     return <GitCommit size={14} weight="bold" className="text-accent-green" />;
   }
-  if (lowerMessage.startsWith("checkout") || lowerMessage.startsWith("branch")) {
-    return <ArrowsLeftRight size={14} weight="bold" className="text-accent-blue" />;
+  if (
+    lowerMessage.startsWith("checkout") ||
+    lowerMessage.startsWith("branch")
+  ) {
+    return (
+      <ArrowsLeftRight size={14} weight="bold" className="text-accent-blue" />
+    );
   }
   if (lowerMessage.startsWith("merge")) {
     return <GitMerge size={14} weight="bold" className="text-accent-purple" />;
   }
   if (lowerMessage.startsWith("reset") || lowerMessage.startsWith("rebase")) {
-    return <ArrowBendUpLeft size={14} weight="bold" className="text-accent-yellow" />;
+    return (
+      <ArrowBendUpLeft size={14} weight="bold" className="text-accent-yellow" />
+    );
   }
   if (lowerMessage.startsWith("pull")) {
-    return <ArrowBendUpLeft size={14} weight="bold" className="text-accent-cyan" />;
+    return (
+      <ArrowBendUpLeft size={14} weight="bold" className="text-accent-cyan" />
+    );
   }
   return <GitCommit size={14} weight="bold" className="text-text-muted" />;
 }
@@ -104,7 +120,11 @@ export function ReflogView() {
   const [filter, setFilter] = useState("");
 
   // Fetch reflog entries
-  const { data: entries = [], isLoading, refetch } = useQuery({
+  const {
+    data: entries = [],
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ["reflog", repository?.path],
     queryFn: () => getReflog(repository!.path, 200),
     staleTime: 30000,
@@ -120,7 +140,7 @@ export function ReflogView() {
       (e) =>
         e.message.toLowerCase().includes(lower) ||
         e.shortOid.toLowerCase().includes(lower) ||
-        e.selector.toLowerCase().includes(lower)
+        e.selector.toLowerCase().includes(lower),
     );
   }, [entries, filter]);
 
@@ -134,7 +154,7 @@ export function ReflogView() {
       if (e.key === "j" || e.key === "ArrowDown") {
         e.preventDefault();
         setFocusedIndex((prev) =>
-          Math.min(prev + 1, filteredEntries.length - 1)
+          Math.min(prev + 1, filteredEntries.length - 1),
         );
       } else if (e.key === "k" || e.key === "ArrowUp") {
         e.preventDefault();
@@ -166,12 +186,12 @@ export function ReflogView() {
     <div className="flex flex-col h-full">
       {/* Header with filter and refresh */}
       <div className="flex items-center gap-2 px-2 py-1.5 border-b border-border-primary">
-        <input
-          type="text"
+        <Input
           placeholder="Filter reflog..."
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="flex-1 px-2 py-1 bg-bg-tertiary border border-border-primary rounded-sm text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-hidden"
+          size="sm"
+          className="flex-1"
           style={{ fontSize: `${panelFontSize}px` }}
         />
         <button
@@ -210,7 +230,8 @@ export function ReflogView() {
 
       {/* Footer with count */}
       <div className="px-2 py-1 border-t border-border-primary text-text-muted text-xs">
-        {filteredEntries.length} {filteredEntries.length === 1 ? "entry" : "entries"}
+        {filteredEntries.length}{" "}
+        {filteredEntries.length === 1 ? "entry" : "entries"}
         {filter && entries.length !== filteredEntries.length && (
           <span> (filtered from {entries.length})</span>
         )}

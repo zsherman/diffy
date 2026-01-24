@@ -10,13 +10,16 @@ import {
   Sparkle,
   UsersThree,
   Stack,
+  GitBranch,
+  TreeStructure,
 } from "@phosphor-icons/react";
 import { MermaidRenderer } from "../../../components/ui/MermaidRenderer";
 import { useTabsStore } from "../../../stores/tabs-store";
 import { usePanelFontSize } from "../../../stores/ui-store";
-import { getStatus } from "../../../lib/tauri";
+import { getStatus, getCommitHistory } from "../../../lib/tauri";
 import {
   generateDiagram,
+  generateGitGraph,
   type DiagramType,
 } from "./diagram-generators";
 import { AIDiagramView } from "./AIDiagramView";
@@ -42,6 +45,12 @@ const VIEW_OPTIONS: ViewOption[] = [
     description: "C4 Container - changed components",
   },
   {
+    id: "gitgraph",
+    label: "History",
+    icon: <GitBranch size={14} weight="bold" />,
+    description: "Git commit history graph",
+  },
+  {
     id: "ai",
     label: "AI",
     icon: <Sparkle size={14} weight="bold" />,
@@ -52,30 +61,50 @@ const VIEW_OPTIONS: ViewOption[] = [
 export function MermaidChangesView() {
   const { repository } = useTabsStore();
   const panelFontSize = usePanelFontSize();
-  const [diagramType, setDiagramType] = useState<DiagramType | "ai">("c4-container");
+  const [diagramType, setDiagramType] = useState<DiagramType | "ai">(
+    "c4-container",
+  );
   const [showSource, setShowSource] = useState(false);
   const [copied, setCopied] = useState(false);
 
   // Fetch status data
-  const { data: status, isLoading } = useQuery({
+  const { data: status, isLoading: isLoadingStatus } = useQuery({
     queryKey: ["status", repository?.path],
     queryFn: () => getStatus(repository!.path),
-    enabled: !!repository?.path,
+    enabled:
+      !!repository?.path && diagramType !== "gitgraph" && diagramType !== "ai",
     staleTime: 30000,
     refetchOnMount: true,
   });
 
+  // Fetch commit history for gitgraph
+  const { data: commits, isLoading: isLoadingCommits } = useQuery({
+    queryKey: ["commits-for-graph", repository?.path],
+    queryFn: () => getCommitHistory(repository!.path, undefined, 20),
+    enabled: !!repository?.path && diagramType === "gitgraph",
+    staleTime: 30000,
+  });
+
+  const isLoading =
+    diagramType === "gitgraph" ? isLoadingCommits : isLoadingStatus;
+
   // Generate diagram source
   const diagramSource = useMemo(() => {
-    if (!status) return "";
     if (diagramType === "ai") return ""; // AI diagrams handled separately
+    if (diagramType === "gitgraph") {
+      if (!commits) return "";
+      return generateGitGraph(commits, repository?.headBranch ?? undefined);
+    }
+    if (!status) return "";
     return generateDiagram(status, diagramType);
-  }, [status, diagramType]);
+  }, [status, commits, diagramType, repository?.headBranch]);
 
   // Count total changes
   const totalChanges = useMemo(() => {
     if (!status) return 0;
-    return status.staged.length + status.unstaged.length + status.untracked.length;
+    return (
+      status.staged.length + status.unstaged.length + status.untracked.length
+    );
   }, [status]);
 
   // Copy to clipboard
@@ -102,9 +131,11 @@ export function MermaidChangesView() {
               <button
                 key={option.id}
                 onClick={() => setDiagramType(option.id)}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-xs font-medium transition-colors ${
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-xs font-medium transition-colors cursor-pointer ${
                   diagramType === option.id
-                    ? option.id === "ai" ? "bg-accent-purple text-white" : "bg-accent-blue text-white"
+                    ? option.id === "ai"
+                      ? "bg-accent-purple text-white"
+                      : "bg-accent-blue text-white"
                     : "text-text-muted hover:text-text-primary hover:bg-bg-hover"
                 }`}
                 title={option.description}
@@ -136,7 +167,9 @@ export function MermaidChangesView() {
     return (
       <div className="flex items-center justify-center h-full text-text-muted gap-2">
         <CircleNotch size={16} className="animate-spin" />
-        <span style={{ fontSize: `${panelFontSize}px` }}>Loading changes...</span>
+        <span style={{ fontSize: `${panelFontSize}px` }}>
+          Loading changes...
+        </span>
       </div>
     );
   }
@@ -151,9 +184,11 @@ export function MermaidChangesView() {
             <button
               key={option.id}
               onClick={() => setDiagramType(option.id)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-xs font-medium transition-colors ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-xs font-medium transition-colors cursor-pointer ${
                 diagramType === option.id
-                  ? option.id === "ai" ? "bg-accent-purple text-white" : "bg-accent-blue text-white"
+                  ? option.id === "ai"
+                    ? "bg-accent-purple text-white"
+                    : "bg-accent-blue text-white"
                   : "text-text-muted hover:text-text-primary hover:bg-bg-hover"
               }`}
               title={option.description}
@@ -177,7 +212,7 @@ export function MermaidChangesView() {
           <button
             onClick={handleCopy}
             disabled={!diagramSource}
-            className="flex items-center gap-1 px-2 py-1 text-xs text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-1 px-2 py-1 text-xs text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             title="Copy Mermaid source"
           >
             {copied ? (
@@ -196,7 +231,7 @@ export function MermaidChangesView() {
           {/* Toggle source button */}
           <button
             onClick={() => setShowSource(!showSource)}
-            className="flex items-center gap-1 px-2 py-1 text-xs text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors"
+            className="flex items-center gap-1 px-2 py-1 text-xs text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-sm transition-colors cursor-pointer"
             title={showSource ? "Hide source" : "Show source"}
           >
             <Code size={14} />
@@ -225,7 +260,7 @@ export function MermaidChangesView() {
 
         {/* Diagram container */}
         <div className="flex-1 overflow-hidden p-4 min-h-0">
-          {totalChanges === 0 ? (
+          {totalChanges === 0 && diagramType !== "gitgraph" ? (
             <div className="flex flex-col items-center justify-center h-full text-text-muted gap-2">
               <TreeStructure size={48} weight="thin" className="opacity-50" />
               <p style={{ fontSize: `${panelFontSize}px` }}>No local changes</p>
@@ -237,10 +272,7 @@ export function MermaidChangesView() {
               </p>
             </div>
           ) : (
-            <MermaidRenderer
-              source={diagramSource}
-              className="w-full h-full"
-            />
+            <MermaidRenderer source={diagramSource} className="w-full h-full" />
           )}
         </div>
       </div>

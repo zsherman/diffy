@@ -286,7 +286,7 @@ body {
 }
 
 /* Focus styles */
-:focus-visible {
+:focus-visible:not(input):not(textarea) {
   outline: 2px solid var(--accent-blue);
   outline-offset: 2px;
 }

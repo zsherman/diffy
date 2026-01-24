@@ -30,7 +30,7 @@ import {
 } from "../../../lib/errors";
 import { useTabsStore, useActiveTabState } from "../../../stores/tabs-store";
 import { useUIStore, getDockviewApi } from "../../../stores/ui-store";
-import { LoadingSpinner } from "../../../components/ui";
+import { LoadingSpinner, Input } from "../../../components/ui";
 import { useToast } from "../../../components/ui/Toast";
 import { SkillSelector } from "../../skills";
 import type {
@@ -524,7 +524,11 @@ const TextReviewContent = memo(function TextReviewContent({
           >
             {copied ? (
               <>
-                <CheckCircle size={12} weight="fill" className="text-accent-green" />
+                <CheckCircle
+                  size={12}
+                  weight="fill"
+                  className="text-accent-green"
+                />
                 Copied
               </>
             ) : (
@@ -609,7 +613,10 @@ const CodeRabbitIssueCard = memo(function CodeRabbitIssueCard({
   const [isExpanded, setIsExpanded] = useState(true);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [isFixing, setIsFixing] = useState(false);
-  const [fixResult, setFixResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [fixResult, setFixResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
   const toast = useToast();
   const queryClient = useQueryClient();
 
@@ -648,7 +655,8 @@ const CodeRabbitIssueCard = memo(function CodeRabbitIssueCard({
 
       onFixed?.();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to apply fix";
+      const message =
+        error instanceof Error ? error.message : "Failed to apply fix";
       setFixResult({ success: false, message });
       toast.error("Fix failed", message);
     } finally {
@@ -659,13 +667,20 @@ const CodeRabbitIssueCard = memo(function CodeRabbitIssueCard({
   // Determine badge color based on issue type
   const getTypeBadgeColor = (type: string) => {
     const lowerType = type.toLowerCase();
-    if (lowerType.includes("bug") || lowerType.includes("error") || lowerType.includes("issue")) {
+    if (
+      lowerType.includes("bug") ||
+      lowerType.includes("error") ||
+      lowerType.includes("issue")
+    ) {
       return "bg-accent-red/20 text-accent-red";
     }
     if (lowerType.includes("security") || lowerType.includes("vulnerability")) {
       return "bg-accent-orange/20 text-accent-orange";
     }
-    if (lowerType.includes("performance") || lowerType.includes("optimization")) {
+    if (
+      lowerType.includes("performance") ||
+      lowerType.includes("optimization")
+    ) {
       return "bg-accent-yellow/20 text-accent-yellow";
     }
     if (lowerType.includes("suggestion") || lowerType.includes("improvement")) {
@@ -675,12 +690,12 @@ const CodeRabbitIssueCard = memo(function CodeRabbitIssueCard({
   };
 
   // Check if suggested fix looks like a diff
-  const isDiff = issue.suggestedFix && (
-    issue.suggestedFix.includes("\n-") || 
-    issue.suggestedFix.includes("\n+") ||
-    issue.suggestedFix.startsWith("-") ||
-    issue.suggestedFix.startsWith("+")
-  );
+  const isDiff =
+    issue.suggestedFix &&
+    (issue.suggestedFix.includes("\n-") ||
+      issue.suggestedFix.includes("\n+") ||
+      issue.suggestedFix.startsWith("-") ||
+      issue.suggestedFix.startsWith("+"));
 
   const canFix = !!issue.aiAgentPrompt;
 
@@ -768,7 +783,11 @@ const CodeRabbitIssueCard = memo(function CodeRabbitIssueCard({
                   >
                     {copiedPrompt ? (
                       <>
-                        <CheckCircle size={12} weight="fill" className="text-accent-green" />
+                        <CheckCircle
+                          size={12}
+                          weight="fill"
+                          className="text-accent-green"
+                        />
                         Copied
                       </>
                     ) : (
@@ -894,7 +913,11 @@ const CodeRabbitReviewContent = memo(function CodeRabbitReviewContent({
           >
             {copied ? (
               <>
-                <CheckCircle size={12} weight="fill" className="text-accent-green" />
+                <CheckCircle
+                  size={12}
+                  weight="fill"
+                  className="text-accent-green"
+                />
                 Copied
               </>
             ) : (
@@ -1319,9 +1342,15 @@ export function AIReviewContent() {
         : cliStatus.coderabbit.installInstructions;
 
   // Empty state - no review yet
-  if (!reviewResult && !aiReviewLoading && !aiReviewError && !notRunningReason) {
+  if (
+    !reviewResult &&
+    !aiReviewLoading &&
+    !aiReviewError &&
+    !notRunningReason
+  ) {
     // Claude can review commits, CodeRabbit always reviews working changes
-    const isCommitMode = viewMode === "commit" && selectedCommit && supportsCommitReview;
+    const isCommitMode =
+      viewMode === "commit" && selectedCommit && supportsCommitReview;
 
     return (
       <div className="flex flex-col items-center justify-center h-full p-6 text-center">
@@ -1437,7 +1466,8 @@ export function AIReviewContent() {
         </p>
         {isCodeRabbit && (
           <p className="text-xs text-text-muted max-w-xs">
-            CodeRabbit reviews typically take 1-5 minutes depending on the size of changes
+            CodeRabbit reviews typically take 1-5 minutes depending on the size
+            of changes
           </p>
         )}
       </div>
@@ -1448,17 +1478,11 @@ export function AIReviewContent() {
   if (aiReviewError) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-        <Warning
-          size={48}
-          weight="duotone"
-          className="text-accent-red mb-4"
-        />
+        <Warning size={48} weight="duotone" className="text-accent-red mb-4" />
         <h3 className="text-lg font-medium text-text-primary mb-2">
           Review Failed
         </h3>
-        <p className="text-sm text-text-muted mb-4 max-w-xs">
-          {aiReviewError}
-        </p>
+        <p className="text-sm text-text-muted mb-4 max-w-xs">{aiReviewError}</p>
         <button
           onClick={handleGenerateReview}
           className="px-4 py-2 bg-accent-purple text-white rounded-lg font-medium text-sm hover:bg-accent-purple/90 transition-colors flex items-center gap-2"
@@ -1474,11 +1498,7 @@ export function AIReviewContent() {
   if (notRunningReason && !reviewResult) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-        <Sparkle
-          size={48}
-          weight="duotone"
-          className="text-text-muted mb-4"
-        />
+        <Sparkle size={48} weight="duotone" className="text-text-muted mb-4" />
         <h3 className="text-lg font-medium text-text-primary mb-2">
           No Changes to Review
         </h3>
@@ -1541,7 +1561,10 @@ export function AIReviewContent() {
           </span>
           {reviewedCommit ? (
             <span className="text-xs text-text-muted">
-              commit <span className="font-mono text-accent-blue">{selectedCommit?.slice(0, 7)}</span>
+              commit{" "}
+              <span className="font-mono text-accent-blue">
+                {selectedCommit?.slice(0, 7)}
+              </span>
             </span>
           ) : (
             <span className="text-xs text-text-muted">working changes</span>
@@ -1597,12 +1620,12 @@ export function AIReviewContent() {
                 size={14}
                 className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted"
               />
-              <input
-                type="text"
+              <Input
                 placeholder="Search issues..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 text-sm bg-bg-secondary border border-border-primary rounded-lg focus:outline-hidden focus:border-accent-purple"
+                size="sm"
+                className="pl-8"
               />
               {searchQuery && (
                 <button

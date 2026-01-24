@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
-import { Dialog } from '@base-ui/react/dialog';
-import { Field } from '@base-ui/react/field';
+import { useState, useEffect, useRef } from "react";
+import { Dialog } from "@base-ui/react/dialog";
+import { Field } from "@base-ui/react/field";
 import {
   X,
   BookBookmark,
@@ -13,18 +13,18 @@ import {
   ArrowCounterClockwise,
   CaretDown,
   CaretRight,
-} from '@phosphor-icons/react';
-import { useUIStore } from '../../../stores/ui-store';
-import { LoadingSpinner } from '../../../components/ui';
-import { getErrorMessage } from '../../../lib/errors';
+} from "@phosphor-icons/react";
+import { useUIStore } from "../../../stores/ui-store";
+import { LoadingSpinner, Input } from "../../../components/ui";
+import { getErrorMessage } from "../../../lib/errors";
 import {
   useSkills,
   useInstallSkill,
   useDeleteSkill,
   useSkillRaw,
   useUpdateSkill,
-} from '../hooks/useSkills';
-import type { SkillMetadata } from '../../../types/skills';
+} from "../hooks/useSkills";
+import type { SkillMetadata } from "../../../types/skills";
 
 function SkillEditor({
   skill,
@@ -35,7 +35,7 @@ function SkillEditor({
 }) {
   const { data: rawContent, isLoading } = useSkillRaw(skill.id);
   const updateSkill = useUpdateSkill();
-  const [content, setContent] = useState('');
+  const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -255,13 +255,17 @@ function SkillItem({
 }
 
 export function SkillsDialog() {
-  const { showSkillsDialog, setShowSkillsDialog, selectedSkillIds, setSelectedSkillIds } =
-    useUIStore();
+  const {
+    showSkillsDialog,
+    setShowSkillsDialog,
+    selectedSkillIds,
+    setSelectedSkillIds,
+  } = useUIStore();
   const { data: skills = [], isLoading, error } = useSkills();
   const installSkill = useInstallSkill();
   const deleteSkillMutation = useDeleteSkill();
 
-  const [urlInput, setUrlInput] = useState('');
+  const [urlInput, setUrlInput] = useState("");
   const [installError, setInstallError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -271,7 +275,7 @@ export function SkillsDialog() {
     setInstallError(null);
     try {
       await installSkill.mutateAsync(urlInput.trim());
-      setUrlInput('');
+      setUrlInput("");
     } catch (err) {
       setInstallError(getErrorMessage(err));
     }
@@ -285,7 +289,7 @@ export function SkillsDialog() {
         setSelectedSkillIds(selectedSkillIds.filter((id) => id !== skillId));
       }
     } catch (err) {
-      console.error('Failed to delete skill:', err);
+      console.error("Failed to delete skill:", err);
     } finally {
       setDeletingId(null);
     }
@@ -316,13 +320,14 @@ export function SkillsDialog() {
                 Install from URL
               </Field.Label>
               <Field.Description className="text-xs text-text-muted">
-                Enter a skills.sh URL (e.g., https://skills.sh/owner/repo/skill-name)
-                or a direct link to a raw SKILL.md file.
+                Enter a skills.sh URL (e.g.,
+                https://skills.sh/owner/repo/skill-name) or a direct link to a
+                raw SKILL.md file.
               </Field.Description>
               <div className="flex gap-2">
                 <Field.Control
                   render={
-                    <input
+                    <Input
                       type="url"
                       value={urlInput}
                       onChange={(e) => {
@@ -330,12 +335,13 @@ export function SkillsDialog() {
                         setInstallError(null);
                       }}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !installSkill.isPending) {
+                        if (e.key === "Enter" && !installSkill.isPending) {
                           handleInstall();
                         }
                       }}
                       placeholder="https://skills.sh/owner/repo/skill-name"
-                      className="flex-1 px-3 py-2 bg-bg-tertiary border border-border-primary rounded-sm text-sm text-text-primary placeholder-text-muted focus:outline-hidden focus:border-accent-blue"
+                      size="sm"
+                      className="flex-1"
                       disabled={installSkill.isPending}
                     />
                   }

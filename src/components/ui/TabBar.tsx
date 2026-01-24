@@ -224,7 +224,7 @@ export function TabBar() {
               {/* Close button */}
               <button
                 onClick={(e) => handleCloseTab(e, tab.repository.path)}
-                className="p-0.5 rounded-sm opacity-0 group-hover:opacity-100 hover:bg-bg-hover transition-opacity"
+                className="p-0.5 rounded-sm opacity-0 group-hover:opacity-100 hover:bg-bg-hover transition-opacity cursor-pointer"
                 title="Close tab"
               >
                 <X size={12} weight="bold" />
@@ -237,7 +237,7 @@ export function TabBar() {
       {/* Add tab button */}
       <button
         onClick={handleAddTab}
-        className="flex items-center justify-center w-8 h-full text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-colors"
+        className="flex items-center justify-center w-8 h-full text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-colors cursor-pointer"
         title="Open repository (Cmd+T)"
       >
         <Plus size={14} weight="bold" />

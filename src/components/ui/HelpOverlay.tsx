@@ -1,4 +1,4 @@
-import { useUIStore } from '../../stores/ui-store';
+import { useUIStore } from "../../stores/ui-store";
 
 interface ShortcutGroup {
   title: string;
@@ -7,39 +7,39 @@ interface ShortcutGroup {
 
 const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
-    title: 'Navigation',
+    title: "Navigation",
     shortcuts: [
-      { key: 'j / ↓', description: 'Move down' },
-      { key: 'k / ↑', description: 'Move up' },
-      { key: 'h / Shift+Tab', description: 'Previous panel' },
-      { key: 'l / Tab', description: 'Next panel' },
-      { key: '1-4', description: 'Jump to panel' },
-      { key: 'Enter', description: 'Select / Confirm' },
+      { key: "j / ↓", description: "Move down" },
+      { key: "k / ↑", description: "Move up" },
+      { key: "h / Shift+Tab", description: "Previous panel" },
+      { key: "l / Tab", description: "Next panel" },
+      { key: "1-4", description: "Jump to panel" },
+      { key: "Enter", description: "Select / Confirm" },
     ],
   },
   {
-    title: 'Git Operations',
+    title: "Git Operations",
     shortcuts: [
-      { key: 'Space', description: 'Stage / Unstage file' },
-      { key: 'u', description: 'Unstage file' },
-      { key: 'd', description: 'Discard changes' },
-      { key: 'c', description: 'Commit staged changes' },
-      { key: 'r', description: 'Refresh' },
+      { key: "Space", description: "Stage / Unstage file" },
+      { key: "u", description: "Unstage file" },
+      { key: "d", description: "Discard changes" },
+      { key: "c", description: "Commit staged changes" },
+      { key: "r", description: "Refresh" },
     ],
   },
   {
-    title: 'View',
+    title: "View",
     shortcuts: [
-      { key: 'v', description: 'Toggle split/unified diff' },
-      { key: '/', description: 'Filter current panel' },
-      { key: 'Esc', description: 'Clear filter / Close overlay' },
+      { key: "v", description: "Toggle split/unified diff" },
+      { key: "/", description: "Filter current panel" },
+      { key: "Esc", description: "Clear filter / Close overlay" },
     ],
   },
   {
-    title: 'General',
+    title: "General",
     shortcuts: [
-      { key: '?', description: 'Toggle help' },
-      { key: 'Cmd+K', description: 'Command palette' },
+      { key: "?", description: "Toggle help" },
+      { key: "Cmd+K", description: "Command palette" },
     ],
   },
 ];
@@ -60,12 +60,19 @@ export function HelpOverlay() {
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border-primary">
-          <h2 className="text-lg font-semibold text-text-primary">Keyboard Shortcuts</h2>
+          <h2 className="text-lg font-semibold text-text-primary">
+            Keyboard Shortcuts
+          </h2>
           <button
             onClick={() => setShowHelpOverlay(false)}
-            className="text-text-muted hover:text-text-primary"
+            className="text-text-muted hover:text-text-primary cursor-pointer"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -80,14 +87,18 @@ export function HelpOverlay() {
         <div className="grid grid-cols-2 gap-6 p-4">
           {SHORTCUT_GROUPS.map((group) => (
             <div key={group.title}>
-              <h3 className="text-sm font-semibold text-accent-blue mb-2">{group.title}</h3>
+              <h3 className="text-sm font-semibold text-accent-blue mb-2">
+                {group.title}
+              </h3>
               <div className="space-y-1">
                 {group.shortcuts.map((shortcut) => (
                   <div key={shortcut.key} className="flex items-center gap-2">
                     <kbd className="px-2 py-0.5 bg-bg-tertiary rounded-sm text-xs font-mono text-text-primary min-w-[60px] text-center">
                       {shortcut.key}
                     </kbd>
-                    <span className="text-sm text-text-secondary">{shortcut.description}</span>
+                    <span className="text-sm text-text-secondary">
+                      {shortcut.description}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -97,8 +108,9 @@ export function HelpOverlay() {
 
         {/* Footer */}
         <div className="px-4 py-2 border-t border-border-primary text-center text-xs text-text-muted">
-          Press <kbd className="px-1 py-0.5 bg-bg-tertiary rounded-sm">Esc</kbd> or{' '}
-          <kbd className="px-1 py-0.5 bg-bg-tertiary rounded-sm">?</kbd> to close
+          Press <kbd className="px-1 py-0.5 bg-bg-tertiary rounded-sm">Esc</kbd>{" "}
+          or <kbd className="px-1 py-0.5 bg-bg-tertiary rounded-sm">?</kbd> to
+          close
         </div>
       </div>
     </div>

@@ -11,7 +11,7 @@ import { useQuery } from "@tanstack/react-query";
 import { VList } from "virtua";
 import type { VListHandle } from "virtua";
 import { getCommitHistory } from "../../../lib/tauri";
-import { CommitContextMenu } from "../../../components/ui";
+import { CommitContextMenu, Input } from "../../../components/ui";
 import {
   useTabsStore,
   useActiveTabState,
@@ -281,12 +281,10 @@ export function CommitList() {
     <div className="flex flex-col h-full bg-bg-primary">
       {/* Filter input */}
       <div className="px-3 py-2 border-b border-black/20">
-        <input
-          type="text"
+        <Input
           placeholder="Filter commits..."
           value={commitFilter}
           onChange={(e) => setCommitFilter(e.target.value)}
-          className="w-full px-3 py-1.5 bg-bg-tertiary border border-black/30 rounded-md text-text-primary placeholder-text-muted/60 focus:border-accent-blue/60 focus:outline-hidden focus:ring-1 focus:ring-accent-blue/20 transition-all duration-150"
           style={{ fontSize: `${panelFontSize}px` }}
         />
       </div>

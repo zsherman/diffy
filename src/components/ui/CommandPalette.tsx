@@ -478,7 +478,7 @@ export function CommandPalette() {
             <div className="flex items-center gap-2 px-4 py-2 border-b border-border-primary bg-bg-tertiary">
               <button
                 onClick={() => setPages((pages) => pages.slice(0, -1))}
-                className="p-1 hover:bg-bg-hover rounded-sm"
+                className="p-1 hover:bg-bg-hover rounded-sm cursor-pointer"
               >
                 <ArrowLeft size={14} className="text-text-muted" />
               </button>
@@ -776,7 +776,9 @@ export function CommandPalette() {
 
                   <Command.Item
                     onSelect={() =>
-                      runCommand(() => setShowMermaidChangesPanel(!showMermaidChangesPanel))
+                      runCommand(() =>
+                        setShowMermaidChangesPanel(!showMermaidChangesPanel),
+                      )
                     }
                     className="flex items-center gap-3 px-2 py-2 rounded-sm cursor-pointer text-text-primary data-[selected=true]:bg-bg-hover text-sm"
                   >

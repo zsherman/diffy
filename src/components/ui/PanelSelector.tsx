@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Menu } from "@base-ui/react/menu";
 import { Dialog } from "@base-ui/react/dialog";
+import { Input } from "./Input";
 import {
   SquaresFour,
   Check,
@@ -199,7 +200,14 @@ export function PanelSelector() {
       icon: <FlowArrow size={15} />,
       isActive: showMermaidChangesPanel,
       toggle: toggleMermaidChangesPanel,
-      keywords: ["mermaid", "diagram", "flowchart", "mindmap", "visual", "changes"],
+      keywords: [
+        "mermaid",
+        "diagram",
+        "flowchart",
+        "mindmap",
+        "visual",
+        "changes",
+      ],
     },
   ];
 
@@ -245,28 +253,31 @@ export function PanelSelector() {
     setShowSaveDialog(false);
   }, [layoutName, savedLayouts]);
 
-  const handleDeleteLayout = useCallback((id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const updated = savedLayouts.filter((l) => l.id !== id);
-    setSavedLayouts(updated);
-    saveSavedLayouts(updated);
-  }, [savedLayouts]);
+  const handleDeleteLayout = useCallback(
+    (id: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      const updated = savedLayouts.filter((l) => l.id !== id);
+      setSavedLayouts(updated);
+      saveSavedLayouts(updated);
+    },
+    [savedLayouts],
+  );
 
   // Filter items based on search
   const searchLower = search.toLowerCase();
   const filteredPanels = panels.filter(
     (p) =>
       p.label.toLowerCase().includes(searchLower) ||
-      p.keywords?.some((k) => k.includes(searchLower))
+      p.keywords?.some((k) => k.includes(searchLower)),
   );
   const filteredLayouts = layoutShortcuts.filter(
     (l) =>
       l.label.toLowerCase().includes(searchLower) ||
       l.description.toLowerCase().includes(searchLower) ||
-      l.keywords?.some((k) => k.includes(searchLower))
+      l.keywords?.some((k) => k.includes(searchLower)),
   );
   const filteredSavedLayouts = savedLayouts.filter((l) =>
-    l.name.toLowerCase().includes(searchLower)
+    l.name.toLowerCase().includes(searchLower),
   );
 
   // Focus input when menu opens
@@ -301,13 +312,13 @@ export function PanelSelector() {
           <Menu.Popup className="w-[300px] overflow-hidden rounded-lg border border-border-primary bg-bg-secondary shadow-xl outline-hidden">
             {/* Search input */}
             <div className="p-1.5">
-              <input
+              <Input
                 ref={inputRef}
-                type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search..."
-                className="w-full px-2.5 py-1.5 text-xs bg-transparent border border-border-primary rounded-md text-text-primary placeholder:text-text-muted focus:outline-hidden focus:border-accent-blue focus:ring-1 focus:ring-accent-blue/50 transition-colors"
+                size="sm"
+                variant="ghost"
               />
             </div>
 
@@ -322,7 +333,9 @@ export function PanelSelector() {
                   >
                     <span className="text-text-muted">{layout.icon}</span>
                     <span className="flex-1 text-[13px]">{layout.label}</span>
-                    <span className="text-[11px] text-text-muted">{layout.description}</span>
+                    <span className="text-[11px] text-text-muted">
+                      {layout.description}
+                    </span>
                   </Menu.Item>
                 ))}
               </div>
@@ -345,7 +358,7 @@ export function PanelSelector() {
                       <span className="flex-1 text-[13px]">{layout.name}</span>
                       <button
                         onClick={(e) => handleDeleteLayout(layout.id, e)}
-                        className="opacity-0 group-hover:opacity-100 p-0.5 text-text-muted hover:text-accent-red transition-opacity"
+                        className="opacity-0 group-hover:opacity-100 p-0.5 text-text-muted hover:text-accent-red transition-opacity cursor-pointer"
                         title="Delete layout"
                       >
                         <Trash size={13} />
@@ -369,15 +382,20 @@ export function PanelSelector() {
                   <span className="text-text-muted">
                     <FloppyDisk size={15} />
                   </span>
-                  <span className="flex-1 text-[13px]">Save current layout...</span>
+                  <span className="flex-1 text-[13px]">
+                    Save current layout...
+                  </span>
                 </Menu.Item>
               </div>
             )}
 
             {/* Divider between layouts and panels */}
-            {(filteredLayouts.length > 0 || filteredSavedLayouts.length > 0 || !search) && filteredPanels.length > 0 && (
-              <div className="h-px bg-border-primary mx-2 my-1.5" />
-            )}
+            {(filteredLayouts.length > 0 ||
+              filteredSavedLayouts.length > 0 ||
+              !search) &&
+              filteredPanels.length > 0 && (
+                <div className="h-px bg-border-primary mx-2 my-1.5" />
+              )}
 
             {/* Panel toggles */}
             {filteredPanels.length > 0 && (
@@ -411,11 +429,13 @@ export function PanelSelector() {
             )}
 
             {/* Empty state */}
-            {filteredPanels.length === 0 && filteredLayouts.length === 0 && filteredSavedLayouts.length === 0 && (
-              <div className="px-2.5 py-4 text-center text-xs text-text-muted">
-                No results found
-              </div>
-            )}
+            {filteredPanels.length === 0 &&
+              filteredLayouts.length === 0 &&
+              filteredSavedLayouts.length === 0 && (
+                <div className="px-2.5 py-4 text-center text-xs text-text-muted">
+                  No results found
+                </div>
+              )}
           </Menu.Popup>
         </Menu.Positioner>
       </Menu.Portal>
@@ -429,9 +449,8 @@ export function PanelSelector() {
               <Dialog.Title className="text-sm font-medium text-text-primary mb-3">
                 Save Layout
               </Dialog.Title>
-              <input
+              <Input
                 ref={saveInputRef}
-                type="text"
                 value={layoutName}
                 onChange={(e) => setLayoutName(e.target.value)}
                 onKeyDown={(e) => {
@@ -440,7 +459,7 @@ export function PanelSelector() {
                   }
                 }}
                 placeholder="Layout name..."
-                className="w-full px-3 py-2 text-sm bg-transparent border border-border-primary rounded-md text-text-primary placeholder:text-text-muted focus:outline-hidden focus:border-accent-blue focus:ring-1 focus:ring-accent-blue/50 transition-colors"
+                variant="ghost"
               />
               <div className="flex justify-end gap-2 mt-4">
                 <button
@@ -448,14 +467,14 @@ export function PanelSelector() {
                     setShowSaveDialog(false);
                     setLayoutName("");
                   }}
-                  className="px-3 py-1.5 text-sm text-text-muted hover:text-text-primary transition-colors"
+                  className="px-3 py-1.5 text-sm text-text-muted hover:text-text-primary transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSaveLayout}
                   disabled={!layoutName.trim()}
-                  className="px-3 py-1.5 text-sm bg-accent-blue text-white rounded-md hover:bg-accent-blue/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="px-3 py-1.5 text-sm bg-accent-blue text-white rounded-md hover:bg-accent-blue/90 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   Save
                 </button>

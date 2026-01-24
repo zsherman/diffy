@@ -1,16 +1,27 @@
-import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { VList } from 'virtua';
-import type { VListHandle } from 'virtua';
-import { Plus, Lock, LockOpen, Trash } from '@phosphor-icons/react';
-import { listWorktrees, removeWorktree, lockWorktree, unlockWorktree, openRepository } from '../../../lib/tauri';
-import { useTabsStore, useActiveTabState } from '../../../stores/tabs-store';
-import { useUIStore } from '../../../stores/ui-store';
-import { LoadingSpinner, SkeletonList, WorktreeContextMenu } from '../../../components/ui';
-import { useToast } from '../../../components/ui/Toast';
-import type { WorktreeInfo } from '../../../types/git';
-import { WorktreeRow } from './WorktreeRow';
-import { CreateWorktreeDialog } from './CreateWorktreeDialog';
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { VList } from "virtua";
+import type { VListHandle } from "virtua";
+import { Plus, Lock, LockOpen, Trash } from "@phosphor-icons/react";
+import {
+  listWorktrees,
+  removeWorktree,
+  lockWorktree,
+  unlockWorktree,
+  openRepository,
+} from "../../../lib/tauri";
+import { useTabsStore, useActiveTabState } from "../../../stores/tabs-store";
+import { useUIStore } from "../../../stores/ui-store";
+import {
+  LoadingSpinner,
+  SkeletonList,
+  WorktreeContextMenu,
+  Input,
+} from "../../../components/ui";
+import { useToast } from "../../../components/ui/Toast";
+import type { WorktreeInfo } from "../../../types/git";
+import { WorktreeRow } from "./WorktreeRow";
+import { CreateWorktreeDialog } from "./CreateWorktreeDialog";
 
 export function WorktreeList() {
   const { repository, openTab } = useTabsStore();
@@ -28,7 +39,7 @@ export function WorktreeList() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
   const { data: worktrees = [], isLoading } = useQuery({
-    queryKey: ['worktrees', repository?.path],
+    queryKey: ["worktrees", repository?.path],
     queryFn: () => listWorktrees(repository!.path),
     enabled: !!repository?.path,
     staleTime: 30000,
@@ -38,11 +49,11 @@ export function WorktreeList() {
     mutationFn: ({ name, force }: { name: string; force: boolean }) =>
       removeWorktree(repository!.path, name, force),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['worktrees'] });
-      toast.success('Worktree removed', 'Successfully removed worktree');
+      queryClient.invalidateQueries({ queryKey: ["worktrees"] });
+      toast.success("Worktree removed", "Successfully removed worktree");
     },
     onError: (error: Error) => {
-      toast.error('Failed to remove worktree', error.message);
+      toast.error("Failed to remove worktree", error.message);
     },
   });
 
@@ -50,22 +61,22 @@ export function WorktreeList() {
     mutationFn: ({ name, reason }: { name: string; reason?: string }) =>
       lockWorktree(repository!.path, name, reason),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['worktrees'] });
-      toast.success('Worktree locked', 'Successfully locked worktree');
+      queryClient.invalidateQueries({ queryKey: ["worktrees"] });
+      toast.success("Worktree locked", "Successfully locked worktree");
     },
     onError: (error: Error) => {
-      toast.error('Failed to lock worktree', error.message);
+      toast.error("Failed to lock worktree", error.message);
     },
   });
 
   const unlockMutation = useMutation({
     mutationFn: (name: string) => unlockWorktree(repository!.path, name),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['worktrees'] });
-      toast.success('Worktree unlocked', 'Successfully unlocked worktree');
+      queryClient.invalidateQueries({ queryKey: ["worktrees"] });
+      toast.success("Worktree unlocked", "Successfully unlocked worktree");
     },
     onError: (error: Error) => {
-      toast.error('Failed to unlock worktree', error.message);
+      toast.error("Failed to unlock worktree", error.message);
     },
   });
 
@@ -77,7 +88,7 @@ export function WorktreeList() {
       (w) =>
         w.name.toLowerCase().includes(lower) ||
         w.path.toLowerCase().includes(lower) ||
-        w.headBranch?.toLowerCase().includes(lower)
+        w.headBranch?.toLowerCase().includes(lower),
     );
   }, [worktrees, worktreeFilter]);
 
@@ -87,7 +98,7 @@ export function WorktreeList() {
       setFocusedIndex(index);
       setSelectedWorktree(worktree.name);
     },
-    [setSelectedWorktree]
+    [setSelectedWorktree],
   );
 
   const handleWorktreeSwitch = useCallback(
@@ -96,57 +107,59 @@ export function WorktreeList() {
         // Switch to the worktree by opening it as a new tab
         const repoInfo = await openRepository(worktree.path);
         openTab(repoInfo);
-        toast.success('Switched worktree', `Now viewing ${worktree.name}`);
+        toast.success("Switched worktree", `Now viewing ${worktree.name}`);
       } catch (error) {
-        toast.error('Failed to switch worktree', (error as Error).message);
+        toast.error("Failed to switch worktree", (error as Error).message);
       }
     },
-    [openTab, toast]
+    [openTab, toast],
   );
 
   const handleRemove = useCallback(
     (worktree: WorktreeInfo) => {
       if (worktree.isMain) {
-        toast.error('Cannot remove', 'Cannot remove the main worktree');
+        toast.error("Cannot remove", "Cannot remove the main worktree");
         return;
       }
       const force = worktree.isDirty || worktree.isLocked;
       if (force) {
         const confirmed = window.confirm(
-          `This worktree ${worktree.isDirty ? 'has uncommitted changes' : ''}${
-            worktree.isDirty && worktree.isLocked ? ' and ' : ''
-          }${worktree.isLocked ? 'is locked' : ''}. Are you sure you want to remove it?`
+          `This worktree ${worktree.isDirty ? "has uncommitted changes" : ""}${
+            worktree.isDirty && worktree.isLocked ? " and " : ""
+          }${worktree.isLocked ? "is locked" : ""}. Are you sure you want to remove it?`,
         );
         if (!confirmed) return;
       }
       removeMutation.mutate({ name: worktree.name, force });
     },
-    [removeMutation, toast]
+    [removeMutation, toast],
   );
 
   // Keyboard navigation
   useEffect(() => {
-    if (activePanel !== 'worktrees') return;
+    if (activePanel !== "worktrees") return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
 
-      if (e.key === 'j' || e.key === 'ArrowDown') {
+      if (e.key === "j" || e.key === "ArrowDown") {
         e.preventDefault();
-        setFocusedIndex((prev) => Math.min(prev + 1, filteredWorktrees.length - 1));
-      } else if (e.key === 'k' || e.key === 'ArrowUp') {
+        setFocusedIndex((prev) =>
+          Math.min(prev + 1, filteredWorktrees.length - 1),
+        );
+      } else if (e.key === "k" || e.key === "ArrowUp") {
         e.preventDefault();
         setFocusedIndex((prev) => Math.max(prev - 1, 0));
-      } else if (e.key === 'Enter') {
+      } else if (e.key === "Enter") {
         e.preventDefault();
         const worktree = filteredWorktrees[focusedIndex];
         if (worktree) {
           handleWorktreeSwitch(worktree);
         }
-      } else if (e.key === 'n' && !e.metaKey && !e.ctrlKey) {
+      } else if (e.key === "n" && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         setShowCreateDialog(true);
-      } else if (e.key === 'l' && !e.metaKey && !e.ctrlKey) {
+      } else if (e.key === "l" && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         const worktree = filteredWorktrees[focusedIndex];
         if (worktree && !worktree.isMain) {
@@ -156,7 +169,7 @@ export function WorktreeList() {
             lockMutation.mutate({ name: worktree.name });
           }
         }
-      } else if (e.key === 'd' && !e.metaKey && !e.ctrlKey) {
+      } else if (e.key === "d" && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         const worktree = filteredWorktrees[focusedIndex];
         if (worktree && !worktree.isMain) {
@@ -165,13 +178,21 @@ export function WorktreeList() {
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activePanel, filteredWorktrees, focusedIndex, lockMutation, unlockMutation, handleWorktreeSwitch, handleRemove]);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    activePanel,
+    filteredWorktrees,
+    focusedIndex,
+    lockMutation,
+    unlockMutation,
+    handleWorktreeSwitch,
+    handleRemove,
+  ]);
 
   // Scroll focused item into view
   useEffect(() => {
-    listRef.current?.scrollToIndex(focusedIndex, { align: 'center' });
+    listRef.current?.scrollToIndex(focusedIndex, { align: "center" });
   }, [focusedIndex]);
 
   if (isLoading) {
@@ -191,12 +212,12 @@ export function WorktreeList() {
     <div className="flex flex-col h-full">
       {/* Header with filter and actions */}
       <div className="px-2 py-1.5 border-b border-border-primary flex gap-2">
-        <input
-          type="text"
+        <Input
           placeholder="Filter worktrees..."
           value={worktreeFilter}
           onChange={(e) => setWorktreeFilter(e.target.value)}
-          className="flex-1 px-2 py-1 text-sm bg-bg-tertiary border border-border-primary rounded-sm text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-hidden"
+          size="sm"
+          className="flex-1"
         />
         <button
           onClick={() => setShowCreateDialog(true)}
@@ -211,7 +232,7 @@ export function WorktreeList() {
       {/* Worktree list */}
       {filteredWorktrees.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-text-muted text-sm">
-          {worktreeFilter ? 'No matching worktrees' : 'No worktrees found'}
+          {worktreeFilter ? "No matching worktrees" : "No worktrees found"}
         </div>
       ) : (
         <VList ref={listRef} className="flex-1">
@@ -250,9 +271,17 @@ export function WorktreeList() {
                       }
                     }}
                     className="p-1 rounded-sm hover:bg-bg-tertiary text-text-muted hover:text-text-primary"
-                    title={worktree.isLocked ? 'Unlock worktree (l)' : 'Lock worktree (l)'}
+                    title={
+                      worktree.isLocked
+                        ? "Unlock worktree (l)"
+                        : "Lock worktree (l)"
+                    }
                   >
-                    {worktree.isLocked ? <LockOpen size={14} /> : <Lock size={14} />}
+                    {worktree.isLocked ? (
+                      <LockOpen size={14} />
+                    ) : (
+                      <Lock size={14} />
+                    )}
                   </button>
                   <button
                     onClick={(e) => {
@@ -276,7 +305,7 @@ export function WorktreeList() {
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
         onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ['worktrees'] });
+          queryClient.invalidateQueries({ queryKey: ["worktrees"] });
         }}
       />
     </div>

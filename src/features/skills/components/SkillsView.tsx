@@ -1,9 +1,9 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import {
   Panel,
   Group as PanelGroup,
   Separator as PanelResizeHandle,
-} from 'react-resizable-panels';
+} from "react-resizable-panels";
 import {
   MagnifyingGlass,
   BookBookmark,
@@ -19,24 +19,24 @@ import {
   Warning,
   CaretRight,
   DownloadSimple,
-} from '@phosphor-icons/react';
-import { EditorState, type Extension } from '@codemirror/state';
+} from "@phosphor-icons/react";
+import { EditorState, type Extension } from "@codemirror/state";
 import {
   EditorView,
   keymap,
   lineNumbers,
   highlightActiveLine,
   highlightActiveLineGutter,
-} from '@codemirror/view';
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
+} from "@codemirror/view";
+import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import {
   syntaxHighlighting,
   defaultHighlightStyle,
   bracketMatching,
-} from '@codemirror/language';
-import { oneDark } from '@codemirror/theme-one-dark';
-import { markdown } from '@codemirror/lang-markdown';
-import { useTheme } from '../../../stores/ui-store';
+} from "@codemirror/language";
+import { oneDark } from "@codemirror/theme-one-dark";
+import { markdown } from "@codemirror/lang-markdown";
+import { useTheme } from "../../../stores/ui-store";
 import {
   useSkills,
   useRemoteSkills,
@@ -44,47 +44,47 @@ import {
   useInstallSkill,
   useDeleteSkill,
   useUpdateSkill,
-} from '../hooks/useSkills';
-import { LoadingSpinner } from '../../../components/ui';
-import { getErrorMessage } from '../../../lib/errors';
-import type { SkillMetadata, RemoteSkill } from '../../../types/skills';
+} from "../hooks/useSkills";
+import { LoadingSpinner, Input } from "../../../components/ui";
+import { getErrorMessage } from "../../../lib/errors";
+import type { SkillMetadata, RemoteSkill } from "../../../types/skills";
 
-type SkillTab = 'installed' | 'remote';
+type SkillTab = "installed" | "remote";
 
 // Union type for selected skill (installed or remote)
 type SelectedSkill =
-  | { type: 'installed'; skill: SkillMetadata }
-  | { type: 'remote'; skill: RemoteSkill };
+  | { type: "installed"; skill: SkillMetadata }
+  | { type: "remote"; skill: RemoteSkill };
 
 // Custom CodeMirror theme
 const createBaseTheme = (isDark: boolean, fontSize: number) =>
   EditorView.theme(
     {
-      '&': {
-        height: '100%',
+      "&": {
+        height: "100%",
         fontSize: `${fontSize}px`,
       },
-      '.cm-scroller': {
-        overflow: 'auto',
+      ".cm-scroller": {
+        overflow: "auto",
         fontFamily:
           'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
       },
-      '.cm-content': {
-        caretColor: isDark ? '#fff' : '#000',
+      ".cm-content": {
+        caretColor: isDark ? "#fff" : "#000",
       },
-      '.cm-cursor': {
-        borderLeftColor: isDark ? '#fff' : '#000',
-        borderLeftWidth: '2px',
+      ".cm-cursor": {
+        borderLeftColor: isDark ? "#fff" : "#000",
+        borderLeftWidth: "2px",
       },
-      '.cm-gutters': {
-        backgroundColor: isDark ? '#1e1e1e' : '#f5f5f5',
-        borderRight: `1px solid ${isDark ? '#333' : '#ddd'}`,
+      ".cm-gutters": {
+        backgroundColor: isDark ? "#1e1e1e" : "#f5f5f5",
+        borderRight: `1px solid ${isDark ? "#333" : "#ddd"}`,
       },
-      '.cm-activeLineGutter': {
-        backgroundColor: isDark ? '#2a2a2a' : '#e8e8e8',
+      ".cm-activeLineGutter": {
+        backgroundColor: isDark ? "#2a2a2a" : "#e8e8e8",
       },
-      '.cm-activeLine': {
-        backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+      ".cm-activeLine": {
+        backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)",
       },
     },
     { dark: isDark },
@@ -105,7 +105,7 @@ function SkillEditor({
   const onChangeRef = useRef(onChange);
   const isInternalChange = useRef(false);
   const { theme } = useTheme();
-  const isDark = theme === 'pierre-dark';
+  const isDark = theme === "pierre-dark";
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -185,7 +185,9 @@ function SkillEditor({
           insert: value,
         },
         selection:
-          currentSelection.main.to <= value.length ? currentSelection : undefined,
+          currentSelection.main.to <= value.length
+            ? currentSelection
+            : undefined,
       });
     }
   }, [value]);
@@ -212,14 +214,14 @@ function SkillListItem({
       onClick={onClick}
       className={`flex items-start gap-2 px-3 py-2 cursor-pointer transition-colors ${
         isSelected
-          ? 'bg-accent-blue/20 text-text-primary'
-          : 'hover:bg-bg-hover text-text-primary'
+          ? "bg-accent-blue/20 text-text-primary"
+          : "hover:bg-bg-hover text-text-primary"
       }`}
     >
       <BookBookmark
         size={16}
         weight="duotone"
-        className={`shrink-0 mt-0.5 ${isInstalled ? 'text-accent-purple' : 'text-text-muted'}`}
+        className={`shrink-0 mt-0.5 ${isInstalled ? "text-accent-purple" : "text-text-muted"}`}
       />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
@@ -242,30 +244,31 @@ function SkillListItem({
 }
 
 export function SkillsView() {
-  const [activeTab, setActiveTab] = useState<SkillTab>('installed');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<SkillTab>("installed");
+  const [searchQuery, setSearchQuery] = useState("");
   const [selected, setSelected] = useState<SelectedSkill | null>(null);
-  const [editContent, setEditContent] = useState<string>('');
+  const [editContent, setEditContent] = useState<string>("");
   const [hasEdits, setHasEdits] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [installUrl, setInstallUrl] = useState('');
+  const [installUrl, setInstallUrl] = useState("");
 
   // Data hooks
-  const { data: installedSkills = [], isLoading: loadingInstalled } = useSkills();
-  const { data: remoteSkills = [], isLoading: loadingRemote } = useRemoteSkills();
+  const { data: installedSkills = [], isLoading: loadingInstalled } =
+    useSkills();
+  const { data: remoteSkills = [], isLoading: loadingRemote } =
+    useRemoteSkills();
   const installSkill = useInstallSkill();
   const deleteSkillMutation = useDeleteSkill();
   const updateSkill = useUpdateSkill();
 
   // Get raw content for selected installed skill
-  const selectedId =
-    selected?.type === 'installed' ? selected.skill.id : null;
+  const selectedId = selected?.type === "installed" ? selected.skill.id : null;
   const { data: rawContent, isLoading: loadingRaw } = useSkillRaw(selectedId);
 
   // Set edit content when raw content loads
   useEffect(() => {
-    if (rawContent && selected?.type === 'installed') {
+    if (rawContent && selected?.type === "installed") {
       setEditContent(rawContent);
       setHasEdits(false);
     }
@@ -305,14 +308,14 @@ export function SkillsView() {
 
   // Handlers
   const handleSelectInstalled = useCallback((skill: SkillMetadata) => {
-    setSelected({ type: 'installed', skill });
+    setSelected({ type: "installed", skill });
     setError(null);
   }, []);
 
   const handleSelectRemote = useCallback((skill: RemoteSkill) => {
-    setSelected({ type: 'remote', skill });
+    setSelected({ type: "remote", skill });
     setError(null);
-    setEditContent('');
+    setEditContent("");
     setHasEdits(false);
   }, []);
 
@@ -325,7 +328,7 @@ export function SkillsView() {
   );
 
   const handleSave = async () => {
-    if (!hasEdits || selected?.type !== 'installed') return;
+    if (!hasEdits || selected?.type !== "installed") return;
     setError(null);
     try {
       await updateSkill.mutateAsync({
@@ -347,7 +350,7 @@ export function SkillsView() {
   };
 
   const handleDelete = async () => {
-    if (selected?.type !== 'installed') return;
+    if (selected?.type !== "installed") return;
     const confirmed = window.confirm(
       `Are you sure you want to delete "${selected.skill.name}"?`,
     );
@@ -356,7 +359,7 @@ export function SkillsView() {
     try {
       await deleteSkillMutation.mutateAsync(selected.skill.id);
       setSelected(null);
-      setEditContent('');
+      setEditContent("");
     } catch (err) {
       setError(getErrorMessage(err));
     }
@@ -367,23 +370,23 @@ export function SkillsView() {
     try {
       const installed = await installSkill.mutateAsync(url);
       // Switch to installed tab and select the new skill
-      setActiveTab('installed');
-      setSelected({ type: 'installed', skill: installed });
-      setInstallUrl('');
+      setActiveTab("installed");
+      setSelected({ type: "installed", skill: installed });
+      setInstallUrl("");
     } catch (err) {
       setError(getErrorMessage(err));
     }
   };
 
   const handleInstallRemote = async () => {
-    if (selected?.type !== 'remote') return;
+    if (selected?.type !== "remote") return;
     await handleInstall(selected.skill.url);
   };
 
   const handleCopyUrl = () => {
     if (!selected) return;
     const url =
-      selected.type === 'installed'
+      selected.type === "installed"
         ? selected.skill.sourceUrl || selected.skill.id
         : selected.skill.url;
     navigator.clipboard.writeText(url);
@@ -393,19 +396,19 @@ export function SkillsView() {
 
   // Get selected skill display info
   const selectedName =
-    selected?.type === 'installed'
+    selected?.type === "installed"
       ? selected.skill.name
-      : selected?.type === 'remote'
+      : selected?.type === "remote"
         ? selected.skill.skill
         : null;
 
   const selectedDescription =
-    selected?.type === 'installed' ? selected.skill.description : null;
+    selected?.type === "installed" ? selected.skill.description : null;
 
   const selectedUrl =
-    selected?.type === 'installed'
+    selected?.type === "installed"
       ? selected.skill.sourceUrl
-      : selected?.type === 'remote'
+      : selected?.type === "remote"
         ? selected.skill.url
         : null;
 
@@ -422,12 +425,12 @@ export function SkillsView() {
                   size={14}
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
                 />
-                <input
-                  type="text"
+                <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search skills..."
-                  className="w-full pl-9 pr-3 py-2 bg-bg-tertiary border border-border-primary rounded-sm text-sm text-text-primary placeholder-text-muted focus:outline-hidden focus:border-accent-blue"
+                  size="sm"
+                  className="pl-9"
                 />
               </div>
             </div>
@@ -435,22 +438,22 @@ export function SkillsView() {
             {/* Tab switcher */}
             <div className="flex border-b border-border-primary">
               <button
-                onClick={() => setActiveTab('installed')}
+                onClick={() => setActiveTab("installed")}
                 className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium transition-colors ${
-                  activeTab === 'installed'
-                    ? 'text-accent-purple border-b-2 border-accent-purple bg-bg-hover'
-                    : 'text-text-muted hover:text-text-primary'
+                  activeTab === "installed"
+                    ? "text-accent-purple border-b-2 border-accent-purple bg-bg-hover"
+                    : "text-text-muted hover:text-text-primary"
                 }`}
               >
                 <BookBookmark size={14} weight="bold" />
                 Installed ({filteredInstalled.length})
               </button>
               <button
-                onClick={() => setActiveTab('remote')}
+                onClick={() => setActiveTab("remote")}
                 className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium transition-colors ${
-                  activeTab === 'remote'
-                    ? 'text-accent-blue border-b-2 border-accent-blue bg-bg-hover'
-                    : 'text-text-muted hover:text-text-primary'
+                  activeTab === "remote"
+                    ? "text-accent-blue border-b-2 border-accent-blue bg-bg-hover"
+                    : "text-text-muted hover:text-text-primary"
                 }`}
               >
                 <Globe size={14} weight="bold" />
@@ -460,7 +463,7 @@ export function SkillsView() {
 
             {/* List */}
             <div className="flex-1 overflow-auto">
-              {activeTab === 'installed' ? (
+              {activeTab === "installed" ? (
                 loadingInstalled ? (
                   <div className="flex items-center justify-center py-8">
                     <LoadingSpinner size="sm" />
@@ -480,7 +483,7 @@ export function SkillsView() {
                       name={skill.name}
                       description={skill.description}
                       isSelected={
-                        selected?.type === 'installed' &&
+                        selected?.type === "installed" &&
                         selected.skill.id === skill.id
                       }
                       isInstalled
@@ -505,7 +508,7 @@ export function SkillsView() {
                     name={skill.skill}
                     description={`${skill.owner}/${skill.repo}`}
                     isSelected={
-                      selected?.type === 'remote' &&
+                      selected?.type === "remote" &&
                       selected.skill.url === skill.url
                     }
                     isInstalled={isRemoteInstalled(skill)}
@@ -522,21 +525,24 @@ export function SkillsView() {
                 Install from URL
               </label>
               <div className="flex gap-2">
-                <input
+                <Input
                   type="url"
                   value={installUrl}
                   onChange={(e) => setInstallUrl(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && installUrl.trim()) {
+                    if (e.key === "Enter" && installUrl.trim()) {
                       handleInstall(installUrl.trim());
                     }
                   }}
                   placeholder="https://skills.sh/..."
-                  className="flex-1 px-3 py-1.5 bg-bg-tertiary border border-border-primary rounded-sm text-xs text-text-primary placeholder-text-muted focus:outline-hidden focus:border-accent-blue"
+                  size="sm"
+                  className="flex-1 text-xs"
                   disabled={installSkill.isPending}
                 />
                 <button
-                  onClick={() => installUrl.trim() && handleInstall(installUrl.trim())}
+                  onClick={() =>
+                    installUrl.trim() && handleInstall(installUrl.trim())
+                  }
                   disabled={!installUrl.trim() || installSkill.isPending}
                   className="px-3 py-1.5 bg-accent-blue text-white rounded-sm text-xs font-medium hover:bg-accent-blue/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
                 >
@@ -584,12 +590,16 @@ export function SkillsView() {
                         title="Copy URL"
                       >
                         {copied ? (
-                          <Check size={14} weight="bold" className="text-accent-green" />
+                          <Check
+                            size={14}
+                            weight="bold"
+                            className="text-accent-green"
+                          />
                         ) : (
                           <Copy size={14} weight="bold" />
                         )}
                       </button>
-                      {selected.type === 'installed' && (
+                      {selected.type === "installed" && (
                         <button
                           onClick={handleDelete}
                           disabled={deleteSkillMutation.isPending}
@@ -603,33 +613,35 @@ export function SkillsView() {
                           )}
                         </button>
                       )}
-                      {selected.type === 'remote' && !isRemoteInstalled(selected.skill) && (
-                        <button
-                          onClick={handleInstallRemote}
-                          disabled={installSkill.isPending}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-blue text-white rounded-sm text-xs font-medium hover:bg-accent-blue/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
-                        >
-                          {installSkill.isPending ? (
-                            <LoadingSpinner size="sm" />
-                          ) : (
-                            <DownloadSimple size={12} weight="bold" />
-                          )}
-                          Install
-                        </button>
-                      )}
-                      {selected.type === 'remote' && isRemoteInstalled(selected.skill) && (
-                        <span className="text-xs text-accent-green font-medium flex items-center gap-1">
-                          <Check size={12} weight="bold" />
-                          Installed
-                        </span>
-                      )}
+                      {selected.type === "remote" &&
+                        !isRemoteInstalled(selected.skill) && (
+                          <button
+                            onClick={handleInstallRemote}
+                            disabled={installSkill.isPending}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-blue text-white rounded-sm text-xs font-medium hover:bg-accent-blue/90 disabled:bg-bg-tertiary disabled:text-text-muted disabled:cursor-not-allowed transition-colors"
+                          >
+                            {installSkill.isPending ? (
+                              <LoadingSpinner size="sm" />
+                            ) : (
+                              <DownloadSimple size={12} weight="bold" />
+                            )}
+                            Install
+                          </button>
+                        )}
+                      {selected.type === "remote" &&
+                        isRemoteInstalled(selected.skill) && (
+                          <span className="text-xs text-accent-green font-medium flex items-center gap-1">
+                            <Check size={12} weight="bold" />
+                            Installed
+                          </span>
+                        )}
                     </div>
                   </div>
                 </div>
 
                 {/* Content preview */}
                 <div className="flex-1 overflow-auto p-4">
-                  {selected.type === 'installed' ? (
+                  {selected.type === "installed" ? (
                     loadingRaw ? (
                       <div className="flex items-center justify-center py-8">
                         <LoadingSpinner size="sm" />
@@ -641,7 +653,9 @@ export function SkillsView() {
                         </pre>
                       </div>
                     ) : (
-                      <p className="text-text-muted text-sm">No content available</p>
+                      <p className="text-text-muted text-sm">
+                        No content available
+                      </p>
                     )
                   ) : (
                     <div className="flex flex-col items-center justify-center py-8 text-text-muted">
@@ -681,7 +695,7 @@ export function SkillsView() {
         <Panel defaultSize={35} minSize={20}>
           <div className="flex flex-col h-full">
             {/* Editor header */}
-            {selected?.type === 'installed' && (
+            {selected?.type === "installed" && (
               <div className="flex items-center justify-between px-4 py-2 border-b border-border-primary bg-bg-secondary">
                 <div className="flex items-center gap-2">
                   <PencilSimple size={14} className="text-text-muted" />
@@ -689,7 +703,9 @@ export function SkillsView() {
                     Edit Skill
                   </span>
                   {hasEdits && (
-                    <span className="text-xs text-accent-yellow">(unsaved)</span>
+                    <span className="text-xs text-accent-yellow">
+                      (unsaved)
+                    </span>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
@@ -720,7 +736,7 @@ export function SkillsView() {
 
             {/* Editor area */}
             <div className="flex-1 overflow-hidden">
-              {selected?.type === 'installed' ? (
+              {selected?.type === "installed" ? (
                 loadingRaw ? (
                   <div className="flex items-center justify-center h-full">
                     <LoadingSpinner size="sm" />
@@ -737,9 +753,9 @@ export function SkillsView() {
                   <PencilSimple size={48} className="mb-3 opacity-50" />
                   <p className="text-sm font-medium">Editor</p>
                   <p className="text-xs mt-1 text-center px-8">
-                    {selected?.type === 'remote'
-                      ? 'Install the skill to edit its content'
-                      : 'Select an installed skill to edit'}
+                    {selected?.type === "remote"
+                      ? "Install the skill to edit its content"
+                      : "Select an installed skill to edit"}
                   </p>
                 </div>
               )}

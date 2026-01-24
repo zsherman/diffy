@@ -24,7 +24,7 @@ import {
   getDockviewApi,
 } from "../../../stores/ui-store";
 import { useMergeConflictStore } from "../../../stores/merge-conflict-store";
-import { LoadingSpinner, SkeletonList } from "../../../components/ui";
+import { LoadingSpinner, SkeletonList, Input } from "../../../components/ui";
 import { Button } from "../../../components/ui/Button";
 import { useToast } from "../../../components/ui/Toast";
 import { getErrorMessage } from "../../../lib/errors";
@@ -430,12 +430,11 @@ export function BranchList() {
     <div className="flex flex-col h-full">
       {/* Filter input and merge button */}
       <div className="px-2 py-1.5 border-b border-border-primary space-y-1.5">
-        <input
-          type="text"
+        <Input
           placeholder="Filter branches..."
           value={branchFilter}
           onChange={(e) => setBranchFilter(e.target.value)}
-          className="w-full px-2 py-1 bg-bg-tertiary border border-border-primary rounded-sm text-text-primary placeholder-text-muted focus:border-accent-blue focus:outline-hidden"
+          size="sm"
           style={{ fontSize: `${panelFontSize}px` }}
         />
         {canMerge && (

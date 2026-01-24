@@ -1,6 +1,12 @@
-import type { StatusInfo, FileStatus } from "../../../types/git";
+import type { StatusInfo, FileStatus, CommitInfo } from "../../../types/git";
 
-export type DiagramType = "flowchart" | "mindmap" | "dependencies" | "c4-context" | "c4-container";
+export type DiagramType =
+  | "flowchart"
+  | "mindmap"
+  | "dependencies"
+  | "c4-context"
+  | "c4-container"
+  | "gitgraph";
 
 const MAX_FILES_PER_GROUP = 15;
 const MAX_TOTAL_NODES = 50;
@@ -17,14 +23,39 @@ interface ArchLayer {
 
 const ARCH_LAYERS: ArchLayer[] = [
   { id: "types", name: "Types", patterns: [/\/types\//], color: "#9333ea" },
-  { id: "lib", name: "Library", patterns: [/\/lib\//, /\/utils\//], color: "#3b82f6" },
+  {
+    id: "lib",
+    name: "Library",
+    patterns: [/\/lib\//, /\/utils\//],
+    color: "#3b82f6",
+  },
   { id: "stores", name: "Stores", patterns: [/\/stores\//], color: "#f59e0b" },
   { id: "hooks", name: "Hooks", patterns: [/\/hooks\//], color: "#10b981" },
-  { id: "components", name: "Components", patterns: [/\/components\//], color: "#06b6d4" },
-  { id: "features", name: "Features", patterns: [/\/features\//], color: "#ec4899" },
+  {
+    id: "components",
+    name: "Components",
+    patterns: [/\/components\//],
+    color: "#06b6d4",
+  },
+  {
+    id: "features",
+    name: "Features",
+    patterns: [/\/features\//],
+    color: "#ec4899",
+  },
   { id: "panels", name: "Panels", patterns: [/\/panels\//], color: "#8b5cf6" },
-  { id: "config", name: "Config", patterns: [/\.config\.[jt]s/, /\.json$/], color: "#64748b" },
-  { id: "styles", name: "Styles", patterns: [/\.css$/, /\.scss$/], color: "#f43f5e" },
+  {
+    id: "config",
+    name: "Config",
+    patterns: [/\.config\.[jt]s/, /\.json$/],
+    color: "#64748b",
+  },
+  {
+    id: "styles",
+    name: "Styles",
+    patterns: [/\.css$/, /\.scss$/],
+    color: "#f43f5e",
+  },
   { id: "root", name: "Root", patterns: [/^[^/]+$/], color: "#71717a" },
 ];
 
@@ -231,7 +262,7 @@ function getFilename(path: string): string {
  */
 function truncateFiles(
   files: FileStatus[],
-  maxFiles: number
+  maxFiles: number,
 ): { files: FileStatus[]; overflow: number } {
   if (files.length <= maxFiles) {
     return { files, overflow: 0 };
@@ -260,11 +291,7 @@ export function generateFlowchart(status: StatusInfo): string {
   lines.push("  classDef overflow fill:#84848A,stroke:#84848A,color:#fff");
   lines.push("");
 
-  const allFiles = [
-    ...status.staged,
-    ...status.unstaged,
-    ...status.untracked,
-  ];
+  const allFiles = [...status.staged, ...status.unstaged, ...status.untracked];
 
   if (allFiles.length === 0) {
     lines.push('  empty["No local changes"]');
@@ -280,7 +307,7 @@ export function generateFlowchart(status: StatusInfo): string {
     lines.push("  subgraph Staged[Staged Changes]");
     const { files: stagedFiles, overflow } = truncateFiles(
       status.staged,
-      MAX_FILES_PER_GROUP
+      MAX_FILES_PER_GROUP,
     );
 
     for (const file of stagedFiles) {
@@ -289,7 +316,9 @@ export function generateFlowchart(status: StatusInfo): string {
       const icon = getStatusIcon(file.status);
       const filename = escapeLabel(getFilename(file.path));
       lines.push(`    ${nodeId}["${icon} ${filename}"]`);
-      lines.push(`    class ${nodeId} ${getStatusInfo(file.status).styleClass}`);
+      lines.push(
+        `    class ${nodeId} ${getStatusInfo(file.status).styleClass}`,
+      );
       nodeCount++;
     }
 
@@ -308,7 +337,7 @@ export function generateFlowchart(status: StatusInfo): string {
     lines.push("  subgraph Unstaged[Unstaged Changes]");
     const { files: unstagedFiles, overflow } = truncateFiles(
       status.unstaged,
-      MAX_FILES_PER_GROUP
+      MAX_FILES_PER_GROUP,
     );
 
     for (const file of unstagedFiles) {
@@ -317,7 +346,9 @@ export function generateFlowchart(status: StatusInfo): string {
       const icon = getStatusIcon(file.status);
       const filename = escapeLabel(getFilename(file.path));
       lines.push(`    ${nodeId}["${icon} ${filename}"]`);
-      lines.push(`    class ${nodeId} ${getStatusInfo(file.status).styleClass}`);
+      lines.push(
+        `    class ${nodeId} ${getStatusInfo(file.status).styleClass}`,
+      );
       nodeCount++;
     }
 
@@ -336,7 +367,7 @@ export function generateFlowchart(status: StatusInfo): string {
     lines.push("  subgraph Untracked[Untracked Files]");
     const { files: untrackedFiles, overflow } = truncateFiles(
       status.untracked,
-      MAX_FILES_PER_GROUP
+      MAX_FILES_PER_GROUP,
     );
 
     for (const file of untrackedFiles) {
@@ -379,11 +410,7 @@ export function generateMindmap(status: StatusInfo): string {
   const lines: string[] = ["mindmap"];
   lines.push("  root((Local Changes))");
 
-  const allFiles = [
-    ...status.staged,
-    ...status.unstaged,
-    ...status.untracked,
-  ];
+  const allFiles = [...status.staged, ...status.unstaged, ...status.untracked];
 
   if (allFiles.length === 0) {
     lines.push("    (No changes)");
@@ -406,7 +433,7 @@ export function generateMindmap(status: StatusInfo): string {
 
       const { files: truncatedFiles, overflow } = truncateFiles(
         files,
-        Math.min(5, MAX_FILES_PER_GROUP)
+        Math.min(5, MAX_FILES_PER_GROUP),
       );
 
       for (const file of truncatedFiles) {
@@ -436,7 +463,7 @@ export function generateMindmap(status: StatusInfo): string {
 
       const { files: truncatedFiles, overflow } = truncateFiles(
         files,
-        Math.min(5, MAX_FILES_PER_GROUP)
+        Math.min(5, MAX_FILES_PER_GROUP),
       );
 
       for (const file of truncatedFiles) {
@@ -466,7 +493,7 @@ export function generateMindmap(status: StatusInfo): string {
 
       const { files: truncatedFiles, overflow } = truncateFiles(
         files,
-        Math.min(5, MAX_FILES_PER_GROUP)
+        Math.min(5, MAX_FILES_PER_GROUP),
       );
 
       for (const file of truncatedFiles) {
@@ -490,11 +517,11 @@ export function generateMindmap(status: StatusInfo): string {
  */
 function getFileLayer(path: string): ArchLayer | null {
   for (const layer of ARCH_LAYERS) {
-    if (layer.patterns.some(pattern => pattern.test(path))) {
+    if (layer.patterns.some((pattern) => pattern.test(path))) {
       return layer;
     }
   }
-  return ARCH_LAYERS.find(l => l.id === "root") || null;
+  return ARCH_LAYERS.find((l) => l.id === "root") || null;
 }
 
 /**
@@ -503,12 +530,12 @@ function getFileLayer(path: string): ArchLayer | null {
  */
 export function generateDependencies(status: StatusInfo): string {
   const lines: string[] = ["flowchart TB"];
-  
+
   // Collect all changed files
   const allFiles = [
-    ...status.staged.map(f => ({ ...f, category: "staged" as const })),
-    ...status.unstaged.map(f => ({ ...f, category: "unstaged" as const })),
-    ...status.untracked.map(f => ({ ...f, category: "untracked" as const })),
+    ...status.staged.map((f) => ({ ...f, category: "staged" as const })),
+    ...status.unstaged.map((f) => ({ ...f, category: "unstaged" as const })),
+    ...status.untracked.map((f) => ({ ...f, category: "untracked" as const })),
   ];
 
   if (allFiles.length === 0) {
@@ -535,7 +562,9 @@ export function generateDependencies(status: StatusInfo): string {
   lines.push("  %% Style definitions");
   for (const layer of ARCH_LAYERS) {
     if (activeLayers.has(layer.id)) {
-      lines.push(`  classDef ${layer.id} fill:${layer.color},stroke:${layer.color},color:#fff`);
+      lines.push(
+        `  classDef ${layer.id} fill:${layer.color},stroke:${layer.color},color:#fff`,
+      );
     }
   }
   lines.push("  classDef staged stroke:#00cab1,stroke-width:3px");
@@ -550,11 +579,8 @@ export function generateDependencies(status: StatusInfo): string {
 
     lines.push(`  subgraph ${layer.id}[${layer.name}]`);
     lines.push(`    direction LR`);
-    
-    const { files: truncatedFiles, overflow } = truncateFiles(
-      files,
-      8
-    );
+
+    const { files: truncatedFiles, overflow } = truncateFiles(files, 8);
 
     for (const file of truncatedFiles) {
       const nodeId = makeNodeId(layer.id, file.path);
@@ -604,7 +630,7 @@ export function generateDependencies(status: StatusInfo): string {
  */
 function getFileContainer(path: string): C4Container | null {
   for (const container of C4_CONTAINERS) {
-    if (container.patterns.some(pattern => pattern.test(path))) {
+    if (container.patterns.some((pattern) => pattern.test(path))) {
       return container;
     }
   }
@@ -621,11 +647,7 @@ export function generateC4Context(status: StatusInfo): string {
   lines.push("");
 
   // Collect all changed files
-  const allFiles = [
-    ...status.staged,
-    ...status.unstaged,
-    ...status.untracked,
-  ];
+  const allFiles = [...status.staged, ...status.unstaged, ...status.untracked];
 
   if (allFiles.length === 0) {
     lines.push('  Person(user, "User", "No changes to show")');
@@ -634,32 +656,46 @@ export function generateC4Context(status: StatusInfo): string {
 
   // Determine which major areas are affected
   const affectedAreas = new Set<string>();
-  const hasBackend = allFiles.some(f => f.path.includes("src-tauri"));
-  const hasFrontend = allFiles.some(f => f.path.startsWith("src/") && !f.path.includes("src-tauri"));
-  const hasConfig = allFiles.some(f => f.path.match(/\.(json|config\.[jt]s)$/));
-  const hasStyles = allFiles.some(f => f.path.match(/\.css$/));
+  const hasBackend = allFiles.some((f) => f.path.includes("src-tauri"));
+  const hasFrontend = allFiles.some(
+    (f) => f.path.startsWith("src/") && !f.path.includes("src-tauri"),
+  );
+  const hasConfig = allFiles.some((f) =>
+    f.path.match(/\.(json|config\.[jt]s)$/),
+  );
+  const hasStyles = allFiles.some((f) => f.path.match(/\.css$/));
 
   // Add user
   lines.push('  Person(user, "Developer", "Uses the Git client application")');
   lines.push("");
 
   // Add the main system boundary
-  lines.push("  Enterprise_Boundary(app, \"Diffy Application\") {");
-  
+  lines.push('  Enterprise_Boundary(app, "Diffy Application") {');
+
   if (hasFrontend) {
-    const frontendFiles = allFiles.filter(f => f.path.startsWith("src/") && !f.path.includes("src-tauri")).length;
-    lines.push(`    System(frontend, "Frontend", "${frontendFiles} files changed - React UI components and features")`);
+    const frontendFiles = allFiles.filter(
+      (f) => f.path.startsWith("src/") && !f.path.includes("src-tauri"),
+    ).length;
+    lines.push(
+      `    System(frontend, "Frontend", "${frontendFiles} files changed - React UI components and features")`,
+    );
     affectedAreas.add("frontend");
   }
 
   if (hasBackend) {
-    const backendFiles = allFiles.filter(f => f.path.includes("src-tauri")).length;
-    lines.push(`    System(backend, "Backend", "${backendFiles} files changed - Rust/Tauri native functionality")`);
+    const backendFiles = allFiles.filter((f) =>
+      f.path.includes("src-tauri"),
+    ).length;
+    lines.push(
+      `    System(backend, "Backend", "${backendFiles} files changed - Rust/Tauri native functionality")`,
+    );
     affectedAreas.add("backend");
   }
 
   if (hasConfig) {
-    lines.push('    System(config, "Configuration", "Build and app configuration")');
+    lines.push(
+      '    System(config, "Configuration", "Build and app configuration")',
+    );
     affectedAreas.add("config");
   }
 
@@ -678,16 +714,16 @@ export function generateC4Context(status: StatusInfo): string {
   lines.push("");
 
   // Relationships
-  lines.push("  Rel(user, frontend, \"Interacts with\")");
+  lines.push('  Rel(user, frontend, "Interacts with")');
   if (affectedAreas.has("frontend") && affectedAreas.has("backend")) {
-    lines.push("  Rel(frontend, backend, \"Calls via IPC\")");
+    lines.push('  Rel(frontend, backend, "Calls via IPC")');
   }
   if (affectedAreas.has("backend")) {
-    lines.push("  Rel(backend, git, \"Executes commands\")");
-    lines.push("  Rel(backend, ai, \"Generates reviews/diagrams\")");
-    lines.push("  Rel(backend, fs, \"Reads/writes files\")");
+    lines.push('  Rel(backend, git, "Executes commands")');
+    lines.push('  Rel(backend, ai, "Generates reviews/diagrams")');
+    lines.push('  Rel(backend, fs, "Reads/writes files")');
   } else if (affectedAreas.has("frontend")) {
-    lines.push("  Rel(frontend, git, \"Via Tauri backend\")");
+    lines.push('  Rel(frontend, git, "Via Tauri backend")');
   }
 
   return lines.join("\n");
@@ -704,9 +740,9 @@ export function generateC4Container(status: StatusInfo): string {
 
   // Collect all changed files
   const allFiles = [
-    ...status.staged.map(f => ({ ...f, category: "staged" as const })),
-    ...status.unstaged.map(f => ({ ...f, category: "unstaged" as const })),
-    ...status.untracked.map(f => ({ ...f, category: "untracked" as const })),
+    ...status.staged.map((f) => ({ ...f, category: "staged" as const })),
+    ...status.unstaged.map((f) => ({ ...f, category: "unstaged" as const })),
+    ...status.untracked.map((f) => ({ ...f, category: "untracked" as const })),
   ];
 
   if (allFiles.length === 0) {
@@ -734,16 +770,18 @@ export function generateC4Container(status: StatusInfo): string {
   lines.push("");
 
   // System boundary
-  lines.push("  Container_Boundary(diffy, \"Diffy\") {");
+  lines.push('  Container_Boundary(diffy, "Diffy") {');
 
   // Add active containers
   for (const container of C4_CONTAINERS) {
     const files = filesByContainer.get(container.id);
     if (!files || files.length === 0) continue;
 
-    const stagedCount = files.filter(f => f.category === "staged").length;
-    const unstagedCount = files.filter(f => f.category === "unstaged").length;
-    const untrackedCount = files.filter(f => f.category === "untracked").length;
+    const stagedCount = files.filter((f) => f.category === "staged").length;
+    const unstagedCount = files.filter((f) => f.category === "unstaged").length;
+    const untrackedCount = files.filter(
+      (f) => f.category === "untracked",
+    ).length;
 
     const parts: string[] = [];
     if (stagedCount > 0) parts.push(`${stagedCount} staged`);
@@ -751,8 +789,10 @@ export function generateC4Container(status: StatusInfo): string {
     if (untrackedCount > 0) parts.push(`${untrackedCount} new`);
 
     const changeDesc = parts.join(", ");
-    
-    lines.push(`    Container(${container.id}, "${container.name}", "${container.technology}", "${changeDesc}")`);
+
+    lines.push(
+      `    Container(${container.id}, "${container.name}", "${container.technology}", "${changeDesc}")`,
+    );
   }
 
   lines.push("  }");
@@ -778,9 +818,15 @@ export function generateC4Container(status: StatusInfo): string {
   ];
 
   for (const [from, to, label] of containerRelationships) {
-    if (activeContainers.has(from) || activeContainers.has(to) || from === "dev") {
-      if ((activeContainers.has(from) || from === "dev") && 
-          (activeContainers.has(to) || to === "git" || to === "claude")) {
+    if (
+      activeContainers.has(from) ||
+      activeContainers.has(to) ||
+      from === "dev"
+    ) {
+      if (
+        (activeContainers.has(from) || from === "dev") &&
+        (activeContainers.has(to) || to === "git" || to === "claude")
+      ) {
         lines.push(`  Rel(${from}, ${to}, "${label}")`);
       }
     }
@@ -790,12 +836,117 @@ export function generateC4Container(status: StatusInfo): string {
 }
 
 /**
+ * Generate a Mermaid Git Graph from commit history.
+ * Shows recent commits with branch/merge structure.
+ */
+export function generateGitGraph(
+  commits: CommitInfo[],
+  currentBranch?: string,
+): string {
+  if (commits.length === 0) {
+    return `gitGraph
+   commit id: "No commits"`;
+  }
+
+  const lines: string[] = ["gitGraph"];
+
+  // Reverse to show oldest first (gitGraph builds from bottom up)
+  const orderedCommits = [...commits].reverse();
+
+  // Track branches we've created
+  const createdBranches = new Set<string>(["main"]);
+
+  // Detect merge commits and feature branches
+  const mergeCommits = new Set<string>();
+  const branchPoints = new Map<string, string>(); // commitId -> branch name
+
+  for (const commit of orderedCommits) {
+    if (commit.parentIds.length > 1) {
+      mergeCommits.add(commit.id);
+    }
+  }
+
+  // Simple heuristic: detect branches from commit messages
+  for (const commit of orderedCommits) {
+    // Check if this is a merge commit
+    if (commit.parentIds.length > 1) {
+      // Extract branch name from merge message if possible
+      const mergeMatch = commit.summary
+        .toLowerCase()
+        .match(/merge (?:branch |pull request |pr )?['"]?([^'":\s]+)/i);
+      if (mergeMatch) {
+        const branchName = mergeMatch[1]
+          .replace(/[^a-zA-Z0-9-_]/g, "-")
+          .slice(0, 20);
+        if (!createdBranches.has(branchName)) {
+          branchPoints.set(commit.id, branchName);
+        }
+      }
+    }
+  }
+
+  // Generate the graph
+  for (let i = 0; i < orderedCommits.length && i < 20; i++) {
+    const commit = orderedCommits[i];
+    const shortId = commit.shortId;
+
+    // Check if we need to create a branch before this commit
+    if (branchPoints.has(commit.id)) {
+      const branchName = branchPoints.get(commit.id)!;
+      if (!createdBranches.has(branchName)) {
+        // Find where to branch from (previous commit)
+        if (i > 0) {
+          lines.push(`   branch ${branchName}`);
+          lines.push(`   checkout ${branchName}`);
+          lines.push(`   commit id: "${shortId}" tag: "merged"`);
+          createdBranches.add(branchName);
+          lines.push(`   checkout main`);
+          lines.push(`   merge ${branchName}`);
+          continue;
+        }
+      }
+    }
+
+    // Check for merge commits
+    if (mergeCommits.has(commit.id)) {
+      const mergeMatch = commit.summary
+        .toLowerCase()
+        .match(/merge (?:branch |pull request |pr )?['"]?([^'":\s]+)/i);
+      if (mergeMatch) {
+        const branchName = mergeMatch[1]
+          .replace(/[^a-zA-Z0-9-_]/g, "-")
+          .slice(0, 15);
+        if (!createdBranches.has(branchName)) {
+          // Create the branch with a commit, then merge
+          lines.push(`   branch ${branchName}`);
+          lines.push(`   checkout ${branchName}`);
+          lines.push(`   commit id: "${branchName}-work"`);
+          createdBranches.add(branchName);
+          lines.push(`   checkout main`);
+          lines.push(`   merge ${branchName} id: "${shortId}"`);
+          continue;
+        }
+      }
+      // Generic merge
+      lines.push(`   commit id: "${shortId}" type: HIGHLIGHT`);
+    } else {
+      // Regular commit
+      lines.push(`   commit id: "${shortId}"`);
+    }
+  }
+
+  // Add indicator for working changes if we're on a branch
+  if (currentBranch) {
+    lines.push(`   commit id: "HEAD" type: HIGHLIGHT tag: "${currentBranch}"`);
+  }
+
+  return lines.join("\n");
+}
+
+/**
  * Generate Mermaid diagram source based on type
  */
-export function generateDiagram(
-  status: StatusInfo,
-  type: DiagramType
-): string {
+export function generateDiagram(status: StatusInfo, type: DiagramType): string {
   switch (type) {
     case "flowchart":
       return generateFlowchart(status);
@@ -807,6 +958,10 @@ export function generateDiagram(
       return generateC4Context(status);
     case "c4-container":
       return generateC4Container(status);
+    case "gitgraph":
+      // gitgraph needs commits, not status - return placeholder
+      return `gitGraph
+   commit id: "Loading..."`;
     default:
       return generateFlowchart(status);
   }
